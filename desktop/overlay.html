@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pi Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #12141a;
+      color: #e4e4e7;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    .container {
+      text-align: center;
+      max-width: 420px;
+      padding: 40px;
+      -webkit-app-region: no-drag;
+    }
+    .logo { font-size: 64px; margin-bottom: 20px; }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; color: #fafafa; }
+    .subtitle { font-size: 14px; color: #71717a; margin-bottom: 32px; }
+    .spinner {
+      width: 32px; height: 32px; margin: 0 auto 16px;
+      border: 3px solid #27272a; border-top-color: #f59e32;
+      border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status { font-size: 14px; color: #f59e32; margin-bottom: 24px; }
+    .steps {
+      text-align: left; background: #1a1d25; border: 1px solid #27272a;
+      border-radius: 12px; padding: 16px; margin-bottom: 20px;
+    }
+    .step {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 0; font-size: 13px; color: #71717a;
+      border-bottom: 1px solid #27272a;
+    }
+    .step:last-child { border-bottom: none; }
+    .step.active { color: #f59e32; }
+    .step.done { color: #22c55e; }
+    .step.error { color: #ef4444; }
+    .step-icon { width: 20px; text-align: center; font-size: 14px; }
+    .help {
+      background: #1a1d25; border: 1px solid #27272a;
+      border-radius: 12px; padding: 16px; text-align: left;
+    }
+    .help-title { font-size: 13px; font-weight: 600; color: #fafafa; margin-bottom: 8px; }
+    .help-cmd {
+      font-family: 'JetBrains Mono', monospace; font-size: 12px;
+      color: #f59e32; background: #12141a; border: 1px solid #27272a;
+      border-radius: 6px; padding: 8px 12px; margin: 6px 0;
+      word-break: break-all; cursor: pointer;
+    }
+    .help-cmd:hover { border-color: #f59e32; }
+    .help-hint { font-size: 11px; color: #52525b; margin-top: 4px; }
+    .retry-btn {
+      margin-top: 20px; padding: 10px 24px; border-radius: 8px;
+      background: #f59e32; color: white; border: none; font-size: 14px;
+      font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+    }
+    .retry-btn:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">🥧</div>
+    <h1>Pi Dashboard</h1>
+    <div class="subtitle">Connecting to dashboard…</div>
+
+    <div class="spinner" id="spinner"></div>
+    <div class="status" id="status">Checking connection…</div>
+
+    <div class="steps">
+      <div class="step" id="step-tunnel">
+        <span class="step-icon">🔗</span>
+        <span>Connection</span>
+      </div>
+      <div class="step" id="step-dash">
+        <span class="step-icon">🥧</span>
+        <span>Dashboard server</span>
+      </div>
+    </div>
+
+    <div class="help" id="help" style="display:none">
+      <div class="help-title">Quick fix</div>
+      <div class="help-cmd" onclick="navigator.clipboard.writeText(this.textContent)">ssh -f -N -L 7777:localhost:7777 user@your-remote-host</div>
+      <div class="help-hint">Click to copy · Opens the SSH tunnel</div>
+      <div class="help-cmd" onclick="navigator.clipboard.writeText(this.textContent)" style="margin-top:12px">ssh user@your-remote-host 'tmux new-session -d -s pi-dash "cd ~/pi-dashboard && node backend/server.js"'</div>
+      <div class="help-hint">Click to copy · Starts the dashboard on the remote host</div>
+    </div>
+
+    <button class="retry-btn" onclick="location.reload()">🔄 Retry</button>
+  </div>
+
+  <script>
+    // Auto-retry every 5 seconds
+    let attempts = 0
+    async function check() {
+      attempts++
+      const el = document.getElementById('status')
+      el.textContent = `Connecting… (attempt ${attempts})`
+
+      try {
+        const r = await fetch('http://localhost:7777/api/status', { signal: AbortSignal.timeout(3000) })
+        if (r.ok) {
+          el.textContent = 'Connected!'
+          document.getElementById('spinner').style.borderTopColor = '#22c55e'
+          setTimeout(() => { window.location.href = 'http://localhost:7777' }, 500)
+          return
+        }
+      } catch {}
+
+      // Show help after 3 failed attempts
+      if (attempts >= 3) {
+        document.getElementById('help').style.display = 'block'
+        el.textContent = 'Cannot reach dashboard — check the steps below'
+        document.getElementById('spinner').style.borderTopColor = '#ef4444'
+      }
+
+      setTimeout(check, 5000)
+    }
+    setTimeout(check, 2000)
+  </script>
+</body>
+</html>

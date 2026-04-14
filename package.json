@@ -1,0 +1,21 @@
+{
+  "name": "pi-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "./run.sh",
+    "dev": "./run.sh",
+    "restart": "./restart.sh",
+    "restart:build": "./restart.sh --build",
+    "build-frontend": "cd frontend && npm install --no-audit --no-fund && npm run build",
+    "setup": "npm install --no-audit --no-fund && npm run build-frontend"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-ws": "^5.0.2",
+    "node-pty": "^1.1.0",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0"
+  }
+}
