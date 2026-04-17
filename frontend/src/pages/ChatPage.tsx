@@ -383,7 +383,16 @@ export default function ChatPage() {
   const history = useAppSelector(s => s.chat.history)
   const historyHasMore = useAppSelector(s => s.chat.historyHasMore)
 
-  const [input, setInput] = useState(() => sessionStorage.getItem('mc-chat-input') || '')
+  // Per-slot input state: store draft text per slot key
+  const slotInputsRef = useRef<Map<string, string>>(new Map())
+  const [input, setInputRaw] = useState('')
+  const setInput = useCallback((v: string | ((prev: string) => string)) => {
+    setInputRaw(prev => {
+      const next = typeof v === 'function' ? v(prev) : v
+      if (activeSlot) slotInputsRef.current.set(activeSlot, next)
+      return next
+    })
+  }, [activeSlot])
   const [pendingImages, setPendingImages] = useState<{data: string; mimeType: string; preview: string}[]>([])
   const pendingInput = useAppSelector(s => s.chat.pendingInput)
 
@@ -435,7 +444,19 @@ export default function ChatPage() {
       }).catch(() => {})
     }
   }, [resendQueued, activeSlot, dispatch])
-  useEffect(() => { sessionStorage.setItem('mc-chat-input', input) }, [input])
+  // Restore per-slot input on tab switch
+  const prevActiveSlotInput = useRef<string | null>(null)
+  useEffect(() => {
+    if (activeSlot && activeSlot !== prevActiveSlotInput.current) {
+      prevActiveSlotInput.current = activeSlot
+      const saved = slotInputsRef.current.get(activeSlot) ?? ''
+      setInputRaw(saved)
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto'
+        if (saved) inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px'
+      }
+    }
+  }, [activeSlot])
   useEffect(() => { if (inputRef.current && input) { inputRef.current.style.height = 'auto'; inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px' } }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only auto-size
   const [availableWorkspaces, setAvailableWorkspaces] = useState<{name: string; path: string; is_default: boolean}[]>([])
 
