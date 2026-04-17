@@ -9,6 +9,12 @@ const filterMessages = (msgs: ChatMessage[]) => msgs.filter(m => !SKIP_ROLES.has
 
 type SlotState = 'idle' | 'streaming' | 'tool_running' | 'stopping'
 
+export interface ContextUsage {
+  tokens: number | null
+  contextWindow: number
+  percent: number | null
+}
+
 interface ChatState {
   activeSlot: string | null
   messages: ChatMessage[]
@@ -23,6 +29,8 @@ interface ChatState {
   historyOffset: number
   pendingInput: string | null
   _resendQueued: string | null
+  contextUsage: ContextUsage | null
+  extensionStatuses: Record<string, string>
 }
 
 const initialState: ChatState = {
@@ -39,6 +47,8 @@ const initialState: ChatState = {
   historyOffset: 0,
   pendingInput: null,
   _resendQueued: null,
+  contextUsage: null,
+  extensionStatuses: {},
 }
 
 export const fetchHistory = createAsyncThunk(
@@ -54,10 +64,10 @@ export const fetchHistory = createAsyncThunk(
 export const switchSlot = createAsyncThunk(
   'chat/switchSlot',
   async (key: string | null, { dispatch }) => {
-    if (!key) return { key: null, messages: [], running: false, stopping: false, hasMore: false, total: 0 }
+    if (!key) return { key: null, messages: [], running: false, stopping: false, hasMore: false, total: 0, contextUsage: null }
     dispatch(markSlotRead(key))
     const d = await api.chatSlotDetail(key, 200)
-    return { key, messages: filterMessages(d.messages || []), running: d.running || false, stopping: d.stopping || false, hasMore: d.has_more || false, total: d.total || 0 }
+    return { key, messages: filterMessages(d.messages || []), running: d.running || false, stopping: d.stopping || false, hasMore: d.has_more || false, total: d.total || 0, contextUsage: d.contextUsage || null }
   },
 )
 
@@ -68,7 +78,7 @@ export const refreshSlot = createAsyncThunk(
     const state = (getState() as { chat: ChatState }).chat
     if (state.activeSlot !== key) return null
     const d = await api.chatSlotDetail(key, 200)
-    return { key, messages: filterMessages(d.messages || []), running: d.running || false, stopping: d.stopping || false, hasMore: d.has_more || false, total: d.total || 0 }
+    return { key, messages: filterMessages(d.messages || []), running: d.running || false, stopping: d.stopping || false, hasMore: d.has_more || false, total: d.total || 0, contextUsage: d.contextUsage || null }
   },
 )
 
@@ -145,6 +155,14 @@ const chatSlice = createSlice({
     setSlotRunning(state, action: PayloadAction<boolean>) { state.slotRunning = action.payload },
     setSlotStopping(state, action: PayloadAction<boolean>) { state.slotStopping = action.payload },
     setSlotState(state, action: PayloadAction<SlotState>) { state.slotState = action.payload },
+    setContextUsage(state, action: PayloadAction<{ slot: string; usage: ContextUsage }>) {
+      if (action.payload.slot === state.activeSlot) state.contextUsage = action.payload.usage
+    },
+    setExtensionStatus(state, action: PayloadAction<{ slot: string; key: string; text?: string }>) {
+      if (action.payload.slot !== state.activeSlot) return
+      if (action.payload.text) state.extensionStatuses[action.payload.key] = action.payload.text
+      else delete state.extensionStatuses[action.payload.key]
+    },
     clearMessages(state) { state.messages = []; state.slotHasMore = false; state.slotOldestIndex = 0 },
     /** Handle chat messages pushed via global SSE/WS (works after refresh). */
     sseChatMessage(state, action: PayloadAction<{ slot: string; role: string; content: string; ts?: string; cls?: string; meta?: Record<string, unknown> }>) {
@@ -260,6 +278,8 @@ const chatSlice = createSlice({
           state.messages = []
           state.slotHasMore = false
           state.slotOldestIndex = 0
+          state.contextUsage = null
+          state.extensionStatuses = {}
         }
       })
       .addCase(switchSlot.fulfilled, (state, action) => {
@@ -283,6 +303,7 @@ const chatSlice = createSlice({
         state.slotStopping = action.payload.stopping ?? false
         state.slotHasMore = hasMore
         state.slotOldestIndex = hasMore ? total - messages.length : 0
+        state.contextUsage = action.payload.contextUsage
       })
       .addCase(refreshSlot.fulfilled, (state, action) => {
         if (!action.payload) return
@@ -293,6 +314,7 @@ const chatSlice = createSlice({
         state.slotStopping = action.payload.stopping ?? false
         state.slotHasMore = hasMore
         state.slotOldestIndex = hasMore ? total - messages.length : 0
+        if (action.payload.contextUsage) state.contextUsage = action.payload.contextUsage
       })
       .addCase(createSlot.fulfilled, (state, action) => {
         state.activeSlot = action.payload.key
@@ -340,6 +362,6 @@ const chatSlice = createSlice({
 
 export const {
   setActiveSlot, setPendingInput, clearResendQueued, promoteQueued, appendMessage, updateStreamingMessage, finalizeAssistant,
-  removeThinking, setSlotRunning, setSlotStopping, setSlotState, clearMessages, sseChatMessage,
+  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setExtensionStatus, clearMessages, sseChatMessage,
 } = chatSlice.actions
 export default chatSlice.reducer

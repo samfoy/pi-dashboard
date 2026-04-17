@@ -9,25 +9,13 @@ restart=true
 trap 'restart=true; kill $pid 2>/dev/null; wait $pid 2>/dev/null' SIGUSR2
 trap 'restart=false; kill $pid 2>/dev/null; exit 0' SIGINT SIGTERM
 
-while $restart; do
-  restart=false
+while true; do
   # Kill anything holding our port before starting
   fuser -k 7777/tcp 2>/dev/null && sleep 0.5
   echo "▶ Starting pi-dashboard server ($(date))"
-  node backend/server.js &
-  pid=$!
-  wait $pid
+  node backend/server.js
   code=$?
   echo "■ Server exited with code $code ($(date))"
-  if ! $restart; then
-    # Crashed — auto-restart after brief pause
-    if [ $code -ne 0 ]; then
-      echo "  Restarting in 2s..."
-      restart=true
-      sleep 2
-    fi
-  else
-    echo "  Restart requested..."
-    sleep 1
-  fi
+  echo "  Restarting in 2s..."
+  sleep 2
 done

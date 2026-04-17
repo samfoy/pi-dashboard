@@ -3,7 +3,7 @@ import { useAppDispatch } from '../store'
 import { store } from '../store'
 import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread } from '../store/dashboardSlice'
 import { addNotification, ackNotificationByTs } from '../store/notificationsSlice'
-import { fetchHistory, sseChatMessage, refreshSlot } from '../store/chatSlice'
+import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setExtensionStatus } from '../store/chatSlice'
 import type { StatusData, ChatSlot, Notification } from '../types'
 
 type LogCallback = ((data: { level: string; msg: string }) => void) | null
@@ -124,6 +124,12 @@ export function useWebSocket() {
             dispatch(sseChatMessage({ ...data, role: '_done' }))
             // Skip refreshSlot — frontend already has complete streamed content.
             // Previously needed for missed chunks, but our WS is reliable enough.
+            break
+          case 'context_usage':
+            dispatch(setContextUsage({ slot: data.slot, usage: { tokens: data.tokens, contextWindow: data.contextWindow, percent: data.percent } }))
+            break
+          case 'extension_status':
+            dispatch(setExtensionStatus({ slot: data.slot, key: data.key, text: data.text }))
             break
           case 'log':
             logCbRef.current?.(data)

@@ -19,6 +19,7 @@ import markdown from 'highlight.js/lib/languages/markdown'
 import { api } from '../api/client'
 import { useBlockAssembler } from '../hooks/useBlockAssembler'
 import DiffBlock from './DiffBlock'
+import ResizableImage from './ResizableImage'
 import type { ContentBlock } from '../types'
 
 hljs.registerLanguage('javascript', javascript)
@@ -199,6 +200,7 @@ const MD_COMPONENTS: Record<string, React.ComponentType<any>> = {
   ul({ children }: any) { return <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul> },
   ol({ children }: any) { return <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol> },
   li({ children }: any) { return <li className="text-sm leading-relaxed">{children}</li> },
+  img({ src, alt }: any) { return <ResizableImage src={src} alt={alt || ''} /> },
   p({ children }: any) { return <p className="my-1.5 leading-relaxed">{children}</p> },
   strong({ children }: any) { return <strong className="font-semibold text-text-strong">{children}</strong> },
   em({ children }: any) { return <em className="italic">{children}</em> },

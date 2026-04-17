@@ -392,7 +392,7 @@ app.post('/api/chat/slots/:key/resume', (req, res) => {
 })
 
 // Send chat message
-app.post('/api/chat', (req, res) => {
+app.post('/api/chat', async (req, res) => {
   const { message, slot, images } = req.body
   if (!slot) return res.status(400).json({ error: 'slot required' })
   // Lazy-start pi process if needed
@@ -404,7 +404,7 @@ app.post('/api/chat', (req, res) => {
     pi._wired = true
   }
   // Don't broadcast user message — frontend adds it optimistically
-  pi.prompt(message, images)
+  await pi.prompt(message, images)
   persistSlots()
   res.json({ ok: true })
 })
@@ -493,6 +493,7 @@ app.put('/api/skills/:name/file', (req, res) => {
 
 // Pi agent file browser — covers skills, extensions, prompts, AGENTS.md, settings.json
 const PI_AGENT_DIR = join(os.homedir(), '.pi', 'agent')
+const expandHome = (p) => p && p.startsWith('~/') ? join(os.homedir(), p.slice(2)) : p
 
 app.get('/api/pi/files', (req, res) => {
   const sub = req.query.dir || ''
@@ -598,7 +599,17 @@ app.get('/api/changelog', (_req, res) => res.json({ content: '' }))
 // Sessions context/usage (stubs)
 app.get('/api/sessions/context', (_req, res) => res.json({}))
 app.get('/api/sessions/usage', (_req, res) => res.json({}))
-app.post('/api/sessions/restart', (_req, res) => res.json({ ok: true }))
+app.post('/api/sessions/restart', (_req, res) => {
+  res.json({ ok: true })
+  console.log('🔄 Restart requested via API — persisting state and exiting...')
+  // Give the response time to flush, then gracefully exit
+  setTimeout(() => {
+    persistSlots()
+    manager.shutdown()
+    shutdownPty()
+    process.exit(0) // run.sh auto-restart loop will bring us back
+  }, 500)
+})
 
 // Browse directory contents (for file tree picker)
 app.get('/api/browse', (req, res) => {
@@ -610,7 +621,8 @@ app.get('/api/browse', (req, res) => {
       .filter(e => (showHidden || !e.name.startsWith('.')) && e.name !== 'node_modules')
       .map(e => {
         const full = join(target, e.name)
-        const isDir = e.isDirectory()
+        let isDir = e.isDirectory()
+        if (e.isSymbolicLink()) try { isDir = statSync(full).isDirectory() } catch {}
         return { name: e.name, path: full, isDir }
       })
       .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
@@ -618,6 +630,36 @@ app.get('/api/browse', (req, res) => {
     res.json({ path: target, parent: dirname(target), entries })
   } catch (e) {
     res.status(400).json({ error: e.message, path: target, parent: dirname(target), entries: [] })
+  }
+})
+
+// Path completion — given a partial path, return matching entries
+app.get('/api/path-complete', (req, res) => {
+  const input = req.query.input || ''
+  try {
+    let dir, prefix
+    const expanded = input.startsWith('~') ? input.replace(/^~/, os.homedir()) : input
+    // If input ends with /, list that directory
+    if (expanded.endsWith('/')) {
+      dir = expanded
+      prefix = ''
+    } else {
+      dir = dirname(expanded)
+      prefix = basename(expanded)
+    }
+    const entries = readdirSync(dir, { withFileTypes: true })
+      .filter(e => e.name.startsWith(prefix) && (prefix || !e.name.startsWith('.')))
+      .slice(0, 30)
+      .map(e => {
+        const full = join(dir, e.name)
+        let isDir = e.isDirectory()
+        if (e.isSymbolicLink()) try { isDir = statSync(full).isDirectory() } catch {}
+        return { name: e.name, path: full, isDir }
+      })
+      .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
+    res.json({ dir, prefix, entries })
+  } catch {
+    res.json({ dir: '', prefix: '', entries: [] })
   }
 })
 
@@ -918,7 +960,7 @@ app.get('/api/host-sessions', (_req, res) => {
 
 // ── File I/O + Version Routes (Doc Collaboration) ──
 app.get('/api/file-read', async (req, res) => {
-  const filePath = req.query.path
+  const filePath = expandHome(req.query.path)
   if (!filePath) return res.status(400).json({ error: 'path required' })
   try {
     const content = await readFile(filePath, 'utf-8')
@@ -928,8 +970,22 @@ app.get('/api/file-read', async (req, res) => {
   }
 })
 
+app.post('/api/save-image', async (req, res) => {
+  const { data, mimeType, path: rawPath } = req.body
+  if (!data || !rawPath) return res.status(400).json({ error: 'data and path required' })
+  const filePath = rawPath.startsWith('~') ? join(os.homedir(), rawPath.slice(1)) : rawPath.startsWith('/') ? rawPath : join(process.cwd(), rawPath)
+  try {
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, Buffer.from(data, 'base64'))
+    res.json({ ok: true, path: filePath })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
+})
+
 app.post('/api/file-write', async (req, res) => {
-  const { path: filePath, content } = req.body
+  const filePath = expandHome(req.body.path)
+  const content = req.body.content
   if (!filePath || content == null) return res.status(400).json({ error: 'path and content required' })
   try {
     await mkdir(dirname(filePath), { recursive: true })
@@ -943,7 +999,7 @@ app.post('/api/file-write', async (req, res) => {
 })
 
 app.get('/api/file-versions', (req, res) => {
-  const filePath = req.query.path
+  const filePath = expandHome(req.query.path)
   if (!filePath) return res.status(400).json({ error: 'path required' })
   const versions = (versionStore.get(filePath) || []).map(v => ({
     version: v.version, timestamp: v.timestamp, size: v.content.length
@@ -952,7 +1008,7 @@ app.get('/api/file-versions', (req, res) => {
 })
 
 app.get('/api/file-version', (req, res) => {
-  const filePath = req.query.path
+  const filePath = expandHome(req.query.path)
   const ver = parseInt(req.query.version)
   if (!filePath || isNaN(ver)) return res.status(400).json({ error: 'path and version required' })
   const versions = versionStore.get(filePath)
@@ -963,7 +1019,7 @@ app.get('/api/file-version', (req, res) => {
 
 // ── Comment Sidecar Routes (Doc Collaboration) ──
 app.get('/api/file-comments', async (req, res) => {
-  const filePath = req.query.path
+  const filePath = expandHome(req.query.path)
   if (!filePath) return res.status(400).json({ error: 'path required' })
   const dir = dirname(filePath)
   const sidecar = join(dir, '.' + basename(filePath) + '.comments.json')
@@ -977,7 +1033,8 @@ app.get('/api/file-comments', async (req, res) => {
 })
 
 app.post('/api/file-comments', async (req, res) => {
-  const { path: filePath, comments } = req.body
+  const filePath = expandHome(req.body.path)
+  const comments = req.body.comments
   if (!filePath || !Array.isArray(comments)) return res.status(400).json({ error: 'path and comments array required' })
   const dir = dirname(filePath)
   const sidecar = join(dir, '.' + basename(filePath) + '.comments.json')
@@ -987,6 +1044,16 @@ app.post('/api/file-comments', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
+})
+
+// ── Serve local files (images from tool results, etc.) ──
+app.get('/api/local-file', (req, res) => {
+  const filePath = req.query.path
+  if (!filePath || typeof filePath !== 'string') return res.status(400).json({ error: 'path required' })
+  let resolved = filePath.startsWith('~') ? join(os.homedir(), filePath.slice(1)) : filePath
+  // Resolve relative paths against process cwd
+  if (!resolved.startsWith('/')) resolved = join(process.cwd(), resolved)
+  res.sendFile(resolved, { root: '/' }, (err) => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }) })
 })
 
 // ── Static files ──
@@ -1107,6 +1174,26 @@ function _wireSlotEvents(pi, slotKey) {
     broadcastSlots()
     persistSlots()
 
+    // Fetch context usage and session name from pi process
+    pi.request({ type: 'get_session_stats' }, 5000).then(resp => {
+      const cu = resp?.data?.contextUsage
+      if (cu) {
+        pi._contextUsage = { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
+        broadcast('context_usage', { slot: slotKey, ...pi._contextUsage })
+      }
+    }).catch(() => {})
+
+    // Sync session name set by auto-session-name extension
+    pi.request({ type: 'get_state' }, 5000).then(resp => {
+      const name = resp?.data?.sessionName
+      if (name && name !== pi._title) {
+        pi._title = name
+        broadcast('slot_title', { key: slotKey, title: name })
+        broadcastSlots()
+        persistSlots()
+      }
+    }).catch(() => {})
+
     // Only notify if agent ran for a significant time (>60s)
     const elapsed = Date.now() - agentStartTime
     if (agentStartTime && elapsed >= 60_000) {
@@ -1169,12 +1256,35 @@ function _wireSlotEvents(pi, slotKey) {
     }
   })
 
+  pi.on('message_end', (event) => {
+    if (event.message?.role === 'custom') {
+      const m = event.message
+      const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
+      const label = m.customType ? `[${m.customType}]` : '[custom]'
+      const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+      broadcast('chat_message', {
+        slot: slotKey,
+        role: 'system',
+        content: `${label} ${text}`,
+        ts,
+        meta: { customType: m.customType },
+      })
+      _throttledPersist()
+    }
+  })
+
   pi.on('extension_ui', (event) => {
     if (event.method === 'confirm') {
       pi.send({ type: 'extension_ui_response', id: event.id, confirmed: true })
     } else if (event.method === 'select') {
       const first = event.options?.[0]
       if (first) pi.send({ type: 'extension_ui_response', id: event.id, value: first })
+    } else if (event.method === 'setStatus') {
+      // Strip ANSI escape codes from extension status text
+      const clean = (event.statusText || '').replace(/\x1b\[[0-9;]*m/g, '')
+      broadcast('extension_status', { slot: slotKey, key: event.statusKey, text: clean || undefined })
+    } else if (event.method === 'setWidget') {
+      broadcast('extension_widget', { slot: slotKey, key: event.widgetKey, lines: event.lines })
     }
   })
 

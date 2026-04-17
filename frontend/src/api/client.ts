@@ -67,6 +67,7 @@ export const api = {
     post('/api/chat/slots/' + encodeURIComponent(slot) + '/workspace', { workspace }).then(j),
   workspaces: () => fetch('/api/workspaces').then(j),
   browse: (path?: string) => fetch('/api/browse' + (path ? '?path=' + encodeURIComponent(path) : '')).then(j) as Promise<{ path: string; parent: string; entries: { name: string; path: string; isDir: boolean }[] }>,
+  pathComplete: (input: string) => fetch('/api/path-complete?input=' + encodeURIComponent(input)).then(j) as Promise<{ dir: string; prefix: string; entries: { name: string; path: string; isDir: boolean }[] }>,
   models: () => fetch('/api/models').then(j),
   setSlotModel: (slot: string, provider: string, modelId: string) =>
     post('/api/chat/slots/' + encodeURIComponent(slot) + '/model', { provider, modelId }).then(j),
@@ -184,5 +185,6 @@ export const api = {
   applyUpdate: () => post('/api/update').then(j),
   setAutoUpdate: (enabled: boolean) => post('/api/update/auto', { enabled }).then(j),
   pickFiles: () => post('/api/upload').then(j) as Promise<{ paths: string[] }>,
+  saveImage: (data: string, mimeType: string, path: string) => post('/api/save-image', { data, mimeType, path }).then(j) as Promise<{ ok: boolean; path: string }>,
   screenshot: () => post('/api/screenshot').then(j) as Promise<{ path: string }>,
 }

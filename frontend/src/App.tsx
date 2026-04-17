@@ -158,6 +158,9 @@ export default function App() {
           <button className="bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all flex items-center justify-center" onClick={() => { dispatch(fetchSlots()); dispatch(fetchNotifications()); api.status().then(s => dispatch(sseStatus(s))).catch(() => {}) }} title="Refresh">
             🔄
           </button>
+          <button className="bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-danger hover:text-danger hover:scale-105 active:scale-95 transition-all flex items-center justify-center" onClick={() => { if (confirm('Restart the server? Sessions will be preserved.')) api.restartSessions().catch(() => {}) }} title="Restart server">
+            ⏻
+          </button>
           <button className="bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all flex items-center justify-center" onClick={() => setShowShortcuts(s => !s)} title="Keyboard shortcuts (/)">
             ?
           </button>

@@ -12,3 +12,9 @@ tmux-*.log
 PROMPT.md
 ralph.yml
 docs/.*.comments.json
+autoloops.toml
+prompt.txt
+test-document.pdf
+test-spreadsheet.xlsx
+*.tsbuildinfo
+.autoloop/

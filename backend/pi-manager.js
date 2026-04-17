@@ -4,7 +4,23 @@
  */
 import { spawn } from 'child_process'
 import { EventEmitter } from 'events'
+import { writeFileSync, mkdirSync } from 'fs'
+import { join } from 'path'
+import os from 'os'
 import { extractText } from './session-store.js'
+
+const IMAGE_DIR = join(os.tmpdir(), 'pi-dashboard-images')
+mkdirSync(IMAGE_DIR, { recursive: true })
+
+function saveImagesToTemp(images) {
+  return images.map((img, i) => {
+    const ext = (img.mimeType || 'image/png').split('/')[1] || 'png'
+    const name = `img-${Date.now()}-${i}.${ext}`
+    const filePath = join(IMAGE_DIR, name)
+    writeFileSync(filePath, Buffer.from(img.data, 'base64'))
+    return filePath
+  })
+}
 
 export class PiProcess extends EventEmitter {
   constructor(slotKey, opts = {}) {
@@ -49,15 +65,13 @@ export class PiProcess extends EventEmitter {
 
     this.proc = spawn('pi', args, spawnOpts)
 
-    // Capture session file path after startup
-    this._sessionFileTimer = setTimeout(() => {
-      this.request({ type: 'get_state' }, 10000).then(resp => {
-        if (resp?.data?.sessionFile) {
-          this.sessionFile = resp.data.sessionFile
-          this.emit('session_file', this.sessionFile)
-        }
-      }).catch(() => {})
-    }, 2000)
+    // Ready promise — resolves when pi responds to get_state (templates loaded)
+    this._readyPromise = this.request({ type: 'get_state' }, 15000).then(resp => {
+      if (resp?.data?.sessionFile) {
+        this.sessionFile = resp.data.sessionFile
+        this.emit('session_file', this.sessionFile)
+      }
+    }).catch(() => {})
 
     this.proc.stdout.on('data', (chunk) => {
       this.buffer += chunk.toString()
@@ -120,7 +134,12 @@ export class PiProcess extends EventEmitter {
     })
   }
 
-  prompt(message, images) {
+  async prompt(message, images) {
+    // Wait for pi to be ready (templates loaded) before sending
+    if (this._readyPromise) {
+      await this._readyPromise
+      this._readyPromise = null
+    }
     // Map builtin slash commands to RPC types
     if (message.startsWith('/')) {
       const spaceIdx = message.indexOf(' ')
@@ -161,14 +180,26 @@ export class PiProcess extends EventEmitter {
       }
 
       // Extension and skill commands go through prompt() which handles them
+      this.running = true
+      this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
       const promptCmd = { type: 'prompt', message }
-      if (images?.length) promptCmd.images = images
+      if (images?.length) {
+        const paths = saveImagesToTemp(images)
+        promptCmd.images = images
+        promptCmd.message += `\n\n[Images saved to disk: ${paths.join(', ')}]`
+      }
       return this.send(promptCmd)
     }
 
     // Regular message
-    const cmd = { type: 'prompt', message }
-    if (images?.length) cmd.images = images
+    let msg = message
+    const cmd = { type: 'prompt' }
+    if (images?.length) {
+      const paths = saveImagesToTemp(images)
+      cmd.images = images
+      msg += `\n\n[Images saved to disk: ${paths.join(', ')}]`
+    }
+    cmd.message = msg
     if (this.running) {
       cmd.streamingBehavior = 'followUp'
     }
@@ -286,15 +317,34 @@ export class PiProcess extends EventEmitter {
                   this.messages.push({ role: 'assistant', content: text, ts })
                 }
               }
+            } else if (m.role === 'custom') {
+              const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
+              const label = m.customType ? `[${m.customType}]` : '[custom]'
+              const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+              this.messages.push({ role: 'system', content: `${label} ${text}`, ts, meta: { customType: m.customType } })
             } else if (m.role === 'toolResult') {
               // Attach result to the matching tool message
               const toolMsg = [...this.messages].reverse().find(
                 msg => msg.role === 'tool' && msg.meta?.toolCallId === m.toolCallId
               )
               if (toolMsg) {
-                const resultText = Array.isArray(m.content)
-                  ? m.content.filter(c => c.type === 'text').map(c => c.text).join('')
-                  : ''
+                let resultText = ''
+                if (Array.isArray(m.content)) {
+                  const textParts = m.content.filter(c => c.type === 'text').map(c => c.text)
+                  const imageParts = m.content.filter(c => c.type === 'image' && c.source?.type === 'base64')
+                  resultText = textParts.join('')
+                  if (imageParts.length) {
+                    // Save base64 images to temp dir and inject markdown image refs
+                    mkdirSync(IMAGE_DIR, { recursive: true })
+                    for (const img of imageParts) {
+                      const ext = (img.source.mediaType || 'image/png').split('/')[1] || 'png'
+                      const name = `tool-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+                      const filePath = join(IMAGE_DIR, name)
+                      writeFileSync(filePath, Buffer.from(img.source.data, 'base64'))
+                      resultText += `\n\n![image](/api/local-file?path=${encodeURIComponent(filePath)})`
+                    }
+                  }
+                }
                 toolMsg.meta = {
                   ...toolMsg.meta,
                   result: resultText.slice(0, 5000),
@@ -321,6 +371,14 @@ export class PiProcess extends EventEmitter {
 
       case 'message_start':
       case 'message_end':
+        // Surface custom messages (e.g. meeting-transcript, meeting-prep) into the chat
+        if (type === 'message_end' && event.message?.role === 'custom') {
+          const m = event.message
+          const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
+          const label = m.customType ? `[${m.customType}]` : '[custom]'
+          const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+          this.messages.push({ role: 'system', content: `${label} ${text}`, ts, meta: { customType: m.customType } })
+        }
         this.emit(type, event)
         break
 
@@ -437,6 +495,7 @@ export class PiManager {
       total: pi.messages.length,
       model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
       cwd: pi.cwd || null,
+      contextUsage: pi._contextUsage || null,
     }
   }
 
