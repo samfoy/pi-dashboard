@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { usePanelState } from '../hooks/usePanelState'
+import { usePanelState, detectFileType } from '../hooks/usePanelState'
 
 describe('usePanelState', () => {
   // Existing behavior preserved
@@ -124,5 +124,85 @@ describe('usePanelState', () => {
     const comments = [{ id: 'c1', startLine: 1, endLine: 3, content: 'fix this', version: 1, createdAt: '2026-01-01T00:00:00Z' }]
     act(() => result.current.setComments(comments))
     expect(result.current.comments).toEqual(comments)
+  })
+
+  it('supports comments with anchor field', () => {
+    const { result } = renderHook(() => usePanelState())
+    act(() => result.current.openPanel('/a.pdf', ''))
+    const comments = [{
+      id: 'c1', startLine: 0, endLine: 0,
+      content: 'check this page', version: 1,
+      createdAt: '2026-01-01T00:00:00Z',
+      anchor: 'page:3'
+    }]
+    act(() => result.current.setComments(comments))
+    expect(result.current.comments).toEqual(comments)
+    expect(result.current.comments[0].anchor).toBe('page:3')
+  })
+})
+
+describe('detectFileType', () => {
+  it('returns text for .md files', () => {
+    expect(detectFileType('/path/to/file.md')).toBe('text')
+  })
+
+  it('returns text for .ts files', () => {
+    expect(detectFileType('/path/to/file.ts')).toBe('text')
+  })
+
+  it('returns text for .json files', () => {
+    expect(detectFileType('/path/to/file.json')).toBe('text')
+  })
+
+  it('returns text for .py files', () => {
+    expect(detectFileType('/path/to/file.py')).toBe('text')
+  })
+
+  it('returns pdf for .pdf files', () => {
+    expect(detectFileType('/path/to/file.pdf')).toBe('pdf')
+  })
+
+  it('returns pdf for .PDF (case-insensitive)', () => {
+    expect(detectFileType('/path/to/file.PDF')).toBe('pdf')
+  })
+
+  it('returns docx for .docx files', () => {
+    expect(detectFileType('/path/to/file.docx')).toBe('docx')
+  })
+
+  it('returns spreadsheet for .xlsx files', () => {
+    expect(detectFileType('/path/to/file.xlsx')).toBe('spreadsheet')
+  })
+
+  it('returns spreadsheet for .xls files', () => {
+    expect(detectFileType('/path/to/file.xls')).toBe('spreadsheet')
+  })
+
+  it('returns spreadsheet for .csv files', () => {
+    expect(detectFileType('/path/to/file.csv')).toBe('spreadsheet')
+  })
+
+  it('returns image for .png files', () => {
+    expect(detectFileType('/path/to/file.png')).toBe('image')
+  })
+
+  it('returns image for .jpg files', () => {
+    expect(detectFileType('/path/to/file.jpg')).toBe('image')
+  })
+
+  it('returns image for .svg files', () => {
+    expect(detectFileType('/path/to/file.svg')).toBe('image')
+  })
+
+  it('returns image for .webp files', () => {
+    expect(detectFileType('/path/to/file.webp')).toBe('image')
+  })
+
+  it('returns text for files with no extension', () => {
+    expect(detectFileType('noext')).toBe('text')
+  })
+
+  it('returns text for unknown extensions', () => {
+    expect(detectFileType('/path/to/file.xyz')).toBe('text')
   })
 })
