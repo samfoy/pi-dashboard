@@ -4,6 +4,11 @@ import DiffView from './DiffView'
 import { detectFileType, type Comment } from '../hooks/usePanelState'
 
 const PdfRenderer = lazy(() => import('./renderers/PdfRenderer'))
+const DocxRenderer = lazy(() => import('./renderers/DocxRenderer'))
+const SpreadsheetRenderer = lazy(() => import('./renderers/SpreadsheetRenderer'))
+const ImageRenderer = lazy(() => import('./renderers/ImageRenderer'))
+
+const LOADING_FALLBACK = <div className="flex items-center justify-center h-full text-muted text-sm">Loading...</div>
 
 interface VersionMeta { version: number; timestamp: string; size: number }
 
@@ -185,9 +190,13 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
         {diffMode ? (
           <DiffView oldContent={conflictContent ?? ''} newContent={content} oldLabel={conflictContent != null ? 'Disk' : 'Previous'} newLabel="Current" onClose={onToggleDiff} />
         ) : fileType === 'pdf' ? (
-          <Suspense fallback={<div className="flex items-center justify-center h-full text-muted text-sm">Loading PDF viewer...</div>}>
-            <PdfRenderer filePath={filePath} />
-          </Suspense>
+          <Suspense fallback={LOADING_FALLBACK}><PdfRenderer filePath={filePath} /></Suspense>
+        ) : fileType === 'docx' ? (
+          <Suspense fallback={LOADING_FALLBACK}><DocxRenderer filePath={filePath} /></Suspense>
+        ) : fileType === 'spreadsheet' ? (
+          <Suspense fallback={LOADING_FALLBACK}><SpreadsheetRenderer filePath={filePath} /></Suspense>
+        ) : fileType === 'image' ? (
+          <Suspense fallback={LOADING_FALLBACK}><ImageRenderer filePath={filePath} /></Suspense>
         ) : (
           <TextRenderer
             content={content}
