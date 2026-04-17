@@ -1,7 +1,9 @@
-import { memo, useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent } from 'react'
+import { memo, useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense, type ChangeEvent } from 'react'
 import TextRenderer, { stripMd, CommentInput } from './renderers/TextRenderer'
 import DiffView from './DiffView'
 import { detectFileType, type Comment } from '../hooks/usePanelState'
+
+const PdfRenderer = lazy(() => import('./renderers/PdfRenderer'))
 
 interface VersionMeta { version: number; timestamp: string; size: number }
 
@@ -37,7 +39,8 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
   const fileName = filePath.split('/').pop() || filePath
   const ref = useRef<HTMLDivElement>(null)
   const isOldVersion = selectedVersion !== null
-  const isBinary = detectFileType(filePath) !== 'text'
+  const fileType = detectFileType(filePath)
+  const isBinary = fileType !== 'text'
 
   const handleSave = useCallback(async () => {
     setSaving(true); setSaveError(null)
@@ -181,6 +184,10 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
       <div className="flex-1 overflow-hidden p-4" onContextMenu={!diffMode && !isBinary ? handleContextMenu : undefined}>
         {diffMode ? (
           <DiffView oldContent={conflictContent ?? ''} newContent={content} oldLabel={conflictContent != null ? 'Disk' : 'Previous'} newLabel="Current" onClose={onToggleDiff} />
+        ) : fileType === 'pdf' ? (
+          <Suspense fallback={<div className="flex items-center justify-center h-full text-muted text-sm">Loading PDF viewer...</div>}>
+            <PdfRenderer filePath={filePath} />
+          </Suspense>
         ) : (
           <TextRenderer
             content={content}
