@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useRef, useCallback, useMemo, type ChangeEvent } from 'react'
 import TextRenderer, { stripMd, CommentInput } from './renderers/TextRenderer'
 import DiffView from './DiffView'
-import type { Comment } from '../hooks/usePanelState'
+import { detectFileType, type Comment } from '../hooks/usePanelState'
 
 interface VersionMeta { version: number; timestamp: string; size: number }
 
@@ -37,6 +37,7 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
   const fileName = filePath.split('/').pop() || filePath
   const ref = useRef<HTMLDivElement>(null)
   const isOldVersion = selectedVersion !== null
+  const isBinary = detectFileType(filePath) !== 'text'
 
   const handleSave = useCallback(async () => {
     setSaving(true); setSaveError(null)
@@ -156,18 +157,18 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
           {mode === 'edit' && (
             <button className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${lineNums ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text'}`} onClick={() => setLineNums(!lineNums)} title="Toggle line numbers">#</button>
           )}
-          {(['preview', 'edit'] as const).map(m => (
+          {!isBinary && (['preview', 'edit'] as const).map(m => (
             <button key={m} className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${mode === m ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong'}`} onClick={() => setMode(m)}>{m[0].toUpperCase() + m.slice(1)}</button>
           ))}
-          {versions.length > 0 && (
+          {!isBinary && versions.length > 0 && (
             <button className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${diffMode ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong'}`} onClick={onToggleDiff} aria-label="Diff">Diff</button>
           )}
-          <button className={`px-2 py-1 rounded-md text-[12px] font-medium border transition-all disabled:opacity-40 ${dirty ? 'border-accent text-white bg-accent cursor-pointer hover:bg-accent-hover' : 'border-border text-muted cursor-default'}`} disabled={saving || !dirty} onClick={handleSave}>{saving ? 'Saving…' : 'Save'}</button>
+          {!isBinary && <button className={`px-2 py-1 rounded-md text-[12px] font-medium border transition-all disabled:opacity-40 ${dirty ? 'border-accent text-white bg-accent cursor-pointer hover:bg-accent-hover' : 'border-border text-muted cursor-default'}`} disabled={saving || !dirty} onClick={handleSave}>{saving ? 'Saving…' : 'Save'}</button>}
           <button className="px-2 py-1 rounded-md text-[12px] text-muted border border-border hover:text-danger hover:border-danger transition-all cursor-pointer" onClick={guardedClose}>✕</button>
         </div>
       </div>
       {saveError && <div className="px-3 py-1 text-[11px] text-danger bg-bg-elevated border-b border-border">{saveError}</div>}
-      {conflictContent != null && (
+      {!isBinary && conflictContent != null && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-warning/10 text-warning text-[12px]">
           <span className="font-medium">File changed on disk</span>
           <div className="flex gap-1 ml-auto">
@@ -177,17 +178,17 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
           </div>
         </div>
       )}
-      <div className="flex-1 overflow-hidden p-4" onContextMenu={!diffMode ? handleContextMenu : undefined}>
+      <div className="flex-1 overflow-hidden p-4" onContextMenu={!diffMode && !isBinary ? handleContextMenu : undefined}>
         {diffMode ? (
           <DiffView oldContent={conflictContent ?? ''} newContent={content} oldLabel={conflictContent != null ? 'Disk' : 'Previous'} newLabel="Current" onClose={onToggleDiff} />
         ) : (
           <TextRenderer
             content={content}
             filePath={filePath}
-            mode={mode}
+            mode={isBinary ? 'preview' : mode}
             lineNums={lineNums}
             onChange={handleChange}
-            readOnly={isOldVersion}
+            readOnly={isOldVersion || isBinary}
           />
         )}
       </div>

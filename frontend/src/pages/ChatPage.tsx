@@ -20,7 +20,7 @@ import { useReferencedFiles } from '../hooks/useReferencedFiles'
 import WelcomeView from '../components/WelcomeView'
 import SlashCommandMenu from '../components/SlashCommandMenu'
 import PathCompleteMenu from '../components/PathCompleteMenu'
-import { usePanelState } from '../hooks/usePanelState'
+import { usePanelState, detectFileType } from '../hooks/usePanelState'
 import { WsContext } from '../App'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages } from './chat'
@@ -506,8 +506,12 @@ export default function ChatPage() {
 
   const handleFileOpen = useCallback(async (filePath: string) => {
     try {
-      const res = await fetch('/api/file-read?path=' + encodeURIComponent(filePath))
-      const text = res.ok ? await res.text() : `_Error: ${res.status}_`
+      const ft = detectFileType(filePath)
+      let text = ''
+      if (ft === 'text') {
+        const res = await fetch('/api/file-read?path=' + encodeURIComponent(filePath))
+        text = res.ok ? await res.text() : `_Error: ${res.status}_`
+      }
       panel.openPanel(filePath, text)
       // Fetch versions on open
       fetch('/api/file-versions?path=' + encodeURIComponent(filePath))
