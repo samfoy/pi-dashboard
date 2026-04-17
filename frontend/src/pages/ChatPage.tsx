@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect, useMemo, useContext } from 'r
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import DiffBlock from '../components/DiffBlock'
+import ResizableImage from '../components/ResizableImage'
 import { useAppSelector, useAppDispatch } from '../store'
 import {
   switchSlot, createSlot, deleteSlot, fetchHistory,
@@ -12,10 +13,13 @@ import {
 import { sseSlotTitle } from '../store/dashboardSlice'
 import { api } from '../api/client'
 import TypewriterText from '../components/TypewriterText'
-import MarkdownPanel from '../components/MarkdownPanel'
+import DocumentPanel from '../components/DocumentPanel'
 import FileBrowser from '../components/FileBrowser'
+import ReferencedFiles from '../components/ReferencedFiles'
+import { useReferencedFiles } from '../hooks/useReferencedFiles'
 import WelcomeView from '../components/WelcomeView'
 import SlashCommandMenu from '../components/SlashCommandMenu'
+import PathCompleteMenu from '../components/PathCompleteMenu'
 import { usePanelState } from '../hooks/usePanelState'
 import { WsContext } from '../App'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
@@ -25,6 +29,7 @@ import ProcessCard from './chat/ProcessCard'
 import ChatSidebar from './ChatSidebar'
 import NotificationViewer from './NotificationViewer'
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
+import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
 import type { Notification, ChatMessage } from '../types'
@@ -176,6 +181,31 @@ function ToolCallBlock({ content, meta, onFileOpen }: { content: string; meta?: 
   }
 
   if (isRead && result && !isError) {
+    const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(readInfo.path)
+    if (isImage) {
+      const imgUrl = `/api/local-file?path=${encodeURIComponent(readInfo.path)}`
+      // Check if result has a saved temp image URL from the backend
+      const match = result.match(/!\[image\]\(([^)]+)\)/)
+      const src = match ? match[1] : imgUrl
+      return (
+        <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
+            onClick={() => setReadExpanded(!readExpanded)}
+          >
+            <span className={`text-[11px] transition-transform ${readExpanded ? 'rotate-90' : ''}`}>▶</span>
+            <span>🖼️ read</span>
+            <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path.split('/').pop()}</span>
+            {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
+          </button>
+          {readExpanded && (
+            <div className="px-2 pb-2">
+              <ResizableImage src={src} alt={readInfo.path.split('/').pop() || ''} />
+            </div>
+          )}
+        </div>
+      )
+    }
     const lang = langFromPath(readInfo.path)
     const lineCount = result.split('\n').length
     const rangeLabel = readInfo.offset ? `lines ${readInfo.offset}–${readInfo.offset + (readInfo.limit || lineCount) - 1}` : `${lineCount} lines`
@@ -270,7 +300,18 @@ function ToolCallBlock({ content, meta, onFileOpen }: { content: string; meta?: 
           {result && (
             <div>
               <div className={`text-[11px] font-medium uppercase tracking-wider mt-2 mb-1 ${isError ? 'text-danger' : 'text-muted'}`}>{isError ? 'Error' : 'Result'}</div>
-              <pre className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${isError ? 'text-danger' : 'text-muted'}`}>{result}</pre>
+              {/!\[image\]\(/.test(result) ? (
+                <div className="space-y-2">
+                  {result.split(/\n\n/).map((part, i) => {
+                    const imgMatch = part.match(/!\[image\]\(([^)]+)\)/)
+                    return imgMatch
+                      ? <ResizableImage key={i} src={imgMatch[1]} alt="tool result" />
+                      : part.trim() ? <pre key={i} className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${isError ? 'text-danger' : 'text-muted'}`}>{part}</pre> : null
+                  })}
+                </div>
+              ) : (
+                <pre className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${isError ? 'text-danger' : 'text-muted'}`}>{result}</pre>
+              )}
             </div>
           )}
         </div>
@@ -334,6 +375,8 @@ export default function ChatPage() {
   const slotRunning = useAppSelector(s => s.chat.slotRunning)
   const slotStopping = useAppSelector(s => s.chat.slotStopping)
   const slotState = useAppSelector(s => s.chat.slotState)
+  const contextUsage = useAppSelector(s => s.chat.contextUsage)
+  const extensionStatuses = useAppSelector(s => s.chat.extensionStatuses)
   const pendingApproval = useAppSelector(s => { const slot = s.dashboard.slots.find(sl => sl.key === s.chat.activeSlot); return slot?.pending_approval ?? false })
   const slotHasMore = useAppSelector(s => s.chat.slotHasMore)
   const slotOldestIndex = useAppSelector(s => s.chat.slotOldestIndex)
@@ -349,6 +392,7 @@ export default function ChatPage() {
   const [showTerminal, setShowTerminal] = useState(false)
   const [showTree, setShowTree] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
+  const [showRefs, setShowRefs] = useState(false)
 
   // Sync viewingNotification from Redux store (e.g. after auto-ack)
   useEffect(() => {
@@ -420,6 +464,8 @@ export default function ChatPage() {
 
   const [dragOver, setDragOver] = useState(false)
   const [slashMenuOpen, setSlashMenuOpen] = useState(true)
+  const [cursorPos, setCursorPos] = useState(0)
+  const [pathMenuOpen, setPathMenuOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const isMac = useAppSelector(s => s.dashboard.status?.platform) === 'darwin'
 
@@ -601,6 +647,8 @@ export default function ChatPage() {
   // Auto-scroll during streaming — only when pinned to bottom
   const lastMsg = messages[messages.length - 1]
   const isStreaming = lastMsg?.role === 'streaming'
+  const referencedFiles = useReferencedFiles(messages)
+
   const planTaskId = useMemo(() => {
     for (const m of messages) {
       const match = m.content?.match(/<!-- plan_task_id:(\S+) -->/)
@@ -659,6 +707,13 @@ export default function ChatPage() {
     const images = pendingImages.map(img => ({ type: 'image' as const, data: img.data, mimeType: img.mimeType }))
     if (!txt && images.length === 0) return
     const isSlashCmd = txt.startsWith('/')
+    // Handle /new and /clear client-side — they create a new session, not send to pi
+    if (txt === '/new' || txt === '/clear') {
+      if (!optionText) setInput('')
+      wantsNewSession.current = true
+      dispatch(switchSlot(null))
+      return
+    }
     setPrefillHint(false)
     let slot = activeSlot
     if (!slot) {
@@ -789,7 +844,24 @@ export default function ChatPage() {
             <div className="msg-content px-3.5 py-2.5 text-sm leading-relaxed break-all whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text">
               {m.content.split('\n').map((line, li) => {
                 const imgMatch = line.match(/^!\[image\]\((data:image\/[^)]+)\)$/)
-                if (imgMatch) return <img key={li} src={imgMatch[1]} alt="Pasted" className="max-h-48 rounded-md my-1" />
+                if (imgMatch) {
+                  const dataUrl = imgMatch[1]
+                  return (
+                    <span key={li} className="relative inline-block group/img">
+                      <img src={dataUrl} alt="Pasted" className="max-h-48 rounded-md my-1" />
+                      <button className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 bg-black/60 hover:bg-black/80 text-white text-[11px] px-2 py-1 rounded cursor-pointer border-none transition-opacity" title="Save image to disk" onClick={async (e) => {
+                        e.stopPropagation()
+                        const name = prompt('Save image as:', `screenshot-${Date.now()}.png`)
+                        if (!name) return
+                        const base64 = dataUrl.split(',')[1]
+                        const mime = dataUrl.match(/^data:([^;]+)/)?.[1] || 'image/png'
+                        try {
+                          await api.saveImage(base64, mime, name.startsWith('/') || name.startsWith('~') ? name : `~/${name}`)
+                        } catch (err: any) { alert(err.message || 'Save failed') }
+                      }}>💾 Save</button>
+                    </span>
+                  )
+                }
                 return <span key={li}>{li > 0 && '\n'}{line}</span>
               })}
             </div>
@@ -833,7 +905,7 @@ export default function ChatPage() {
             onClose={() => setViewingNotification(null)}
             dispatch={dispatch}
           />
-        ) : !activeSlot || (messages.length === 0 && !slotRunning) ? (
+        ) : !activeSlot ? (
           <WelcomeView
             input={input}
             setInput={setInput}
@@ -858,11 +930,13 @@ export default function ChatPage() {
                 )}
                 {!editingHeader && <span className="text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
                 {currentSlot?.model && <span className="px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
+                {contextUsage && <ContextBar usage={contextUsage} />}
                 {currentSlot?.cwd && <span className="px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
               </div>
               <div className="flex gap-1.5">
                 {slotRunning && <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all font-body" aria-label={slotStopping ? 'Skip queue' : 'Stop generation'} onClick={() => { if (activeSlot) api.stopChatSlot(activeSlot) }}>{slotStopping ? '■ Skip Queue' : '■ Stop'}</button>}
                 <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTree ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle session tree" onClick={() => setShowTree(t => !t)}>🌳 Tree</button>
+                <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showRefs ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle referenced files" onClick={() => setShowRefs(t => !t)}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
                 <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showFiles ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle file browser" onClick={() => setShowFiles(t => !t)}>📄 Files</button>
                 <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTerminal ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle terminal" onClick={() => setShowTerminal(t => !t)}>▸_ Terminal</button>
                 <ChatSettings config={chatConfig} onChange={setChatConfig} activeSlot={activeSlot} currentModel={currentSlot?.model} models={availableModels} />
@@ -880,13 +954,24 @@ export default function ChatPage() {
                   />
                 </div>
               )}
+              {showRefs && (
+                <div className="w-[320px] shrink-0 border-r border-border bg-bg-elevated overflow-hidden">
+                  <ReferencedFiles files={referencedFiles} onFileOpen={handleFileOpen} onClose={() => setShowRefs(false)} />
+                </div>
+              )}
               {showFiles && (
                 <div className="w-[320px] shrink-0 border-r border-border bg-bg-elevated overflow-hidden">
                   <FileBrowser onFileOpen={handleFileOpen} onClose={() => setShowFiles(false)} startPath={currentSlot?.cwd || undefined} />
                 </div>
               )}
               <div className="flex-1 min-h-0 flex flex-col" style={{ display: showTerminal ? 'flex' : 'none' }}><TerminalPage /></div>
-              {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col"><Virtuoso
+              {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col">
+              {extensionStatuses['meeting-copilot'] && (
+                <div className="px-4 py-1.5 bg-accent-subtle text-accent text-[12px] font-medium border-b border-border flex items-center gap-2 shrink-0 animate-slide-up">
+                  {extensionStatuses['meeting-copilot']}
+                </div>
+              )}
+              <Virtuoso
               ref={virtuosoRef}
               style={{ flex: 1, paddingBottom: 24 }}
               data={groupedMessages}
@@ -936,6 +1021,7 @@ export default function ChatPage() {
                 <span className="text-base">📷</span>
               </button>}
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
+              {pathMenuOpen && <PathCompleteMenu input={input} cursorPos={cursorPos} anchorRef={inputRef as React.RefObject<HTMLElement>} onComplete={(before, completed, after) => { const val = before + completed + after; setInput(val); setPathMenuOpen(true); setTimeout(() => { if (inputRef.current) { const pos = before.length + completed.length; inputRef.current.selectionStart = inputRef.current.selectionEnd = pos; setCursorPos(pos) } }, 0) }} onClose={() => setPathMenuOpen(false)} />}
               <div className="flex-1 flex flex-col gap-1.5">
                 {pendingImages.length > 0 && (
                   <div className="flex gap-2 flex-wrap">
@@ -951,10 +1037,12 @@ export default function ChatPage() {
                 onPaste={handlePaste}
                 onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
                 onDrop={handleDrop}
-                onChange={e => { const val = e.target.value; setInput(val); if (val.startsWith('/')) setSlashMenuOpen(true) }}
+                onChange={e => { const val = e.target.value; setInput(val); setCursorPos(e.target.selectionStart ?? 0); if (val.startsWith('/')) setSlashMenuOpen(true); else setSlashMenuOpen(false) }}
+                onSelect={e => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+                onClick={e => setCursorPos((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
                 onCompositionStart={() => { (inputRef.current as any).__composing = true }}
                 onCompositionEnd={() => { (inputRef.current as any).__composing = true; setTimeout(() => { if (inputRef.current) (inputRef.current as any).__composing = false }, 50) }}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
+                onKeyDown={e => { if (e.key === 'Tab' && !e.shiftKey && !input.startsWith('/')) { e.preventDefault(); setPathMenuOpen(true); setCursorPos(inputRef.current?.selectionStart ?? 0) } else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; const cap = prefillHint ? 320 : 140; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, cap) + 'px' }} />
               </div>
               <button className="btn-sweep bg-accent text-white border-none rounded-lg px-5 h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0) || slotStopping}>Send</button>
@@ -965,7 +1053,7 @@ export default function ChatPage() {
         )}
       </div>
       {panel.isOpen && (
-        <MarkdownPanel filePath={panel.filePath} content={panel.content} onContentChange={handleContentChange} onSave={handleFileSave} onClose={panel.closePanel} dirty={panel.dirty} versions={panel.versions} selectedVersion={panel.selectedVersion} conflictContent={panel.conflictContent} onSelectVersion={panel.selectVersion} onResolveConflict={panel.resolveConflict} diffMode={panel.diffMode} onToggleDiff={panel.toggleDiffMode} comments={panel.comments} onAddComment={handleAddComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onReviewComments={handleReviewComments} />
+        <DocumentPanel filePath={panel.filePath} content={panel.content} onContentChange={handleContentChange} onSave={handleFileSave} onClose={panel.closePanel} dirty={panel.dirty} versions={panel.versions} selectedVersion={panel.selectedVersion} conflictContent={panel.conflictContent} onSelectVersion={panel.selectVersion} onResolveConflict={panel.resolveConflict} diffMode={panel.diffMode} onToggleDiff={panel.toggleDiffMode} comments={panel.comments} onAddComment={handleAddComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onReviewComments={handleReviewComments} />
       )}
     </div>
   )
