@@ -13,6 +13,39 @@ export interface Comment {
   content: string
   version: number
   createdAt: string
+  /** For non-text files: page number, paragraph index, cell ref, etc. */
+  anchor?: string
+}
+
+export type FileType = 'text' | 'pdf' | 'docx' | 'spreadsheet' | 'image' | 'unknown'
+
+const EXT_MAP: Record<string, FileType> = {
+  '.pdf': 'pdf',
+  '.docx': 'docx',
+  '.xlsx': 'spreadsheet',
+  '.xls': 'spreadsheet',
+  '.csv': 'spreadsheet',
+  '.png': 'image',
+  '.jpg': 'image',
+  '.jpeg': 'image',
+  '.gif': 'image',
+  '.webp': 'image',
+  '.svg': 'image',
+}
+
+const TEXT_EXTS = new Set([
+  '.md', '.txt', '.ts', '.tsx', '.js', '.jsx', '.py', '.json', '.yaml', '.yml',
+  '.toml', '.sh', '.css', '.html', '.xml', '.rs', '.java', '.go', '.rb', '.sql',
+  '.kt', '.cfg', '.env', '.ini', '.conf', '.log',
+])
+
+export function detectFileType(path: string): FileType {
+  const dot = path.lastIndexOf('.')
+  if (dot === -1) return 'text'
+  const ext = path.slice(dot).toLowerCase()
+  if (EXT_MAP[ext]) return EXT_MAP[ext]
+  if (TEXT_EXTS.has(ext)) return 'text'
+  return 'text'
 }
 
 export function usePanelState() {
