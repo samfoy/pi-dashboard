@@ -110,7 +110,7 @@ export default function FileBrowser({ onFileOpen, onClose, startPath }: Props) {
       </div>
 
       {/* File tree */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
         {loading ? (
           <div className="px-3 py-2 text-[12px] text-muted">Loading…</div>
         ) : filtered.length === 0 ? (

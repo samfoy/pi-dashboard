@@ -125,7 +125,7 @@ function ReferencedFiles({ files, onFileOpen, onClose }: Props) {
       )}
 
       {/* File list */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-1">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-1">
         {files.length === 0 ? (
           <div className="px-3 py-4 text-[12px] text-muted italic text-center">
             No files referenced yet.<br />

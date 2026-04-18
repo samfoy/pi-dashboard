@@ -203,7 +203,7 @@ export default function SessionTree({ slotKey, onFork, onClose }: {
       </div>
 
       {/* Tree */}
-      <div className="flex-1 overflow-y-auto px-1 py-1">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-1 py-1">
         {visible.length === 0 ? (
           <div className="text-[13px] text-muted text-center py-8">No entries</div>
         ) : (

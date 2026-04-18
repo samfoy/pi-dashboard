@@ -998,7 +998,7 @@ export default function ChatPage() {
             <div className="flex-1 min-h-0 flex">
               {/* Tree panel */}
               {showTree && activeSlot && (
-                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border">
+                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border md:pt-0 md:pb-0">
                   <SessionTree
                     slotKey={activeSlot}
                     onFork={(newSlotKey, text) => { setShowTree(false); dispatch(switchSlot(newSlotKey)); if (text) { setInput(text); setTimeout(() => inputRef.current?.focus(), 100) } }}
@@ -1007,12 +1007,12 @@ export default function ChatPage() {
                 </div>
               )}
               {showRefs && (
-                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border">
+                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border md:pt-0 md:pb-0">
                   <ReferencedFiles files={referencedFiles} onFileOpen={handleFileOpen} onClose={() => setShowRefs(false)} />
                 </div>
               )}
               {showFiles && (
-                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border">
+                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border md:pt-0 md:pb-0">
                   <FileBrowser onFileOpen={handleFileOpen} onClose={() => setShowFiles(false)} startPath={currentSlot?.cwd || undefined} />
                 </div>
               )}
