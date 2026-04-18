@@ -53,18 +53,24 @@ struct SlotDTO: Decodable {
     let pendingApproval: Bool?
     let model: String?
     let cwd: String?
+    let createdAt: String?   // ISO8601 from server
+    let updatedAt: String?   // ISO8601 from server
 
     enum CodingKeys: String, CodingKey {
         case key, title, messages, running, stopping, model, cwd
         case pendingApproval = "pending_approval"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
 
     func toChatSlot() -> ChatSlot {
+        let created = createdAt.flatMap { isoDate(from: $0) } ?? dateFromKey(key)
+        let updated = updatedAt.flatMap { isoDate(from: $0) } ?? created
         return ChatSlot(
             key: key,
             title: title ?? "New Chat",
-            createdAt: dateFromKey(key),
-            updatedAt: dateFromKey(key),
+            createdAt: created,
+            updatedAt: updated,
             messageCount: messages ?? 0,
             lastMessage: nil,
             isStreaming: running ?? false,

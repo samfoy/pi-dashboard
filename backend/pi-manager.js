@@ -52,6 +52,7 @@ export class PiProcess extends EventEmitter {
     this.modelId = opts.modelId || null
     this._title = opts.title || null
     this._startTime = Date.now()
+    this._lastActivity = Date.now()
     this._pendingRequests = new Map() // id → { resolve, timer }
     this._stopping = false
     this._pendingApproval = false
@@ -486,16 +487,29 @@ export class PiManager {
   }
 
   listSlots() {
-    return Array.from(this.slots.entries()).map(([key, pi]) => ({
-      key,
-      title: pi._title || 'New Chat',
-      messages: pi.messages.length,
-      running: pi.running,
-      stopping: pi._stopping || false,
-      pending_approval: pi._pendingApproval || false,
-      model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
-      cwd: pi.cwd || null,
-    }))
+    return Array.from(this.slots.entries()).map(([key, pi]) => {
+      // Derive timestamps: created from key, updated from last message or last activity
+      const keyParts = key.split('-')
+      const keyMs = keyParts.length >= 3 ? parseInt(keyParts[keyParts.length - 1], 10) : Date.now()
+      const createdAt = isNaN(keyMs) ? new Date().toISOString() : new Date(keyMs).toISOString()
+      const lastMsg = pi.messages[pi.messages.length - 1]
+      const updatedAt = lastMsg?.ts || pi._lastActivity ? new Date(Math.max(
+        lastMsg?.ts ? new Date(lastMsg.ts).getTime() : 0,
+        pi._lastActivity || 0
+      )).toISOString() : createdAt
+      return {
+        key,
+        title: pi._title || 'New Chat',
+        messages: pi.messages.length,
+        running: pi.running,
+        stopping: pi._stopping || false,
+        pending_approval: pi._pendingApproval || false,
+        model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
+        cwd: pi.cwd || null,
+        created_at: createdAt,
+        updated_at: updatedAt,
+      }
+    })
   }
 
   getSlotDetail(key, limit = 200) {
