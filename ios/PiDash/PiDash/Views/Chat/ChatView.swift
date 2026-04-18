@@ -112,7 +112,7 @@ private struct ChatContentView: View {
                     isAtBottom = true
                 } label: {
                     Image(systemName: "arrow.down.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.title)
                         .foregroundStyle(Color.accentColor)
                         .background(Circle().fill(Color(.systemBackground)))
                         .shadow(radius: 4)
@@ -226,7 +226,7 @@ private struct ChatSettingsMenu: View {
             }
         } label: {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 16))
+                .font(.body)
         }
         .sheet(isPresented: $showModelPicker) {
             ModelPickerSheet(viewModel: viewModel)
@@ -312,6 +312,65 @@ private struct ModelPickerSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Chat Empty State
+
+private struct ChatEmptyStateView: View {
+    let onSelect: (String) -> Void
+
+    private let prompts = [
+        (icon: "chevron.left.forwardslash.chevron.right", text: "Explain this code"),
+        (icon: "doc.text",                               text: "Summarise a document"),
+        (icon: "terminal",                               text: "Write a quick script"),
+        (icon: "questionmark.circle",                   text: "What can you help with?")
+    ]
+
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 8) {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .font(.system(size: 48, weight: .thin))
+                    .foregroundStyle(.tertiary)
+                Text("Start a conversation")
+                    .font(.title3.bold())
+                    .foregroundStyle(.primary)
+                Text("Send a message or pick a suggestion below.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // Prompt chip grid — 2 columns
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(prompts, id: \.text) { prompt in
+                    Button {
+                        onSelect(prompt.text)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: prompt.icon)
+                                .font(.callout)
+                                .foregroundStyle(Color.accentColor)
+                            Text(prompt.text)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color(.systemGray6))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+        .padding(.horizontal, 24)
     }
 }
 

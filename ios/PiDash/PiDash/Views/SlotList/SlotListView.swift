@@ -84,7 +84,7 @@ private struct SlotListContent: View {
         } else {
             List {
                 ForEach(viewModel.groupedSlots, id: \.group) { section in
-                    Section(section.group.rawValue) {
+                    Section(section.group.label) {
                         ForEach(section.slots) { slot in
                             NavigationLink(destination: ChatView(slot: slot)) {
                                 SlotRow(slot: slot)

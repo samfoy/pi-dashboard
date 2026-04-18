@@ -5,6 +5,8 @@ import MarkdownUI
 
 struct MessageBubble: View {
     let message: ChatMessage
+    @State private var showTimestamp = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -12,10 +14,22 @@ struct MessageBubble: View {
 
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 4) {
                 bubbleContent
+                if showTimestamp {
+                    Text(timestampText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                }
                 if message.isStreaming {
                     StreamingCursor()
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 4)
+                }
+            }
+            .onTapGesture {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                    showTimestamp.toggle()
                 }
             }
 
@@ -24,6 +38,20 @@ struct MessageBubble: View {
                 Spacer(minLength: 60)
             }
         }
+    }
+
+    private var timestampText: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        if Calendar.current.isDateInToday(message.timestamp) {
+            formatter.dateStyle = .none
+        } else if Calendar.current.isDateInYesterday(message.timestamp) {
+            return "Yesterday " + DateFormatter.localizedString(
+                from: message.timestamp, dateStyle: .none, timeStyle: .short)
+        } else {
+            formatter.dateStyle = .medium
+        }
+        return formatter.string(from: message.timestamp)
     }
 
     /// Strip `![image](data:...)` markdown references and `[Images saved to disk: ...]` annotations from text
@@ -169,6 +197,7 @@ private struct UserImagesView: View {
 
 struct StreamingCursor: View {
     @State private var isVisible = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Circle()
@@ -176,6 +205,7 @@ struct StreamingCursor: View {
             .frame(width: 8, height: 8)
             .opacity(isVisible ? 1 : 0)
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
                     isVisible = false
                 }

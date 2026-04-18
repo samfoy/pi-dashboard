@@ -45,19 +45,32 @@ struct ChatSlot: Identifiable, Codable, Equatable {
 // MARK: - TemporalGroup
 
 /// Groups slots for the list view display.
-enum TemporalGroup: String, CaseIterable {
-    case today = "Today"
-    case yesterday = "Yesterday"
-    case lastSevenDays = "Last 7 Days"
-    case older = "Older"
+enum TemporalGroup: Equatable, Hashable {
+    case today
+    case yesterday
+    case lastSevenDays
+    case lastThirtyDays
+    case month(String)   // e.g. "March 2026"
+
+    var label: String {
+        switch self {
+        case .today:          return "Today"
+        case .yesterday:      return "Yesterday"
+        case .lastSevenDays:  return "Last 7 Days"
+        case .lastThirtyDays: return "Last 30 Days"
+        case .month(let s):   return s
+        }
+    }
 
     static func group(for date: Date) -> TemporalGroup {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) { return .today }
         if calendar.isDateInYesterday(date) { return .yesterday }
-        if let daysAgo = calendar.dateComponents([.day], from: date, to: Date()).day, daysAgo <= 7 {
-            return .lastSevenDays
-        }
-        return .older
+        let daysAgo = calendar.dateComponents([.day], from: date, to: Date()).day ?? 0
+        if daysAgo <= 7  { return .lastSevenDays }
+        if daysAgo <= 30 { return .lastThirtyDays }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return .month(formatter.string(from: date))
     }
 }

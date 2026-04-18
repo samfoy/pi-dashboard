@@ -130,7 +130,7 @@ private struct SessionRow: View {
                 } else {
                     Image(systemName: "arrow.trianglehead.clockwise")
                         .foregroundStyle(.secondary)
-                        .font(.system(size: 14))
+                        .font(.subheadline)
                 }
             }
             .padding(.vertical, 4)

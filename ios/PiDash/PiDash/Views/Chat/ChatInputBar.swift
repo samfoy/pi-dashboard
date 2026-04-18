@@ -22,6 +22,7 @@ struct ChatInputBar: View {
     let onSend: () -> Void
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showPhotoPicker = false
     @State private var showDocumentPicker = false
@@ -51,7 +52,7 @@ struct ChatInputBar: View {
                                     withAnimation { pendingImages.removeAll { $0.id == img.id } }
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 18))
+                                        .font(.body)
                                         .foregroundStyle(.white)
                                         .background(Circle().fill(.black.opacity(0.5)))
                                 }
@@ -84,7 +85,7 @@ struct ChatInputBar: View {
                     }
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 26))
+                        .font(.title2)
                         .foregroundStyle(Color.accentColor)
                 }
 
@@ -109,17 +110,17 @@ struct ChatInputBar: View {
                     }
                 }) {
                     Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
-                        .font(.system(size: 30))
+                        .font(.title)
                         .foregroundStyle(
                             isStreaming ? Color.red
                                 : (canSend ? Color.accentColor : Color.secondary)
                         )
                         .contentTransition(.symbolEffect(.replace))
-                        .animation(.spring(duration: 0.3), value: isStreaming)
+                        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: isStreaming)
                 }
                 .disabled(!isStreaming && !canSend)
                 .scaleEffect(canSend || isStreaming ? 1.0 : 0.82)
-                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: canSend)
+                .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: canSend)
             }
             .padding(.horizontal, 12)
         }

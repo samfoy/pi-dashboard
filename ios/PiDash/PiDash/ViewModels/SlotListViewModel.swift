@@ -30,10 +30,33 @@ final class SlotListViewModel {
         let grouped = Dictionary(grouping: filteredSlots) {
             TemporalGroup.group(for: $0.updatedAt)
         }
-        return TemporalGroup.allCases.compactMap { group in
-            guard let slots = grouped[group], !slots.isEmpty else { return nil }
-            return (group: group, slots: slots.sorted { $0.updatedAt > $1.updatedAt })
+
+        // Fixed buckets in display order
+        let fixed: [TemporalGroup] = [.today, .yesterday, .lastSevenDays, .lastThirtyDays]
+        var result: [(group: TemporalGroup, slots: [ChatSlot])] = []
+        for group in fixed {
+            if let slots = grouped[group], !slots.isEmpty {
+                result.append((group: group, slots: slots.sorted { $0.updatedAt > $1.updatedAt }))
+            }
         }
+
+        // Month buckets — sorted most-recent first
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "MMMM yyyy"
+        let monthKeys = grouped.keys
+            .compactMap { key -> (group: TemporalGroup, date: Date)? in
+                guard case .month(let label) = key,
+                      let date = monthFormatter.date(from: label) else { return nil }
+                return (group: key, date: date)
+            }
+            .sorted { $0.date > $1.date }
+        for item in monthKeys {
+            if let slots = grouped[item.group], !slots.isEmpty {
+                result.append((group: item.group, slots: slots.sorted { $0.updatedAt > $1.updatedAt }))
+            }
+        }
+
+        return result
     }
 
     func refresh() async {
