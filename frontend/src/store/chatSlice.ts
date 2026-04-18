@@ -31,6 +31,7 @@ interface ChatState {
   _resendQueued: string | null
   contextUsage: ContextUsage | null
   extensionStatuses: Record<string, string>
+  _lastChunkSeq: number
 }
 
 const initialState: ChatState = {
@@ -49,6 +50,7 @@ const initialState: ChatState = {
   _resendQueued: null,
   contextUsage: null,
   extensionStatuses: {},
+  _lastChunkSeq: -1,
 }
 
 export const fetchHistory = createAsyncThunk(
@@ -165,11 +167,17 @@ const chatSlice = createSlice({
     },
     clearMessages(state) { state.messages = []; state.slotHasMore = false; state.slotOldestIndex = 0 },
     /** Handle chat messages pushed via global SSE/WS (works after refresh). */
-    sseChatMessage(state, action: PayloadAction<{ slot: string; role: string; content: string; ts?: string; cls?: string; meta?: Record<string, unknown> }>) {
+    sseChatMessage(state, action: PayloadAction<{ slot: string; role: string; content: string; ts?: string; cls?: string; meta?: Record<string, unknown>; seq?: number }>) {
       const { slot, role, content, ts, cls, meta } = action.payload
       if (slot !== state.activeSlot) return
       // WS chunk — accumulate into streaming message, preserve rawText
       if (role === 'chunk') {
+        // Deduplicate chunks using monotonic seq from server
+        const seq = (action.payload as any).seq
+        if (typeof seq === 'number') {
+          if (seq <= state._lastChunkSeq) return // already processed
+          state._lastChunkSeq = seq
+        }
         state.slotState = 'streaming'
         let streamIdx = -1
         for (let i = state.messages.length - 1; i >= 0; i--) {
@@ -187,6 +195,7 @@ const chatSlice = createSlice({
       // WS done — finalize streaming into assistant, rawText preserved for reparse
       if (role === '_done') {
         state.slotState = 'idle'
+        state._lastChunkSeq = -1 // reset for next stream
         for (let i = state.messages.length - 1; i >= 0; i--) {
           if (state.messages[i].role === 'streaming') {
             const msg = state.messages[i]

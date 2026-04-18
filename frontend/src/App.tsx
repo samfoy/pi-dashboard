@@ -49,6 +49,20 @@ export default function App() {
   const [fullChangelog, setFullChangelog] = useState('')
   const [showFull, setShowFull] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
+
+  // Detect virtual keyboard on mobile via visualViewport resize
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const check = () => {
+      // If visual viewport is significantly smaller than layout viewport, keyboard is open
+      const keyboardVisible = vv.height < window.innerHeight * 0.75
+      setKeyboardOpen(keyboardVisible)
+    }
+    vv.addEventListener('resize', check)
+    return () => vv.removeEventListener('resize', check)
+  }, [])
 
   useEffect(() => {
     dispatch(fetchSlots()); dispatch(fetchNotifications())
@@ -323,8 +337,8 @@ export default function App() {
         </ErrorBoundary>
       </main>
 
-      {/* Mobile bottom tab bar */}
-      <nav className="md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))]">
+      {/* Mobile bottom tab bar — hidden when virtual keyboard is open */}
+      <nav className={`md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] ${keyboardOpen ? 'hidden' : ''}`}>
         {NAV_ITEMS.map(n => (
           <button
             key={n.id}

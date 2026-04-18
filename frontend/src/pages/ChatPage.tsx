@@ -1025,6 +1025,7 @@ export default function ChatPage() {
               )}
               <Virtuoso
               ref={virtuosoRef}
+              onTouchStart={() => { if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur() }}
               style={{ flex: 1, paddingBottom: 24 }}
               data={groupedMessages}
               followOutput={followOutput}
@@ -1085,7 +1086,7 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : 'Message Pi…'} rows={1} value={input}
+                <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-base md:text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : 'Message Pi…'} rows={1} value={input}
                 onPaste={handlePaste}
                 onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
                 onDrop={handleDrop}

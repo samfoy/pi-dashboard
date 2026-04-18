@@ -13,11 +13,18 @@ export function handlePtyConnection(ws, req) {
   const rows = parseInt(params.get('rows') || '30', 10)
   const shell = process.env.SHELL || '/bin/bash'
 
-  const proc = pty.spawn(shell, ['-l'], {
-    name: 'xterm-256color',
-    cols, rows, cwd,
-    env: { ...process.env, TERM: 'xterm-256color' },
-  })
+  let proc
+  try {
+    proc = pty.spawn(shell, ['-l'], {
+      name: 'xterm-256color',
+      cols, rows, cwd,
+      env: { ...process.env, TERM: 'xterm-256color' },
+    })
+  } catch (err) {
+    console.error('⚠ PTY spawn failed (non-fatal):', err.message)
+    if (ws.readyState === 1) ws.close(1011, 'PTY spawn failed')
+    return
+  }
 
   shells.set(ws, proc)
 

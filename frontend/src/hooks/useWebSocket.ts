@@ -19,14 +19,31 @@ export function useWebSocket() {
   const wasConnectedRef = useRef(false)
   const lastVersionRef = useRef<string | null>(null)
 
+  const lastMessageRef = useRef<number>(Date.now())
+  const healthCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
+    // Cancel any pending reconnect timer to prevent parallel connections
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
+    // If already open or connecting, don't create another
+    if (wsRef.current) {
+      const rs = wsRef.current.readyState
+      if (rs === WebSocket.OPEN || rs === WebSocket.CONNECTING) return
+      // CLOSING or CLOSED — clean up
+      try { wsRef.current.close() } catch {}
+      wsRef.current = null
+    }
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const ws = new WebSocket(`${proto}//${location.host}/api/ws`)
     wsRef.current = ws
 
     ws.onopen = () => {
       reconnectRef.current = 1000
+      lastMessageRef.current = Date.now()
       if (wasConnectedRef.current) {
         // Reconnecting after disconnect — re-fetch state instead of
         // reloading the page.  Preserves unsent messages, scroll
@@ -43,6 +60,7 @@ export function useWebSocket() {
     }
 
     ws.onmessage = (e) => {
+      lastMessageRef.current = Date.now()
       try {
         const msg = JSON.parse(e.data)
         const { type, data } = msg
@@ -153,12 +171,16 @@ export function useWebSocket() {
     }
 
     ws.onclose = () => {
+      // Only process if this is still the active connection
+      if (wsRef.current !== ws) return
       dispatch(sseDisconnected())
       wsRef.current = null
       // Exponential backoff: 1s, 2s, 4s, max 10s
       const delay = reconnectRef.current
       reconnectRef.current = Math.min(delay * 2, 10000)
-      setTimeout(connect, delay)
+      // Cancel any existing reconnect timer before scheduling a new one
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = setTimeout(connect, delay)
     }
 
     ws.onerror = () => { /* onclose will fire */ }
@@ -166,7 +188,60 @@ export function useWebSocket() {
 
   useEffect(() => {
     connect()
-    return () => { wsRef.current?.close(); wsRef.current = null }
+
+    // Health check: server sends dashboard status every 5s.
+    // If we haven't received ANY message in 15s, the connection is dead.
+    // This catches silent TCP drops on mobile (sleep, network switch).
+    healthCheckRef.current = setInterval(() => {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) return
+      const silentMs = Date.now() - lastMessageRef.current
+      if (silentMs > 15_000) {
+        console.log('[ws] No messages in 15s — forcing reconnect')
+        ws.close()
+      }
+    }, 5_000)
+
+    // Reconnect immediately when the page becomes visible again.
+    // iOS/Android suspend WebSocket connections when the app is backgrounded;
+    // the socket may appear OPEN but is actually dead.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const ws = wsRef.current
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          // Already closed — reconnect immediately (skip backoff)
+          reconnectRef.current = 0
+          connect()
+        } else {
+          // Socket looks open — but it might be a zombie.
+          // Reset the last-message timer so the health check can detect it.
+          // Also proactively re-fetch state in case we missed events while suspended.
+          lastMessageRef.current = Date.now()
+          dispatch(fetchSlots())
+          const active = store.getState().chat.activeSlot
+          if (active) dispatch(refreshSlot(active))
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    // Also handle online/offline events (WiFi → cell transitions)
+    const onOnline = () => {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        reconnectRef.current = 0
+        connect()
+      }
+    }
+    window.addEventListener('online', onOnline)
+
+    return () => {
+      wsRef.current?.close(); wsRef.current = null
+      if (healthCheckRef.current) clearInterval(healthCheckRef.current)
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('online', onOnline)
+    }
   }, [connect])
 
   /** Subscribe to log events — call with callback on mount, null on unmount. */

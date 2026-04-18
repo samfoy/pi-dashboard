@@ -1072,16 +1072,20 @@ server.on('upgrade', (req, socket, head) => {
       wss.emit('connection', ws, req)
     })
   } else if (req.url?.startsWith('/api/terminal/ws')) {
-    ptyWss.handleUpgrade(req, socket, head, (ws) => {
-      handlePtyConnection(ws, req)
-    })
+    // PTY disabled — node-pty crashes the process under launchd on this machine.
+    // Reject terminal WebSocket connections gracefully.
+    socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n')
+    socket.destroy()
   } else {
     socket.destroy()
   }
 })
 
+let _wsIdCounter = 0
 wss.on('connection', (ws) => {
+  ws._id = ++_wsIdCounter
   wsClients.add(ws)
+  console.log(`[ws] Client #${ws._id} connected (total: ${wsClients.size})`)
   ws.send(JSON.stringify({ type: 'dashboard', data: manager.status() }))
   ws.send(JSON.stringify({ type: 'slots', data: manager.listSlots() }))
 
@@ -1096,6 +1100,7 @@ wss.on('connection', (ws) => {
   })
 
   ws.on('close', () => {
+    console.log(`[ws] Client #${ws._id} disconnected (remaining: ${wsClients.size - 1})`)
     cleanupClientWatchers(ws)
     wsClients.delete(ws)
   })

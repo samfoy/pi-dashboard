@@ -19,6 +19,14 @@
         <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/sam.painter/.local/bin:/Users/sam.painter/.cargo/bin</string>
         <key>HOME</key>
         <string>/Users/sam.painter</string>
+        <key>SHELL</key>
+        <string>/bin/zsh</string>
+        <key>AWS_PROFILE</key>
+        <string>openclaw-bedrock</string>
+        <key>AWS_REGION</key>
+        <string>us-west-2</string>
+        <key>AWS_DEFAULT_REGION</key>
+        <string>us-west-2</string>
         <key>PI_DASH_PORT</key>
         <string>7777</string>
     </dict>
