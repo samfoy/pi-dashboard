@@ -10,6 +10,7 @@ final class ChatViewModel {
     var slot: ChatSlot
     var messages: [ChatMessage] = []
     var inputText: String = ""
+    var pendingImages: [PendingImage] = []
     var isStreaming: Bool = false
     var isLoadingHistory: Bool = false
     var error: String?
@@ -55,12 +56,19 @@ final class ChatViewModel {
 
     func send() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isStreaming else { return }
+        let images = pendingImages
+        guard !isStreaming, (!text.isEmpty || !images.isEmpty) else { return }
         inputText = ""
+        pendingImages = []
         HapticManager.messageSent()
 
-        // Add user message immediately (optimistic)
-        let userMsg = ChatMessage(slotKey: slotKey, role: .user, content: text)
+        // Build user message content (include image indicators)
+        var userContent = text
+        if !images.isEmpty {
+            let imgText = images.map { "![image](data:\($0.mimeType);base64,...)" }.joined(separator: "\n")
+            userContent = text.isEmpty ? imgText : text + "\n" + imgText
+        }
+        let userMsg = ChatMessage(slotKey: slotKey, role: .user, content: userContent)
         messages.append(userMsg)
 
         // Prepare streaming assistant placeholder
@@ -77,7 +85,8 @@ final class ChatViewModel {
         isStreaming = true
 
         do {
-            try await apiClient.sendMessage(slot: slotKey, message: text)
+            let imagePayloads = images.isEmpty ? nil : images.map { ImagePayload(data: $0.base64, mimeType: $0.mimeType) }
+            try await apiClient.sendMessage(slot: slotKey, message: text, images: imagePayloads)
         } catch {
             self.error = error.localizedDescription
             messages.removeAll { $0.id == streamingId }

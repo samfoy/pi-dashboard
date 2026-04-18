@@ -255,6 +255,12 @@ struct WSContextUsageEvent: Decodable {
 struct SendMessageRequest: Encodable {
     let slot: String
     let message: String
+    let images: [ImagePayload]?
+}
+
+struct ImagePayload: Encodable {
+    let data: String  // base64
+    let mimeType: String
 }
 
 struct CreateSlotRequest: Encodable {

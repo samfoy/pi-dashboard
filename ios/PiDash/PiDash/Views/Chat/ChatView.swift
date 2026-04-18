@@ -76,6 +76,7 @@ private struct ChatContentView: View {
 
                 ChatInputBar(
                     text: $viewModel.inputText,
+                    pendingImages: $viewModel.pendingImages,
                     isStreaming: viewModel.isStreaming,
                     isDisabled: viewModel.isLoadingHistory,
                     onSend: { Task { await viewModel.send() } },

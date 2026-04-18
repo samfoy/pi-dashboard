@@ -100,10 +100,10 @@ actor APIClient {
         try await delete(url: url)
     }
 
-    /// `POST /api/chat?ws=1` with `{slot, message}` body
-    func sendMessage(slot: String, message: String) async throws {
+    /// `POST /api/chat?ws=1` with `{slot, message, images?}` body
+    func sendMessage(slot: String, message: String, images: [ImagePayload]? = nil) async throws {
         let url = try requireURL(path: "/chat?ws=1")
-        let body = SendMessageRequest(slot: slot, message: message)
+        let body = SendMessageRequest(slot: slot, message: message, images: images?.isEmpty == true ? nil : images)
         _ = try await post(url: url, body: body)
     }
 
