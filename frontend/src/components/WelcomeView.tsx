@@ -80,7 +80,10 @@ export default function WelcomeView({
             value={selectedModel}
             onChange={e => onSelectModel(e.target.value)}
           >
-            <option value="">Default ({selectedModelInfo?.name || 'auto'})</option>
+            {models.length === 0
+              ? <option value="" disabled>Loading models…</option>
+              : <option value="">Default ({selectedModelInfo?.name || 'auto'})</option>
+            }
             {Array.from(grouped.entries()).map(([provider, provModels]) => (
               <optgroup key={provider} label={provider}>
                 {provModels.map(m => (

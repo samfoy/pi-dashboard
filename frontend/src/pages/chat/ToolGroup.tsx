@@ -37,6 +37,8 @@ const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps)
       <button
         className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-muted font-mono bg-card border border-border rounded-md hover:text-text hover:border-border-strong transition-all cursor-pointer mb-1"
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-label={expanded ? 'Collapse tool calls' : 'Expand tool calls'}
       >
         <span className={`text-[11px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
         <span className="text-accent font-semibold">{summary.total}</span>
