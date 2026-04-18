@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 // MARK: - AppState
 
@@ -24,6 +25,7 @@ final class AppState {
     let wsManager: WebSocketManager
 
     private var eventTask: Task<Void, Never>?
+    private var connectionObserver: AnyCancellable?
 
     init(serverConfig: ServerConfig = ServerConfig()) {
         self.serverConfig = serverConfig
@@ -34,6 +36,10 @@ final class AppState {
     // MARK: - Lifecycle
 
     func start() {
+        // Bridge wsManager's @Published connectionState into @Observable connectionState
+        connectionObserver = wsManager.$connectionState.sink { [weak self] state in
+            self?.connectionState = state
+        }
         wsManager.connect()
         eventTask = Task { [weak self] in
             guard let self else { return }
@@ -46,6 +52,7 @@ final class AppState {
 
     func stop() {
         eventTask?.cancel()
+        connectionObserver?.cancel()
         wsManager.disconnect()
     }
 
@@ -111,17 +118,21 @@ final class AppState {
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].isStreaming = true
             }
+        case .contextUsage(let slotKey, _, let percent):
+            if let i = slots.firstIndex(where: { $0.key == slotKey }) {
+                slots[i].contextPercent = percent
+            }
         default:
             break
         }
     }
 
     private func mergeSlots(_ updated: [ChatSlot]) {
-        // Keep ordering from server but preserve local streaming state
         var map: [String: ChatSlot] = Dictionary(uniqueKeysWithValues: slots.map { ($0.key, $0) })
         for var s in updated {
             if let existing = map[s.key] {
                 s.isStreaming = existing.isStreaming
+                s.contextPercent = existing.contextPercent
             }
             map[s.key] = s
         }

@@ -29,9 +29,9 @@ enum ServerEvent {
     case slots([ChatSlot])
     case chatChunk(slot: String, content: String, seq: Int?)
     case chatDone(slot: String)
-    case chatMessage(slot: String, role: String, content: String, ts: Double?, meta: MessageMetaDTO?)
-    case toolCall(slot: String, tool: String, id: String)
-    case toolResult(slot: String, tool: String, id: String, isError: Bool)
+    case chatMessage(slot: String, role: String, content: String, ts: String?, meta: MessageMetaDTO?)
+    case toolCall(slot: String, tool: String, id: String, args: AnyCodable?)
+    case toolResult(slot: String, tool: String, id: String, result: String?, isError: Bool)
     case slotTitle(key: String, title: String)
     case contextUsage(slot: String, tokens: Int?, percent: Double?)
     case unknown(String)
@@ -53,7 +53,6 @@ final class WebSocketManager: ObservableObject {
     private let urlSession: URLSession
     private var config: ServerConfig
     private var reconnectTask: Task<Void, Never>?
-    private var receiveTask: Task<Void, Never>?
     private var reconnectAttempts = 0
     private let maxReconnectAttempts = 20
 
@@ -87,7 +86,6 @@ final class WebSocketManager: ObservableObject {
 
     func disconnect() {
         reconnectTask?.cancel()
-        receiveTask?.cancel()
         wsTask?.cancel(with: .normalClosure, reason: nil)
         wsTask = nil
         connectionState = .disconnected
@@ -122,11 +120,8 @@ final class WebSocketManager: ObservableObject {
         let task = urlSession.webSocketTask(with: url)
         wsTask = task
         task.resume()
-
-        // Wait briefly for actual connect (no async ping yet; rely on receive)
         connectionState = .connected
         reconnectAttempts = 0
-
         await receiveLoop(task: task)
         connectionState = .disconnected
     }
@@ -149,7 +144,6 @@ final class WebSocketManager: ObservableObject {
                     break
                 }
             } catch {
-                // Connection dropped — exit the receive loop, trigger reconnect
                 break
             }
         }
@@ -157,45 +151,63 @@ final class WebSocketManager: ObservableObject {
 
     // MARK: - Decode
 
+    /// All WS events from server use: `{ "type": "...", "data": { ... } }`
+    /// or `{ "type": "slots", "data": [ ... ] }` (array data).
     private func decode(_ text: String) -> ServerEvent? {
-        guard let data = text.data(using: .utf8) else { return nil }
-        guard let envelope = try? JSONDecoder().decode(WSEnvelope.self, from: data) else {
+        guard let rawData = text.data(using: .utf8) else { return nil }
+        guard let envelope = try? JSONDecoder().decode(WSEnvelope.self, from: rawData) else {
             return .unknown(text)
         }
 
-        let decoder = JSONDecoder()
+        // Use a snake_case-aware decoder to match server field names
+        let dec = JSONDecoder()
+        dec.keyDecodingStrategy = .convertFromSnakeCase
+
         switch envelope.type {
         case "slots":
-            if let e = try? decoder.decode(WSSlotsEvent.self, from: data) {
-                return .slots(e.slots.map { $0.toChatSlot() })
+            if let e = try? dec.decode(WSSlotsEvent.self, from: rawData) {
+                return .slots(e.data.map { $0.toChatSlot() })
             }
         case "chat_chunk":
-            if let e = try? decoder.decode(WSChatChunkEvent.self, from: data) {
-                return .chatChunk(slot: e.slot, content: e.content, seq: e.seq)
+            if let e = try? dec.decode(WSChatChunkEvent.self, from: rawData) {
+                return .chatChunk(slot: e.data.slot, content: e.data.content, seq: e.data.seq)
             }
         case "chat_done":
-            if let e = try? decoder.decode(WSChatDoneEvent.self, from: data) {
-                return .chatDone(slot: e.slot)
+            if let e = try? dec.decode(WSChatDoneEvent.self, from: rawData) {
+                return .chatDone(slot: e.data.slot)
             }
         case "chat_message":
-            if let e = try? decoder.decode(WSChatMessageEvent.self, from: data) {
-                return .chatMessage(slot: e.slot, role: e.role, content: e.content, ts: e.ts, meta: e.meta)
+            if let e = try? dec.decode(WSChatMessageEvent.self, from: rawData) {
+                return .chatMessage(
+                    slot: e.data.slot,
+                    role: e.data.role,
+                    content: e.data.content,
+                    ts: e.data.ts,
+                    meta: e.data.meta
+                )
             }
         case "tool_call":
-            if let e = try? decoder.decode(WSToolCallEvent.self, from: data) {
-                return .toolCall(slot: e.slot, tool: e.tool, id: e.id)
+            if let e = try? dec.decode(WSToolCallEvent.self, from: rawData) {
+                return .toolCall(slot: e.data.slot, tool: e.data.tool, id: e.data.id, args: e.data.args)
             }
         case "tool_result":
-            if let e = try? decoder.decode(WSToolResultEvent.self, from: data) {
-                return .toolResult(slot: e.slot, tool: e.tool, id: e.id, isError: e.isError ?? false)
+            if let e = try? dec.decode(WSToolResultEvent.self, from: rawData) {
+                let resultStr = e.data.result?.jsonString
+                return .toolResult(
+                    slot: e.data.slot,
+                    tool: e.data.tool,
+                    id: e.data.id,
+                    result: resultStr,
+                    isError: e.data.isError ?? false
+                )
             }
         case "slot_title":
-            if let e = try? decoder.decode(WSSlotTitleEvent.self, from: data) {
-                return .slotTitle(key: e.key, title: e.title)
+            if let e = try? dec.decode(WSSlotTitleEvent.self, from: rawData) {
+                return .slotTitle(key: e.data.key, title: e.data.title)
             }
         case "context_usage":
-            if let e = try? decoder.decode(WSContextUsageEvent.self, from: data) {
-                return .contextUsage(slot: e.slot, tokens: e.tokens, percent: e.percent)
+            if let e = try? dec.decode(WSContextUsageEvent.self, from: rawData) {
+                return .contextUsage(slot: e.data.slot, tokens: e.data.tokens, percent: e.data.percent)
             }
         default:
             break

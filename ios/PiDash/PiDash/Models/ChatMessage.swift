@@ -38,13 +38,21 @@ enum MessageRole: String, Codable, Equatable {
     case assistant
     case system
     case tool
+    case thinking
 }
 
 // MARK: - MessageMeta
 
 struct MessageMeta: Codable, Equatable {
+    // Assistant metadata
     var thinking: String?
     var model: String?
     var inputTokens: Int?
     var outputTokens: Int?
+    // Tool message metadata
+    var toolName: String?
+    var toolCallId: String?
+    var toolArgs: String?      // JSON string of args
+    var toolResult: String?
+    var isError: Bool?
 }

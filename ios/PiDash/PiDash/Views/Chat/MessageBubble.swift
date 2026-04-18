@@ -19,7 +19,8 @@ struct MessageBubble: View {
                 }
             }
 
-            if message.role == .assistant || message.role == .system {
+            if message.role == .assistant || message.role == .system
+                || message.role == .tool || message.role == .thinking {
                 Spacer(minLength: 60)
             }
         }
@@ -35,12 +36,26 @@ struct MessageBubble: View {
                 .background(Color.accentColor)
                 .foregroundStyle(.white)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
         case .assistant:
             Markdown(message.content)
-                .markdownTheme(.gitHub)
+                .markdownTheme(.piDash)
                 .padding(.horizontal, 4)
                 .padding(.vertical, 2)
-        case .system, .tool:
+
+        case .thinking:
+            ThinkingView(content: message.content, isActive: message.isStreaming)
+
+        case .tool:
+            ToolCallView(
+                toolName: message.meta?.toolName ?? message.content,
+                toolId: message.meta?.toolCallId ?? "",
+                args: message.meta?.toolArgs,
+                result: message.meta?.toolResult,
+                isError: message.meta?.isError ?? false
+            )
+
+        case .system:
             Text(message.content)
                 .font(.caption)
                 .foregroundStyle(.secondary)

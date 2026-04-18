@@ -2,61 +2,86 @@ import Foundation
 
 // MARK: - WebSocket Event Envelopes
 
-/// Top-level WS message envelope — all server messages have a `type` field.
+/// Top-level WS message envelope — all server messages use `{ "type": "...", "data": {...} }`.
 struct WSEnvelope: Decodable {
     let type: String
 }
 
-// MARK: - REST Response Models
-
-struct SlotsResponse: Decodable {
-    let slots: [SlotDTO]
+/// Generic data-wrapper for decoding the `data` field of a WS event.
+private struct WSDataWrapper<T: Decodable>: Decodable {
+    let data: T
 }
 
+// MARK: - REST Response Models
+
+/// `/api/chat/slots/:key` — flat object (no `slot` nesting).
 struct SlotDetailResponse: Decodable {
-    let slot: SlotDTO
     let messages: [MessageDTO]
+    let running: Bool?
+    let stopping: Bool?
+    let pendingApproval: Bool?
+    let hasMore: Bool?
+    let total: Int?
+    let model: String?
+    let cwd: String?
+    let contextUsage: ContextUsageDTO?
+}
+
+struct ContextUsageDTO: Decodable {
+    let tokens: Int?
+    let contextWindow: Int?
+    let percent: Double?
 }
 
 // MARK: - Data Transfer Objects
 
+/// Maps the flat `GET /api/chat/slots` array element.
 struct SlotDTO: Decodable {
     let key: String
     let title: String?
-    let createdAt: String?
-    let updatedAt: String?
-    let messageCount: Int?
-    let lastMessage: String?
+    let messages: Int?       // message count
+    let running: Bool?
+    let stopping: Bool?
+    let pendingApproval: Bool?
     let model: String?
+    let cwd: String?
 
     func toChatSlot() -> ChatSlot {
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let created = createdAt.flatMap { iso.date(from: $0) } ?? Date()
-        let updated = updatedAt.flatMap { iso.date(from: $0) } ?? created
         return ChatSlot(
             key: key,
             title: title ?? "New Chat",
-            createdAt: created,
-            updatedAt: updated,
-            messageCount: messageCount ?? 0,
-            lastMessage: lastMessage,
+            createdAt: dateFromKey(key),
+            updatedAt: dateFromKey(key),
+            messageCount: messages ?? 0,
+            lastMessage: nil,
+            isStreaming: running ?? false,
             model: model
         )
     }
 }
 
+/// Parse unix-ms timestamp from slot key format `chat-N-<unixMs>`.
+private func dateFromKey(_ key: String) -> Date {
+    let parts = key.split(separator: "-")
+    // key is "chat-1-1713400000000" → last component is unix ms
+    if let lastPart = parts.last, let ms = Double(lastPart) {
+        return Date(timeIntervalSince1970: ms / 1000.0)
+    }
+    return Date()
+}
+
 struct MessageDTO: Decodable {
     let role: String
     let content: String
-    let ts: Double?
+    let ts: String?          // ISO8601 string
     let meta: MessageMetaDTO?
 
     func toChatMessage(slotKey: String) -> ChatMessage {
-        let date = ts.map { Date(timeIntervalSince1970: $0 / 1000) } ?? Date()
+        let date = ts.flatMap { isoDate(from: $0) } ?? Date()
+        let msgRole = MessageRole(rawValue: role) ?? .assistant
         return ChatMessage(
             slotKey: slotKey,
-            role: MessageRole(rawValue: role) ?? .assistant,
+            role: msgRole,
             content: content,
             timestamp: date,
             meta: meta.map {
@@ -64,11 +89,24 @@ struct MessageDTO: Decodable {
                     thinking: $0.thinking,
                     model: $0.model,
                     inputTokens: $0.inputTokens,
-                    outputTokens: $0.outputTokens
+                    outputTokens: $0.outputTokens,
+                    toolName: $0.toolName,
+                    toolCallId: $0.toolCallId,
+                    toolArgs: $0.args,
+                    toolResult: $0.result,
+                    isError: $0.isError
                 )
             }
         )
     }
+}
+
+private func isoDate(from string: String) -> Date? {
+    let fmt = ISO8601DateFormatter()
+    fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let d = fmt.date(from: string) { return d }
+    fmt.formatOptions = [.withInternetDateTime]
+    return fmt.date(from: string)
 }
 
 struct MessageMetaDTO: Decodable {
@@ -76,46 +114,46 @@ struct MessageMetaDTO: Decodable {
     let model: String?
     let inputTokens: Int?
     let outputTokens: Int?
+    // Tool message fields
+    let toolName: String?
+    let toolCallId: String?
+    let args: String?         // JSON string
+    let result: String?
+    let isError: Bool?
 }
 
-// MARK: - WebSocket Event Payloads
+// MARK: - WebSocket Event Payloads (data-wrapped)
 
-struct WSSlotsEvent: Decodable {
-    let type: String
-    let slots: [SlotDTO]
+private struct WSSlotsData: Decodable {
+    // `data` field is a direct array: `{ "type": "slots", "data": [...] }`
 }
 
-struct WSChatChunkEvent: Decodable {
-    let type: String
+struct WSChatChunkData: Decodable {
     let slot: String
     let content: String
     let seq: Int?
 }
 
-struct WSChatDoneEvent: Decodable {
-    let type: String
+struct WSChatDoneData: Decodable {
     let slot: String
 }
 
-struct WSChatMessageEvent: Decodable {
-    let type: String
+struct WSChatMessageData: Decodable {
     let slot: String
     let role: String
     let content: String
-    let ts: Double?
+    let ts: String?
     let meta: MessageMetaDTO?
 }
 
-struct WSToolCallEvent: Decodable {
-    let type: String
+struct WSToolCallData: Decodable {
     let slot: String
     let tool: String
     let id: String
     let args: AnyCodable?
 }
 
-struct WSToolResultEvent: Decodable {
-    let type: String
+struct WSToolResultData: Decodable {
     let slot: String
     let tool: String
     let id: String
@@ -123,18 +161,59 @@ struct WSToolResultEvent: Decodable {
     let isError: Bool?
 }
 
-struct WSSlotTitleEvent: Decodable {
-    let type: String
+struct WSSlotTitleData: Decodable {
     let key: String
     let title: String
 }
 
-struct WSContextUsageEvent: Decodable {
-    let type: String
+struct WSContextUsageData: Decodable {
     let slot: String
     let tokens: Int?
     let contextWindow: Int?
     let percent: Double?
+}
+
+// MARK: - WS top-level typed wrappers
+
+/// `{ "type": "slots", "data": [ SlotDTO... ] }` — data is an array directly.
+struct WSSlotsEvent: Decodable {
+    let type: String
+    let data: [SlotDTO]
+}
+
+struct WSChatChunkEvent: Decodable {
+    let type: String
+    let data: WSChatChunkData
+}
+
+struct WSChatDoneEvent: Decodable {
+    let type: String
+    let data: WSChatDoneData
+}
+
+struct WSChatMessageEvent: Decodable {
+    let type: String
+    let data: WSChatMessageData
+}
+
+struct WSToolCallEvent: Decodable {
+    let type: String
+    let data: WSToolCallData
+}
+
+struct WSToolResultEvent: Decodable {
+    let type: String
+    let data: WSToolResultData
+}
+
+struct WSSlotTitleEvent: Decodable {
+    let type: String
+    let data: WSSlotTitleData
+}
+
+struct WSContextUsageEvent: Decodable {
+    let type: String
+    let data: WSContextUsageData
 }
 
 // MARK: - Send Message Request
@@ -145,7 +224,11 @@ struct SendMessageRequest: Encodable {
 }
 
 struct CreateSlotRequest: Encodable {
-    let title: String?
+    let name: String?   // API uses "name" not "title"
+
+    init(title: String? = nil) {
+        self.name = title
+    }
 }
 
 // MARK: - AnyCodable helper
@@ -180,5 +263,15 @@ struct AnyCodable: Codable {
         case let b as Bool: try container.encode(b)
         default: try container.encodeNil()
         }
+    }
+
+    /// Best-effort JSON string representation of the contained value.
+    var jsonString: String? {
+        if let s = value as? String { return s }
+        if let data = try? JSONSerialization.data(withJSONObject: value),
+           let str = String(data: data, encoding: .utf8) {
+            return str
+        }
+        return "\(value)"
     }
 }

@@ -6,14 +6,14 @@ struct SlotListView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: SlotListViewModel?
     @State private var showSettings = false
-    @State private var selectedSlotKey: String?
+    @State private var navigateToSlotKey: String?
 
     var body: some View {
         Group {
             if let vm = viewModel {
                 SlotListContent(
                     viewModel: vm,
-                    selectedSlotKey: $selectedSlotKey,
+                    navigateToSlotKey: $navigateToSlotKey,
                     showSettings: $showSettings
                 )
             } else {
@@ -30,64 +30,92 @@ struct SlotListView: View {
 
 private struct SlotListContent: View {
     @Bindable var viewModel: SlotListViewModel
-    @Binding var selectedSlotKey: String?
+    @Binding var navigateToSlotKey: String?
     @Binding var showSettings: Bool
     @Environment(AppState.self) private var appState
 
     var body: some View {
         NavigationStack {
-            Group {
-                if viewModel.slots.isEmpty && !appState.isLoadingSlots {
-                    EmptyStateView(
-                        icon: "bubble.left.and.bubble.right",
-                        title: "No Chats",
-                        message: "Start a new conversation with the + button."
-                    )
-                } else {
-                    List {
-                        ForEach(viewModel.groupedSlots, id: \.group) { section in
-                            Section(section.group.rawValue) {
-                                ForEach(section.slots) { slot in
-                                    NavigationLink(destination: ChatView(slot: slot)) {
-                                        SlotRow(slot: slot)
-                                    }
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                        Button(role: .destructive) {
-                                            Task { await viewModel.delete(slotKey: slot.key) }
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
+            ZStack(alignment: .top) {
+                listBody
+                    .searchable(text: $viewModel.searchText, prompt: "Search chats")
+                    .navigationTitle("PiDash")
+                    .toolbar { toolbarItems }
+                    .sheet(isPresented: $showSettings) { SettingsView() }
+                    .overlay(alignment: .top) {
+                        ConnectionBanner(state: appState.connectionState)
+                            .padding(.top, 8)
+                            .animation(.spring(duration: 0.4), value: appState.connectionState.isConnected)
+                    }
+                    // Navigate to newly created slot
+                    .navigationDestination(isPresented: Binding(
+                        get: { navigateToSlotKey != nil },
+                        set: { if !$0 { navigateToSlotKey = nil } }
+                    )) {
+                        if let key = navigateToSlotKey,
+                           let slot = appState.slots.first(where: { $0.key == key }) {
+                            ChatView(slot: slot)
+                        }
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var listBody: some View {
+        if appState.isLoadingSlots && viewModel.slots.isEmpty {
+            ProgressView("Loading chats…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if viewModel.slots.isEmpty && !appState.isLoadingSlots {
+            EmptyStateView(
+                icon: "bubble.left.and.bubble.right",
+                title: "No Chats",
+                message: "Start a new conversation with the + button."
+            )
+        } else {
+            List {
+                ForEach(viewModel.groupedSlots, id: \.group) { section in
+                    Section(section.group.rawValue) {
+                        ForEach(section.slots) { slot in
+                            NavigationLink(destination: ChatView(slot: slot)) {
+                                SlotRow(slot: slot)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    HapticManager.slotDeleted()
+                                    Task { await viewModel.delete(slotKey: slot.key) }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
                                 }
                             }
                         }
                     }
-                    .listStyle(.insetGrouped)
-                    .refreshable { await viewModel.refresh() }
                 }
             }
-            .searchable(text: $viewModel.searchText, prompt: "Search chats")
-            .navigationTitle("PiDash")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task {
-                            _ = await viewModel.createNewSlot()
-                        }
-                    } label: {
-                        Image(systemName: "square.and.pencil")
+            .listStyle(.insetGrouped)
+            .animation(.default, value: viewModel.filteredSlots.count)
+            .refreshable { await viewModel.refresh() }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarItems: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                Task {
+                    if let newSlot = await viewModel.createNewSlot() {
+                        navigateToSlotKey = newSlot.key
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gear")
-                    }
-                }
+            } label: {
+                Image(systemName: "square.and.pencil")
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
+        }
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gear")
             }
         }
     }

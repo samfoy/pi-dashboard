@@ -5,8 +5,13 @@ import SwiftUI
 struct ChatInputBar: View {
     @Binding var text: String
     let isStreaming: Bool
+    var isDisabled: Bool = false
     let onSend: () -> Void
     let onStop: () -> Void
+
+    private var canSend: Bool {
+        !isStreaming && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isDisabled
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 10) {
@@ -19,20 +24,26 @@ struct ChatInputBar: View {
                         .fill(Color(.systemGray6))
                 )
                 .submitLabel(.send)
+                .disabled(isDisabled)
                 .onSubmit {
-                    if !isStreaming && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if canSend {
                         onSend()
                     }
                 }
 
-            Button(action: isStreaming ? onStop : onSend) {
+            Button(action: {
+                if isStreaming { onStop() } else { onSend() }
+            }) {
                 Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
                     .font(.system(size: 30))
-                    .foregroundStyle(isStreaming ? Color.red : (text.isEmpty ? Color.secondary : Color.accentColor))
+                    .foregroundStyle(
+                        isStreaming ? Color.red
+                            : (canSend ? Color.accentColor : Color.secondary)
+                    )
                     .contentTransition(.symbolEffect(.replace))
                     .animation(.spring(duration: 0.3), value: isStreaming)
             }
-            .disabled(!isStreaming && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!isStreaming && !canSend)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

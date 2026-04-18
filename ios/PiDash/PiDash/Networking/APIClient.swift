@@ -46,33 +46,40 @@ actor APIClient {
 
     // MARK: - Slots
 
+    /// `GET /api/chat/slots` → `[SlotDTO]` (direct array)
     func fetchSlots() async throws -> [ChatSlot] {
         let url = try requireURL(path: "/chat/slots")
         let data = try await get(url: url)
-        // The server returns {slots: [...]} or just [...]
-        if let response = try? decoder.decode(SlotsResponse.self, from: data) {
-            return response.slots.map { $0.toChatSlot() }
+        do {
+            let dtos = try decoder.decode([SlotDTO].self, from: data)
+            return dtos.map { $0.toChatSlot() }
+        } catch {
+            throw APIError.decodingError(error)
         }
-        // Try array directly
-        let dtos = try decoder.decode([SlotDTO].self, from: data)
-        return dtos.map { $0.toChatSlot() }
     }
 
-    func fetchSlotDetail(key: String) async throws -> (ChatSlot, [ChatMessage]) {
+    /// `GET /api/chat/slots/:key` → flat `SlotDetailResponse`
+    func fetchSlotDetail(key: String) async throws -> [ChatMessage] {
         let url = try requireURL(path: "/chat/slots/\(key)")
         let data = try await get(url: url)
-        let response = try decoder.decode(SlotDetailResponse.self, from: data)
-        let slot = response.slot.toChatSlot()
-        let messages = response.messages.map { $0.toChatMessage(slotKey: key) }
-        return (slot, messages)
+        do {
+            let response = try decoder.decode(SlotDetailResponse.self, from: data)
+            return response.messages.map { $0.toChatMessage(slotKey: key) }
+        } catch {
+            throw APIError.decodingError(error)
+        }
     }
 
     func createSlot(title: String? = nil) async throws -> ChatSlot {
         let url = try requireURL(path: "/chat/slots")
         let body = CreateSlotRequest(title: title)
         let data = try await post(url: url, body: body)
-        let dto = try decoder.decode(SlotDTO.self, from: data)
-        return dto.toChatSlot()
+        do {
+            let dto = try decoder.decode(SlotDTO.self, from: data)
+            return dto.toChatSlot()
+        } catch {
+            throw APIError.decodingError(error)
+        }
     }
 
     func deleteSlot(key: String) async throws {
@@ -80,15 +87,28 @@ actor APIClient {
         try await delete(url: url)
     }
 
+    /// `POST /api/chat` with `{slot, message}` body
     func sendMessage(slot: String, message: String) async throws {
         let url = try requireURL(path: "/chat")
         let body = SendMessageRequest(slot: slot, message: message)
         _ = try await post(url: url, body: body)
     }
 
+    /// `POST /api/chat/slots/:key/stop`
     func stopGeneration(slot: String) async throws {
         let url = try requireURL(path: "/chat/slots/\(slot)/stop")
         _ = try await post(url: url, body: EmptyBody())
+    }
+
+    /// `GET /api/status` — for settings connection test
+    func fetchStatus() async throws -> String {
+        let url = try requireURL(path: "/status")
+        let data = try await get(url: url)
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let version = json["version"] as? String {
+            return "Connected — v\(version)"
+        }
+        return "Connected"
     }
 
     // MARK: - Private HTTP helpers

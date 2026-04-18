@@ -5,7 +5,7 @@ import SwiftUI
 struct ToolCallView: View {
     let toolName: String
     let toolId: String
-    var isExpanded: Bool = false
+    var args: String? = nil
     var result: String? = nil
     var isError: Bool = false
 
@@ -26,6 +26,9 @@ struct ToolCallView: View {
                         Image(systemName: isError ? "exclamationmark.circle" : "checkmark.circle")
                             .font(.caption)
                             .foregroundStyle(isError ? .red : .green)
+                    } else {
+                        ProgressView()
+                            .controlSize(.mini)
                     }
                     Image(systemName: "chevron.right")
                         .font(.caption2)
@@ -35,18 +38,43 @@ struct ToolCallView: View {
             }
             .buttonStyle(.plain)
 
-            if expanded, let result {
-                Text(result)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .padding(8)
-                    .background(Color(.systemGray6))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            if expanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let args, !args.isEmpty {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Arguments")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            Text(String(args.prefix(300)))
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(.systemGray6))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                    }
+                    if let result {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Result")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            Text(String(result.prefix(500)))
+                                .font(.caption.monospaced())
+                                .foregroundStyle(isError ? .red : .secondary)
+                                .padding(8)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(.systemGray6))
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                    }
+                }
             }
         }
         .padding(10)
         .background(Color(.systemGray5))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .onAppear { expanded = isExpanded }
     }
 }
