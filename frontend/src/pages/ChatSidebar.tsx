@@ -39,6 +39,8 @@ interface ChatSidebarProps {
   onViewNotification: (n: Notification | null) => void
   onNewSessionInCwd?: (cwd: string) => void
   onNewSession?: () => void
+  mobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
 const SIDEBAR_MIN = 180
@@ -67,6 +69,7 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): { key: string; item
 function ChatSidebar({
   slots, activeSlot, unreadSlots, notifications, history, historyHasMore,
   viewingNotification, onViewNotification, onNewSessionInCwd, onNewSession,
+  mobileOpen, onMobileClose,
 }: ChatSidebarProps) {
   const dispatch = useAppDispatch()
 
@@ -110,10 +113,15 @@ function ChatSidebar({
   const visibleNotifs = notifications.slice().reverse().slice(0, notifLimit)
 
   return (
-    <div className="bg-bg-accent border-r border-border flex flex-col shrink-0 relative" style={{ width: sidebarWidth }}>
-      {/* Drag handle */}
+    <>
+    {mobileOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onMobileClose} />}
+    <div className={`bg-bg-accent border-r border-border flex flex-col shrink-0 relative
+      fixed top-0 left-0 bottom-0 w-[280px] z-50 transition-transform duration-300 md:relative md:z-auto md:translate-x-0 md:transition-none
+      ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? sidebarWidth : undefined }}>
+      {/* Drag handle (desktop only) */}
       <div
-        className="absolute top-0 -right-[2px] w-[5px] h-full cursor-col-resize z-10 group/drag flex items-center justify-center"
+        className="absolute top-0 -right-[2px] w-[5px] h-full cursor-col-resize z-10 group/drag items-center justify-center hidden md:flex"
         onMouseDown={e => { e.preventDefault(); sidebarDragging.current = true; sidebarStartX.current = e.clientX; sidebarStartW.current = sidebarWidth; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none' }}
       >
         <div className="w-[2px] h-full bg-transparent group-hover/drag:bg-orange-400 group-active/drag:bg-orange-500 transition-colors duration-200" />
@@ -226,6 +234,7 @@ function ChatSidebar({
         </div>
       </>)}
     </div>
+    </>
   )
 }
 

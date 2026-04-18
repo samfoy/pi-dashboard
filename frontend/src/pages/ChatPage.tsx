@@ -971,7 +971,7 @@ export default function ChatPage() {
             <div className="flex-1 min-h-0 flex">
               {/* Tree panel */}
               {showTree && activeSlot && (
-                <div className="w-[320px] shrink-0 border-r border-border bg-bg-elevated overflow-hidden">
+                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border">
                   <SessionTree
                     slotKey={activeSlot}
                     onFork={(newSlotKey, text) => { setShowTree(false); dispatch(switchSlot(newSlotKey)); if (text) { setInput(text); setTimeout(() => inputRef.current?.focus(), 100) } }}
@@ -980,12 +980,12 @@ export default function ChatPage() {
                 </div>
               )}
               {showRefs && (
-                <div className="w-[320px] shrink-0 border-r border-border bg-bg-elevated overflow-hidden">
+                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border">
                   <ReferencedFiles files={referencedFiles} onFileOpen={handleFileOpen} onClose={() => setShowRefs(false)} />
                 </div>
               )}
               {showFiles && (
-                <div className="w-[320px] shrink-0 border-r border-border bg-bg-elevated overflow-hidden">
+                <div className="fixed inset-0 z-30 bg-bg-elevated overflow-hidden md:relative md:inset-auto md:z-auto md:w-[320px] md:shrink-0 md:border-r md:border-border">
                   <FileBrowser onFileOpen={handleFileOpen} onClose={() => setShowFiles(false)} startPath={currentSlot?.cwd || undefined} />
                 </div>
               )}
@@ -1035,7 +1035,7 @@ export default function ChatPage() {
                 <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={() => setPrefillHint(false)}>✕</button>
               </div>
             )}
-            <div className={`flex gap-2.5 px-5 py-3.5 border-t border-border bg-chrome items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
+            <div className={`flex flex-col md:flex-row gap-2.5 px-3 md:px-5 py-3.5 border-t border-border bg-chrome md:items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
@@ -1070,7 +1070,7 @@ export default function ChatPage() {
                 onKeyDown={e => { if (e.key === 'Tab' && !e.shiftKey && !input.startsWith('/')) { e.preventDefault(); setPathMenuOpen(true); setCursorPos(inputRef.current?.selectionStart ?? 0) } else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; const cap = prefillHint ? 320 : 140; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, cap) + 'px' }} />
               </div>
-              <button className="btn-sweep bg-accent text-white border-none rounded-lg px-5 h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0) || slotStopping}>Send</button>
+              <button className="btn-sweep bg-accent text-white border-none rounded-lg w-full md:w-auto px-5 h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0) || slotStopping}>Send</button>
             </div>
           </div></>}
             </div>
