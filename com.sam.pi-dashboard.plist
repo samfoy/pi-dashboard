@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.sam.pi-dashboard</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/sam.painter/pi-dashboard/start.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/sam.painter/pi-dashboard</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/sam.painter/.local/bin:/Users/sam.painter/.cargo/bin</string>
+        <key>HOME</key>
+        <string>/Users/sam.painter</string>
+        <key>PI_DASH_PORT</key>
+        <string>7777</string>
+    </dict>
+
+    <!-- Start on login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Always keep running — restart on any exit -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Wait 10 seconds before restarting after exit -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Logs -->
+    <key>StandardOutPath</key>
+    <string>/Users/sam.painter/Library/Logs/pi-dashboard/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/sam.painter/Library/Logs/pi-dashboard/stderr.log</string>
+</dict>
+</plist>
