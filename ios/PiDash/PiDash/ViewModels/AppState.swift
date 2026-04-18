@@ -184,7 +184,8 @@ final class AppState {
             }
         case .contextUsage(let slotKey, _, let percent):
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
-                slots[i].contextPercent = percent
+                // Server sends percent as 0-100, normalize to 0.0-1.0
+                slots[i].contextPercent = (percent ?? 0) / 100.0
             }
         case .notification(let kind, _, _, let slotKey, _) where kind == "input_needed":
             if let slotKey,
