@@ -1,4 +1,0 @@
-module Highlightr {
-header "Highlightr-Swift.h"
-export *
-}

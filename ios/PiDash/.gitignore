@@ -1,0 +1,15 @@
+# Xcode build artifacts
+build/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# SPM
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Pods (not used but just in case)
+Pods/

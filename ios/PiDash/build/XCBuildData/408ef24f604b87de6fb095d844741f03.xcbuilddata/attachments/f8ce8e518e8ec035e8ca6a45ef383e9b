@@ -1,4 +1,0 @@
-module NetworkImage {
-header "NetworkImage-Swift.h"
-export *
-}
