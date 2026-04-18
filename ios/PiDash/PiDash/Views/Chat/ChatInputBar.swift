@@ -96,15 +96,9 @@ struct ChatInputBar: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(Color(.systemGray6))
                     )
-                    .submitLabel(.send)
+                    .submitLabel(.return)
                     .disabled(isDisabled)
                     .focused($isFocused)
-                    .onSubmit {
-                        if canSend {
-                            isFocused = false
-                            onSend()
-                        }
-                    }
 
                 Button(action: {
                     if isStreaming {

@@ -68,7 +68,12 @@ final class ChatViewModel {
             let imgText = images.map { "![image](data:\($0.mimeType);base64,...)" }.joined(separator: "\n")
             userContent = text.isEmpty ? imgText : text + "\n" + imgText
         }
-        let userMsg = ChatMessage(slotKey: slotKey, role: .user, content: userContent)
+        let userMsg = ChatMessage(
+            slotKey: slotKey,
+            role: .user,
+            content: userContent,
+            imageData: images.map { $0.data }
+        )
         messages.append(userMsg)
 
         // Prepare streaming assistant placeholder
@@ -110,11 +115,10 @@ final class ChatViewModel {
     func loadModels() async {
         do {
             let allModels = try await apiClient.fetchModels()
-            // Filter to only sonnet 4.6 and opus 4.6
+            // Exclude geographic-prefix duplicates (eu.*, global.*) — same model, different routing
             availableModels = allModels.filter { m in
                 let id = m.id.lowercased()
-                return (id.contains("sonnet-4-6") || id.contains("opus-4-6"))
-                    && !id.hasPrefix("eu.") && !id.hasPrefix("global.")
+                return !id.hasPrefix("eu.") && !id.hasPrefix("global.")
             }
         } catch {
             print("[ChatVM] Failed to load models: \(error)")
