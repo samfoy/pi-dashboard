@@ -128,10 +128,21 @@ final class AppState {
         case .chatDone(let slotKey):
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].isStreaming = false
+                slots[i].updatedAt = Date()
             }
         case .chatChunk(let slotKey, _, _):
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].isStreaming = true
+                slots[i].updatedAt = Date()
+            }
+        case .chatMessage(let slotKey, _, let content, _, _):
+            if let i = slots.firstIndex(where: { $0.key == slotKey }) {
+                slots[i].updatedAt = Date()
+                slots[i].lastMessage = String(content.prefix(100))
+            }
+        case .toolCall(let slotKey, _, _, _):
+            if let i = slots.firstIndex(where: { $0.key == slotKey }) {
+                slots[i].updatedAt = Date()
             }
         case .contextUsage(let slotKey, _, let percent):
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
@@ -154,8 +165,16 @@ final class AppState {
         var map: [String: ChatSlot] = Dictionary(uniqueKeysWithValues: slots.map { ($0.key, $0) })
         for var s in updated {
             if let existing = map[s.key] {
+                // Preserve local state that the server doesn't track
                 s.isStreaming = existing.isStreaming
                 s.contextPercent = existing.contextPercent
+                // Keep local updatedAt if it's more recent (from WS events)
+                if existing.updatedAt > s.updatedAt {
+                    s.updatedAt = existing.updatedAt
+                }
+                if let msg = existing.lastMessage {
+                    s.lastMessage = msg
+                }
             }
             map[s.key] = s
         }
