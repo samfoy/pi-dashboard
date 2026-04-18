@@ -6,6 +6,7 @@ import MarkdownUI
 struct ChatView: View {
     let slot: ChatSlot
     @Environment(AppState.self) private var appState
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: ChatViewModel?
 
     var body: some View {
@@ -35,6 +36,15 @@ struct ChatView: View {
         }
         .onAppear {
             appState.clearNotification(forSlot: slot.key)
+            // Refresh messages when returning to chat (catches messages from other clients)
+            if let vm = viewModel, !vm.isLoadingHistory {
+                Task { await vm.loadHistory() }
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active, let vm = viewModel, !vm.isLoadingHistory {
+                Task { await vm.loadHistory() }
+            }
         }
         .navigationTitle(viewModel?.slot.title ?? slot.title)
         .navigationBarTitleDisplayMode(.inline)
