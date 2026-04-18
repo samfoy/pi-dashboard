@@ -25,6 +25,7 @@ struct ChatInputBar: View {
 
     @State private var showPhotoPicker = false
     @State private var showDocumentPicker = false
+    @State private var showCamera = false
     @State private var photoSelection: [PhotosPickerItem] = []
 
     private var canSend: Bool {
@@ -77,8 +78,7 @@ struct ChatInputBar: View {
                         Label("Document", systemImage: "doc")
                     }
                     Button {
-                        // Camera
-                        showCamera()
+                        showCamera = true
                     } label: {
                         Label("Take Photo", systemImage: "camera")
                     }
@@ -138,6 +138,15 @@ struct ChatInputBar: View {
                 pendingImages.append(contentsOf: images)
             }
         }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraPicker { image in
+                if let jpeg = image.jpegData(compressionQuality: 0.8) {
+                    let thumb = image.preparingThumbnail(of: CGSize(width: 120, height: 120)) ?? image
+                    pendingImages.append(PendingImage(data: jpeg, mimeType: "image/jpeg", thumbnail: thumb))
+                }
+            }
+            .ignoresSafeArea()
+        }
     }
 
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
@@ -155,10 +164,6 @@ struct ChatInputBar: View {
         await MainActor.run { photoSelection = [] }
     }
 
-    private func showCamera() {
-        // Camera requires UIKit — handled via DocumentPicker/ImagePicker
-        // For now, photo library is the primary path
-    }
 }
 
 // MARK: - Document Picker (UIKit bridge)
@@ -207,6 +212,45 @@ struct DocumentPicker: UIViewControllerRepresentable {
                 }
             }
             onPick(images)
+        }
+    }
+}
+
+// MARK: - Camera Picker (UIKit bridge)
+
+struct CameraPicker: UIViewControllerRepresentable {
+    let onCapture: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(onCapture: onCapture, dismiss: dismiss) }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onCapture: (UIImage) -> Void
+        let dismiss: DismissAction
+
+        init(onCapture: @escaping (UIImage) -> Void, dismiss: DismissAction) {
+            self.onCapture = onCapture
+            self.dismiss = dismiss
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
+            }
+            dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            dismiss()
         }
     }
 }

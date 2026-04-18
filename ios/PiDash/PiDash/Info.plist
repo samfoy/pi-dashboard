@@ -39,6 +39,10 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>PiDash uses the camera to take photos to share in chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PiDash accesses your photos to attach images to messages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>PiDash connects to your pi-dashboard server on the local network.</string>
 	<key>NSBonjourServices</key>
