@@ -33,6 +33,8 @@ private struct SlotListContent: View {
     @Binding var navigateToSlotKey: String?
     @Binding var showSettings: Bool
     @Environment(AppState.self) private var appState
+    @State private var renamingSlot: ChatSlot?
+    @State private var renameTitle: String = ""
 
     var body: some View {
         NavigationStack {
@@ -80,6 +82,20 @@ private struct SlotListContent: View {
                             NavigationLink(destination: ChatView(slot: slot)) {
                                 SlotRow(slot: slot)
                             }
+                            .contextMenu {
+                                Button {
+                                    renameTitle = slot.title
+                                    renamingSlot = slot
+                                } label: {
+                                    Label("Rename", systemImage: "pencil")
+                                }
+                                Button(role: .destructive) {
+                                    HapticManager.slotDeleted()
+                                    Task { await viewModel.delete(slotKey: slot.key) }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     HapticManager.slotDeleted()
@@ -95,6 +111,20 @@ private struct SlotListContent: View {
             .listStyle(.insetGrouped)
             .animation(.default, value: viewModel.filteredSlots.count)
             .refreshable { await viewModel.refresh() }
+            .alert("Rename Chat", isPresented: Binding(
+                get: { renamingSlot != nil },
+                set: { if !$0 { renamingSlot = nil } }
+            )) {
+                TextField("Chat name", text: $renameTitle)
+                Button("Save") {
+                    guard let slot = renamingSlot, !renameTitle.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    let newTitle = renameTitle.trimmingCharacters(in: .whitespaces)
+                    Task { await viewModel.rename(slotKey: slot.key, title: newTitle) }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Enter a new name for this chat.")
+            }
         }
     }
 

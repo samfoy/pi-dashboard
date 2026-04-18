@@ -100,6 +100,13 @@ actor APIClient {
         try await delete(url: url)
     }
 
+    /// `PATCH /api/chat/slots/:key/title`
+    func renameSlot(key: String, title: String) async throws {
+        let url = try requireURL(path: "/chat/slots/\(key)/title")
+        let body = RenameSlotRequest(title: title)
+        _ = try await patch(url: url, body: body)
+    }
+
     /// `POST /api/chat?ws=1` with `{slot, message, images?}` body
     func sendMessage(slot: String, message: String, images: [ImagePayload]? = nil) async throws {
         let url = try requireURL(path: "/chat?ws=1")
@@ -159,6 +166,14 @@ actor APIClient {
     private func post<B: Encodable>(url: URL, body: B) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        return try await perform(request)
+    }
+
+    private func patch<B: Encodable>(url: URL, body: B) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(body)
         return try await perform(request)

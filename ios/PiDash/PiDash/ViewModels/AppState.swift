@@ -95,6 +95,17 @@ final class AppState {
         }
     }
 
+    func renameSlot(key: String, title: String) async {
+        do {
+            try await apiClient.renameSlot(key: key, title: title)
+            if let i = slots.firstIndex(where: { $0.key == key }) {
+                slots[i].title = title
+            }
+        } catch {
+            slotsError = error.localizedDescription
+        }
+    }
+
     // MARK: - Config update
 
     func updateServerConfig(baseURL: String) {

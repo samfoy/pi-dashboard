@@ -271,6 +271,10 @@ struct CreateSlotRequest: Encodable {
     }
 }
 
+struct RenameSlotRequest: Encodable {
+    let title: String
+}
+
 struct SetModelRequest: Encodable {
     let provider: String
     let modelId: String

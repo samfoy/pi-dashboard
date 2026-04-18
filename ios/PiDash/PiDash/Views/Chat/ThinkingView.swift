@@ -6,6 +6,8 @@ struct ThinkingView: View {
     var content: String = ""
     var isActive: Bool = false
     @State private var expanded = false
+    @State private var startTime: Date?
+    @State private var thinkingSeconds: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -15,7 +17,7 @@ struct ThinkingView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .symbolEffect(.pulse, isActive: isActive)
-                    Text(isActive ? "Thinking…" : "Thought")
+                    Text(headerLabel)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -26,6 +28,15 @@ struct ThinkingView: View {
                 }
             }
             .buttonStyle(.plain)
+            .onChange(of: isActive) { _, active in
+                if active {
+                    startTime = Date()
+                    thinkingSeconds = nil
+                } else if let start = startTime {
+                    thinkingSeconds = max(1, Int(Date().timeIntervalSince(start)))
+                    startTime = nil
+                }
+            }
 
             if expanded, !content.isEmpty {
                 Text(content)
@@ -40,5 +51,11 @@ struct ThinkingView: View {
         .padding(10)
         .background(Color(.systemGray5))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var headerLabel: String {
+        if isActive { return "Thinking\u{2026}" }
+        if let secs = thinkingSeconds { return "Thought for \(secs)s" }
+        return "Thought"
     }
 }

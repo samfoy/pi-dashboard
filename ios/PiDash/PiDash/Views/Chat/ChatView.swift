@@ -36,6 +36,19 @@ struct ChatView: View {
         .navigationTitle(viewModel?.slot.title ?? slot.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 1) {
+                    Text(viewModel?.slot.title ?? slot.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                    if let modelName = viewModel?.currentModel?.name ?? viewModel?.slot.model {
+                        Text(modelName)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 if let vm = viewModel {
                     ChatSettingsMenu(viewModel: vm)
