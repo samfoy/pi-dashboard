@@ -5,7 +5,11 @@ export default function NotificationItem({ n, active, onOpen, onDelete }: { n: N
   return (
     <div
       className={`group p-2 px-2.5 rounded-md mb-1 text-[13px] border bg-card cursor-pointer transition-all animate-slide-in-left hover:border-border-strong hover:bg-bg-hover ${acked ? 'opacity-50' : ''} ${active ? 'border-accent bg-accent-subtle' : n.kind === 'approval' || n.kind === 'input_needed' ? 'border-l-[3px] border-l-warn border-border' : n.kind === 'cron' ? 'border-l-[3px] border-l-accent border-border' : 'border-l-[3px] border-l-info border-border'}`}
+      role="button"
+      tabIndex={0}
       onClick={() => onOpen?.()}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen?.() } }}
+      aria-label={n.title}
       title={n.title}
     >
       <div className="font-semibold text-text-strong text-[13px] mb-0.5 flex items-start gap-1.5">

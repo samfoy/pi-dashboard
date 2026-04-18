@@ -146,7 +146,10 @@ function ChatSidebar({
                 const agentColor = 'text-accent'
                 return (
                   <div key={s.key} className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
-                    onMouseDown={(e) => { e.preventDefault(); if ((e.target as HTMLElement).dataset.close) { dispatch(deleteSlot(s.key)); return }; onViewNotification(null); dispatch(switchSlot(s.key)) }}>
+                    role="button"
+                    tabIndex={0}
+                    onMouseDown={(e) => { e.preventDefault(); if ((e.target as HTMLElement).dataset.close) { dispatch(deleteSlot(s.key)); return }; onViewNotification(null); dispatch(switchSlot(s.key)) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewNotification(null); dispatch(switchSlot(s.key)) } }}>
                     {unreadSlots.includes(s.key) ? <span className="w-2 h-2 rounded-full bg-[var(--info)] shrink-0 shadow-[0_0_6px_rgba(59,130,246,.4)] animate-dot-breathe self-center" /> : <span className="w-2 shrink-0" />}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className={`text-[11px] font-semibold truncate leading-tight flex items-center gap-1 ${agentColor}`}>
@@ -190,7 +193,13 @@ function ChatSidebar({
           <NotificationItem key={n.ts} n={n} active={viewingNotification?.ts === n.ts} onOpen={() => { onViewNotification(n) }} onDelete={(ts) => dispatch(deleteNotification(ts))} />
         ))}
         {notifications.length > notifLimit && (
-          <div className="flex justify-center py-2 text-accent text-[13px] font-medium cursor-pointer hover:bg-accent-subtle rounded-md" onClick={() => setNotifLimit(prev => prev + 50)}>
+          <div
+            className="flex justify-center py-2 text-accent text-[13px] font-medium cursor-pointer hover:bg-accent-subtle rounded-md"
+            role="button"
+            tabIndex={0}
+            onClick={() => setNotifLimit(prev => prev + 50)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNotifLimit(prev => prev + 50) } }}
+          >
             Load more… ({notifications.length - notifLimit} remaining)
           </div>
         )}
@@ -214,11 +223,15 @@ function ChatSidebar({
               <div key={g.key || '__ungrouped'}>
                 {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">📂</span>{g.key || 'Other'}</div>}
                 {g.items.map(s => (
-                  <div key={s.key} className="group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm text-muted hover:text-text hover:bg-bg-hover transition-all mb-0.5 border border-transparent" title={s.title || s.key} onMouseDown={(e) => {
-                    e.preventDefault()
-                    if ((e.target as HTMLElement).dataset.close) { dispatch(deleteHistorySession(s.key)); return }
-                    dispatch(resumeFromHistory({ key: s.key, title: s.title || s.key }))
-                  }}>
+                  <div key={s.key} className="group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm text-muted hover:text-text hover:bg-bg-hover transition-all mb-0.5 border border-transparent" title={s.title || s.key}
+                    role="button"
+                    tabIndex={0}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      if ((e.target as HTMLElement).dataset.close) { dispatch(deleteHistorySession(s.key)); return }
+                      dispatch(resumeFromHistory({ key: s.key, title: s.title || s.key }))
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch(resumeFromHistory({ key: s.key, title: s.title || s.key })) } }}>
                     <span className="w-2 h-2 mt-1.5 rounded-full border-[1.5px] border-muted-strong shrink-0" />
                     <span className="text-[12px] mt-0.5 shrink-0">{s.key.startsWith('dashboard') ? '🖥' : <svg className="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="none"><path d="M6 15a2 2 0 1 1 0-4h4v4a2 2 0 1 1-4 0Zm4-4V5a2 2 0 1 1 4 0v6h-4Z" fill="#E01E5A"/><path d="M18 9a2 2 0 1 1 0 4h-4V9a2 2 0 1 1 4 0Zm-4 4v6a2 2 0 1 1-4 0v-6h4Z" fill="#36C5F0"/><path d="M10 5a2 2 0 0 1 4 0v4h-4V5Z" fill="#2EB67D"/><path d="M14 19a2 2 0 0 1-4 0v-4h4v4Z" fill="#ECB22E"/></svg>}</span>
                     <div className="flex-1 min-w-0">
@@ -232,7 +245,7 @@ function ChatSidebar({
               </div>
             ))
           })()}
-          {historyHasMore && <div className="flex justify-center py-2 text-accent text-[13px] font-medium cursor-pointer hover:bg-accent-subtle rounded-md" onMouseDown={(e) => { e.preventDefault(); dispatch(fetchHistory(true)) }}>Load more…</div>}
+          {historyHasMore && <div className="flex justify-center py-2 text-accent text-[13px] font-medium cursor-pointer hover:bg-accent-subtle rounded-md" role="button" tabIndex={0} onMouseDown={(e) => { e.preventDefault(); dispatch(fetchHistory(true)) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch(fetchHistory(true)) } }}>Load more…</div>}
         </div>
       </>)}
     </div>
