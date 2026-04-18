@@ -9,7 +9,8 @@
     "restart": "./restart.sh",
     "restart:build": "./restart.sh --build",
     "build-frontend": "cd frontend && npm install --no-audit --no-fund && npm run build",
-    "setup": "npm install --no-audit --no-fund && npm run build-frontend"
+    "setup": "npm install --no-audit --no-fund && npm run build-frontend",
+    "start:tailscale": "PI_DASH_PORT=7777 node backend/server.js"
   },
   "dependencies": {
     "express": "^4.21.0",

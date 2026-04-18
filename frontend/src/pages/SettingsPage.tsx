@@ -383,9 +383,9 @@ function SkillsTab() {
       )}
       <Card>
         <CardTitle>Skills <InfoTip text="Edit SKILL.md files and scripts in ~/.pi/agent/skills/" /></CardTitle>
-        <div className="flex gap-4 min-h-[400px]">
+        <div className="flex flex-col md:flex-row gap-4 min-h-[400px]">
           {/* Skill list */}
-          <div className="w-48 shrink-0 border-r border-border pr-3 overflow-y-auto max-h-[500px]">
+          <div className="w-full md:w-48 shrink-0 md:border-r border-b md:border-b-0 border-border pb-3 md:pb-0 md:pr-3 overflow-y-auto max-h-[200px] md:max-h-[500px]">
             {skills.map(s => (
               <button key={s.name} onClick={() => selectSkill(s.name)}
                 className={`w-full text-left px-2 py-1.5 rounded text-[13px] font-mono truncate cursor-pointer transition-colors ${
@@ -497,8 +497,8 @@ export default function SettingsPage() {
   return (
     <>
       <PageHeader title="Settings" subtitle="Configure Pi Dashboard preferences" />
-      <div className="px-6 pb-8 overflow-y-auto flex-1 min-h-0">
-        <div className="flex gap-1.5 mb-6 border-b border-border pb-3">
+      <div className="px-3 md:px-6 pb-8 overflow-y-auto flex-1 min-h-0">
+        <div className="flex flex-wrap gap-1.5 mb-6 border-b border-border pb-3">
           {tabs.map(t => (
             <button
               key={t.id}

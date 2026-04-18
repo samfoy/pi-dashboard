@@ -1320,6 +1320,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`   Local:    http://localhost:${PORT}`)
   console.log(`   Network:  http://${hostname}:${PORT}`)
   console.log(`   Custom:   http://pi.dash:${PORT}`)
+  console.log(`   Tailscale: http://100.103.130.31:${PORT}`)
   console.log()
 })
 

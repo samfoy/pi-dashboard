@@ -58,9 +58,9 @@ export default function LogsPage() {
   return (
     <>
       <PageHeader title="Logs" subtitle="Real-time pi session logs" />
-      <div className="px-6 pb-8 overflow-y-auto flex-1 min-h-0 flex flex-col gap-4">
+      <div className="px-3 md:px-6 pb-8 overflow-y-auto flex-1 min-h-0 flex flex-col gap-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <SearchInput placeholder="Filter logs…" value={filter} onChange={e => setFilter(e.target.value)} className="w-64" />
+          <SearchInput placeholder="Filter logs…" value={filter} onChange={e => setFilter(e.target.value)} className="w-full md:w-64" />
           <select
             className="bg-bg-elevated border border-border rounded-md px-3 py-1.5 text-text text-[13px] font-body outline-none cursor-pointer transition-colors focus-ring"
             value={levelFilter}

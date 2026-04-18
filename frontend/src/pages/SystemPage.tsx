@@ -67,7 +67,7 @@ export default function SystemPage() {
   return (
     <>
       <PageHeader title="System" subtitle="Pi environment, memory, skills, sessions, and vault" />
-      <div className="px-6 pb-8 overflow-y-auto flex-1 min-h-0">
+      <div className="px-3 md:px-6 pb-8 overflow-y-auto flex-1 min-h-0">
         {/* Top stats */}
         <div className="grid gap-3.5 grid-cols-[repeat(auto-fit,minmax(130px,1fr))] mb-6">
           <StatCard label="Sessions" value={status?.sessions || 0} accent />
@@ -80,7 +80,7 @@ export default function SystemPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0 border-b border-border mb-6">
+        <div className="flex flex-wrap gap-0 border-b border-border mb-6">
           {tabs.map(t => (
             <button key={t} className={`px-4 py-2 border-none bg-transparent text-sm font-medium font-body cursor-pointer border-b-2 -mb-px transition-all ${activeTab === t ? 'text-accent border-b-accent' : 'text-muted border-b-transparent hover:text-text'}`} onClick={() => { setActiveTab(t); if (t === 'host') loadHostSessions() }}>{t === 'host' ? 'Host Sessions' : tabLabel(t)}</button>
           ))}
@@ -88,7 +88,7 @@ export default function SystemPage() {
 
         {/* Overview tab */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card title="🖥 Host">
               <Info k="Hostname" v={d?.hostname} />
               <Info k="OS" v={d?.os} />
@@ -130,7 +130,7 @@ export default function SystemPage() {
         {/* Memory tab */}
         {activeTab === 'memory' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <StatCard label="Facts" value={memory?.stats.facts || 0} />
               <StatCard label="Lessons" value={memory?.stats.lessons || 0} />
               <StatCard label="Events" value={memory?.stats.events || 0} />
@@ -259,7 +259,7 @@ export default function SystemPage() {
 
         {/* Vault tab */}
         {activeTab === 'vault' && (
-          <div className="grid grid-cols-[250px_1fr] gap-4 max-[900px]:grid-cols-1">
+          <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-4">
             <Card title="📅 Daily Notes">
               {dailyNotes.map((dn, i) => (
                 <div key={i} className={`py-2 px-2 border-b border-border last:border-0 cursor-pointer rounded transition-all ${selectedDaily === dn.date ? 'bg-accent-subtle text-accent' : 'hover:bg-bg-hover text-text'}`} onClick={() => loadDaily(dn.date)}>
