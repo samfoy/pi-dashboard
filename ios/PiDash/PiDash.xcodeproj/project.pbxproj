@@ -33,6 +33,7 @@
 		E35A5E968F9C09FFED05BDC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0EBD7361EF456B5F0436A74A /* Assets.xcassets */; };
 		F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */; };
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
+		C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
 /* End PBXBuildFile section */
 
@@ -52,6 +53,7 @@
 		85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingView.swift; sourceTree = "<group>"; };
 		A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashApp.swift; sourceTree = "<group>"; };
 		A55A63DAAA5085318A112FC9 /* SlotRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotRow.swift; sourceTree = "<group>"; };
+		C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
 		BBFF5D72F491675D639A0E31 /* PiDash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -195,6 +197,7 @@
 			children = (
 				39DCB7941AD46363E454E0DA /* SlotListView.swift */,
 				A55A63DAAA5085318A112FC9 /* SlotRow.swift */,
+				C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */,
 			);
 			path = SlotList;
 			sourceTree = "<group>";
@@ -298,6 +301,7 @@
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,
 				A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */,
 				F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */,
+				C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */,
 				F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */,
 				1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */,
 				63904453439371641F247790 /* WebSocketManager.swift in Sources */,

@@ -35,6 +35,7 @@ private struct SlotListContent: View {
     @Environment(AppState.self) private var appState
     @State private var renamingSlot: ChatSlot?
     @State private var renameTitle: String = ""
+    @State private var showSessionHistory = false
 
     var body: some View {
         NavigationStack {
@@ -44,6 +45,12 @@ private struct SlotListContent: View {
                     .navigationTitle("PiDash")
                     .toolbar { toolbarItems }
                     .sheet(isPresented: $showSettings) { SettingsView() }
+                    .sheet(isPresented: $showSessionHistory) {
+                        SessionHistoryView { newSlotKey in
+                            navigateToSlotKey = newSlotKey
+                        }
+                        .environment(appState)
+                    }
                     .overlay(alignment: .top) {
                         ConnectionBanner(state: appState.connectionState)
                             .padding(.top, 8)
@@ -142,10 +149,17 @@ private struct SlotListContent: View {
             }
         }
         ToolbarItem(placement: .topBarLeading) {
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gear")
+            HStack(spacing: 16) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gear")
+                }
+                Button {
+                    showSessionHistory = true
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                }
             }
         }
     }

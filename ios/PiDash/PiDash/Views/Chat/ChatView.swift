@@ -33,6 +33,9 @@ struct ChatView: View {
         .onDisappear {
             appState.unregisterChatViewModel(for: slot.key)
         }
+        .onAppear {
+            appState.clearNotification(forSlot: slot.key)
+        }
         .navigationTitle(viewModel?.slot.title ?? slot.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -83,6 +86,12 @@ private struct ChatContentView: View {
                     .padding(.vertical, 8)
                     .background(Color.red)
                     .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                // Context usage bar — shown when approaching context limit
+                if let pct = viewModel.slot.contextPercent, pct > 0.5 {
+                    ContextUsageBar(percent: pct)
+                        .transition(.opacity)
                 }
 
                 messageList
@@ -303,5 +312,41 @@ private struct ModelPickerSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Context Usage Bar
+
+private struct ContextUsageBar: View {
+    let percent: Double   // 0.0 – 1.0
+
+    private var tint: Color {
+        if percent >= 0.95 { return .red }
+        if percent >= 0.80 { return .yellow }
+        return Color.accentColor
+    }
+
+    private var label: String {
+        let pct = Int((percent * 100).rounded())
+        if percent >= 0.95 { return "Context nearly full (\(pct)%)" }
+        if percent >= 0.80 { return "Context \(pct)% used" }
+        return "Context \(pct)%"
+    }
+
+    var body: some View {
+        VStack(spacing: 2) {
+            ProgressView(value: min(percent, 1.0))
+                .tint(tint)
+                .frame(height: 2)
+                .animation(.easeInOut(duration: 0.4), value: percent)
+            if percent >= 0.80 {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(tint)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.horizontal, 14)
+            }
+        }
+        .padding(.top, 2)
     }
 }

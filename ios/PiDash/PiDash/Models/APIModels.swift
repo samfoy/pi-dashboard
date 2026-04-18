@@ -156,6 +156,22 @@ struct MessageMetaDTO: Decodable {
     }
 }
 
+// MARK: - WebSocket Notification Event
+
+struct WSNotificationData: Decodable {
+    let kind: String
+    let title: String
+    let body: String?
+    let slot: String?
+    let ts: String?
+    let acked: Bool?
+}
+
+struct WSNotificationEvent: Decodable {
+    let type: String
+    let data: WSNotificationData
+}
+
 // MARK: - WebSocket Event Payloads (data-wrapped)
 
 private struct WSSlotsData: Decodable {
@@ -282,6 +298,67 @@ struct SetModelRequest: Encodable {
 
 struct SetThinkingRequest: Encodable {
     let level: String
+}
+
+// MARK: - Notifications
+
+struct NotificationDTO: Decodable, Identifiable {
+    let kind: String
+    let title: String
+    let body: String?
+    let slot: String?
+    let ts: String
+    let acked: Bool
+
+    var id: String { ts }
+}
+
+struct NotificationsResponse: Decodable {
+    let notifications: [NotificationDTO]
+}
+
+// MARK: - Sessions
+
+struct SessionDTO: Decodable, Identifiable {
+    let key: String
+    let title: String
+    let project: String?
+    let created: String?
+    let modified: String?
+
+    var id: String { key }
+
+    var modifiedDate: Date? {
+        guard let m = modified else { return nil }
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: m) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: m)
+    }
+}
+
+struct SessionsResponse: Decodable {
+    let sessions: [SessionDTO]
+    let hasMore: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case sessions
+        case hasMore = "has_more"
+    }
+}
+
+struct ResumeResponse: Decodable {
+    let ok: Bool
+    let key: String
+}
+
+struct AckNotificationRequest: Encodable {
+    let ts: String
+}
+
+struct ResumeSessionRequest: Encodable {
+    let key: String
 }
 
 struct ModelsResponse: Decodable {

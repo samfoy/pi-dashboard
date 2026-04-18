@@ -34,6 +34,7 @@ enum ServerEvent {
     case toolResult(slot: String, tool: String, id: String, result: String?, isError: Bool)
     case slotTitle(key: String, title: String)
     case contextUsage(slot: String, tokens: Int?, percent: Double?)
+    case notification(kind: String, title: String, body: String?, slot: String?, ts: String)
     case unknown(String)
 }
 
@@ -208,6 +209,16 @@ final class WebSocketManager: ObservableObject {
         case "context_usage":
             if let e = try? dec.decode(WSContextUsageEvent.self, from: rawData) {
                 return .contextUsage(slot: e.data.slot, tokens: e.data.tokens, percent: e.data.percent)
+            }
+        case "notification":
+            if let e = try? dec.decode(WSNotificationEvent.self, from: rawData) {
+                return .notification(
+                    kind: e.data.kind,
+                    title: e.data.title,
+                    body: e.data.body,
+                    slot: e.data.slot,
+                    ts: e.data.ts ?? ""
+                )
             }
         default:
             break

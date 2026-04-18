@@ -51,6 +51,7 @@ final class AppState {
             }
         }
         Task { await loadSlots() }
+        Task { await loadInitialNotifications() }
     }
 
     func stop() {
@@ -103,6 +104,29 @@ final class AppState {
             }
         } catch {
             slotsError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Notifications
+
+    func loadInitialNotifications() async {
+        do {
+            let notifs = try await apiClient.fetchNotifications()
+            for notif in notifs where !(notif.acked) {
+                if let slotKey = notif.slot,
+                   let i = slots.firstIndex(where: { $0.key == slotKey }) {
+                    slots[i].inputNeeded = true
+                }
+            }
+        } catch {
+            print("[AppState] Failed to load notifications: \(error)")
+        }
+    }
+
+    /// Call when a slot is opened to clear its notification badge.
+    func clearNotification(forSlot key: String) {
+        if let i = slots.firstIndex(where: { $0.key == key }) {
+            slots[i].inputNeeded = false
         }
     }
 
@@ -162,6 +186,12 @@ final class AppState {
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].contextPercent = percent
             }
+        case .notification(let kind, _, _, let slotKey, _) where kind == "input_needed":
+            if let slotKey,
+               let i = slots.firstIndex(where: { $0.key == slotKey }) {
+                slots[i].inputNeeded = true
+                slots[i].updatedAt = Date()
+            }
         default:
             break
         }
@@ -182,6 +212,7 @@ final class AppState {
                 // Preserve local state that the server doesn't track
                 s.isStreaming = existing.isStreaming
                 s.contextPercent = existing.contextPercent
+                s.inputNeeded = existing.inputNeeded
                 // Keep local updatedAt if it's more recent (from WS events)
                 if existing.updatedAt > s.updatedAt {
                     s.updatedAt = existing.updatedAt

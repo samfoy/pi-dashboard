@@ -155,6 +155,58 @@ actor APIClient {
         return "Connected"
     }
 
+    // MARK: - Notifications
+
+    /// `GET /api/notifications` → unacknowledged notifications
+    func fetchNotifications() async throws -> [NotificationDTO] {
+        let url = try requireURL(path: "/notifications")
+        let data = try await get(url: url)
+        do {
+            let response = try decoder.decode(NotificationsResponse.self, from: data)
+            return response.notifications
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
+    /// `POST /api/notifications/ack` — acknowledge a single notification by ts
+    func ackNotification(ts: String) async throws {
+        let url = try requireURL(path: "/notifications/ack")
+        let body = AckNotificationRequest(ts: ts)
+        _ = try await post(url: url, body: body)
+    }
+
+    // MARK: - Sessions
+
+    /// `GET /api/sessions` → recent pi agent sessions
+    func fetchSessions(limit: Int = 30) async throws -> [SessionDTO] {
+        guard var components = URLComponents(url: try requireURL(path: "/sessions"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        do {
+            let response = try decoder.decode(SessionsResponse.self, from: data)
+            return response.sessions
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
+    /// `POST /api/chat/slots/:key/resume` → creates a new slot resuming the given session key
+    func resumeSession(key: String) async throws -> String {
+        let url = try requireURL(path: "/chat/slots/\(key)/resume")
+        let body = ResumeSessionRequest(key: key)
+        let data = try await post(url: url, body: body)
+        do {
+            let response = try decoder.decode(ResumeResponse.self, from: data)
+            return response.key
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
     // MARK: - Private HTTP helpers
 
     private func get(url: URL) async throws -> Data {

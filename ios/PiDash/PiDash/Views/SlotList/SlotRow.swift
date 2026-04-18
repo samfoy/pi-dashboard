@@ -12,6 +12,11 @@ struct SlotRow: View {
                     .font(.headline)
                     .lineLimit(1)
                 Spacer()
+                if slot.inputNeeded {
+                    Circle()
+                        .fill(Color.accentColor)
+                        .frame(width: 8, height: 8)
+                }
                 Text(RelativeTimeFormatter.string(from: slot.updatedAt))
                     .font(.caption)
                     .foregroundStyle(.secondary)
