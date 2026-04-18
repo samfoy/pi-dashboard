@@ -14,6 +14,12 @@ final class ChatViewModel {
     var isLoadingHistory: Bool = false
     var error: String?
 
+    // Model & thinking
+    var currentModel: ModelInfo?
+    var thinkingLevel: String = "off"
+    var availableModels: [ModelInfo] = []
+    static let thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh"]
+
     private let apiClient: APIClient
     private weak var appState: AppState?
     private var streamingMessageId: UUID?
@@ -37,8 +43,10 @@ final class ChatViewModel {
             if let last = msgs.last, last.role == .assistant, last.isStreaming {
                 isStreaming = true
             }
+        } catch let error as APIError {
+            self.error = error.errorDescription ?? error.localizedDescription
         } catch {
-            self.error = error.localizedDescription
+            self.error = "\(type(of: error)): \(error.localizedDescription)"
         }
         isLoadingHistory = false
     }
@@ -88,20 +96,55 @@ final class ChatViewModel {
         }
     }
 
+    // MARK: - Model & Thinking
+
+    func loadModels() async {
+        do {
+            availableModels = try await apiClient.fetchModels()
+        } catch {
+            print("[ChatVM] Failed to load models: \(error)")
+        }
+    }
+
+    func setModel(_ model: ModelInfo) async {
+        do {
+            try await apiClient.setModel(slot: slotKey, provider: model.provider, modelId: model.modelId)
+            currentModel = model
+            HapticManager.messageSent()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func setThinking(_ level: String) async {
+        do {
+            try await apiClient.setThinking(slot: slotKey, level: level)
+            thinkingLevel = level
+            HapticManager.messageSent()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     // MARK: - WebSocket event handling
 
     func handle(event: ServerEvent) {
         switch event {
         case .chatChunk(let slot, let content, _) where slot == slotKey:
+            print("[ChatVM] chunk for \(slot): \(content.prefix(30))")
             appendStreamingChunk(content)
         case .chatDone(let slot) where slot == slotKey:
+            print("[ChatVM] done for \(slot)")
             finalizeStreaming()
             HapticManager.streamingComplete()
         case .chatMessage(let slot, let role, let content, let ts, let meta) where slot == slotKey:
+            print("[ChatVM] message for \(slot) role=\(role)")
             handleInboundMessage(role: role, content: content, ts: ts, meta: meta)
         case .toolCall(let slot, let tool, let id, let args) where slot == slotKey:
+            print("[ChatVM] tool_call \(tool) for \(slot)")
             handleToolCall(tool: tool, id: id, args: args)
         case .toolResult(let slot, let tool, let id, let result, let isError) where slot == slotKey:
+            print("[ChatVM] tool_result \(tool) for \(slot)")
             handleToolResult(tool: tool, id: id, result: result, isError: isError)
         case .slotTitle(let key, let title) where key == slotKey:
             self.slot.title = title
@@ -113,9 +156,25 @@ final class ChatViewModel {
     // MARK: - Private streaming helpers
 
     private func appendStreamingChunk(_ chunk: String) {
-        guard let id = streamingMessageId,
-              let i = messages.firstIndex(where: { $0.id == id }) else { return }
-        messages[i].content += chunk
+        // If we have an existing streaming message, append to it
+        if let id = streamingMessageId,
+           let i = messages.firstIndex(where: { $0.id == id }) {
+            messages[i].content += chunk
+            isStreaming = true
+            return
+        }
+        // No streaming message yet — create one (handles chunks arriving
+        // before send() or for an already-running session)
+        let newId = UUID()
+        streamingMessageId = newId
+        let msg = ChatMessage(
+            id: newId,
+            slotKey: slotKey,
+            role: .assistant,
+            content: chunk,
+            isStreaming: true
+        )
+        messages.append(msg)
         isStreaming = true
     }
 
@@ -172,6 +231,7 @@ final class ChatViewModel {
             messages[i].isStreaming = false
         }
         streamingMessageId = nil
+        isStreaming = false
 
         let argsStr = args?.jsonString
         let msg = ChatMessage(

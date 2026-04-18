@@ -8,6 +8,7 @@ struct ChatInputBar: View {
     var isDisabled: Bool = false
     let onSend: () -> Void
     let onStop: () -> Void
+    @FocusState private var isFocused: Bool
 
     private var canSend: Bool {
         !isStreaming && !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isDisabled
@@ -25,14 +26,21 @@ struct ChatInputBar: View {
                 )
                 .submitLabel(.send)
                 .disabled(isDisabled)
+                .focused($isFocused)
                 .onSubmit {
                     if canSend {
+                        isFocused = false
                         onSend()
                     }
                 }
 
             Button(action: {
-                if isStreaming { onStop() } else { onSend() }
+                if isStreaming {
+                    onStop()
+                } else {
+                    isFocused = false
+                    onSend()
+                }
             }) {
                 Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
                     .font(.system(size: 30))

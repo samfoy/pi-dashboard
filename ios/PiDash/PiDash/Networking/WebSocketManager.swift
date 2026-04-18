@@ -133,6 +133,7 @@ final class WebSocketManager: ObservableObject {
                 switch message {
                 case .string(let text):
                     if let event = decode(text) {
+                        print("[WS] Event: \(envelope(text))")
                         eventContinuation?.yield(event)
                     }
                 case .data(let data):
@@ -159,9 +160,8 @@ final class WebSocketManager: ObservableObject {
             return .unknown(text)
         }
 
-        // Use a snake_case-aware decoder to match server field names
+        // DTOs use explicit CodingKeys (API mixes snake_case and camelCase)
         let dec = JSONDecoder()
-        dec.keyDecodingStrategy = .convertFromSnakeCase
 
         switch envelope.type {
         case "slots":
@@ -216,6 +216,19 @@ final class WebSocketManager: ObservableObject {
     }
 
     // MARK: - Send
+
+    /// Extract event type from raw JSON for logging
+    private func envelope(_ text: String) -> String {
+        if let d = text.data(using: .utf8),
+           let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+           let type = obj["type"] as? String {
+            if type == "chat_chunk", let data = obj["data"] as? [String: Any] {
+                return "chat_chunk(slot:\(data["slot"] ?? "?"))"  
+            }
+            return type
+        }
+        return "unknown"
+    }
 
     func send(_ text: String) async throws {
         try await wsTask?.send(.string(text))

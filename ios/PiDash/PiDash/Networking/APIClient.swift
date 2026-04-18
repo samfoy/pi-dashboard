@@ -33,10 +33,12 @@ actor APIClient {
         self.config = config
         let sessionConfig = URLSessionConfiguration.default
         sessionConfig.timeoutIntervalForRequest = 30
-        self.session = URLSession(configuration: sessionConfig)
+        let delegate = InsecureSessionDelegate()
+        self.session = URLSession(configuration: sessionConfig, delegate: delegate, delegateQueue: nil)
 
         let dec = JSONDecoder()
-        dec.keyDecodingStrategy = .convertFromSnakeCase
+        // Don't use convertFromSnakeCase — API mixes snake_case and camelCase.
+        // Individual DTOs use explicit CodingKeys instead.
         self.decoder = dec
     }
 
@@ -66,6 +68,9 @@ actor APIClient {
             let response = try decoder.decode(SlotDetailResponse.self, from: data)
             return response.messages.map { $0.toChatMessage(slotKey: key) }
         } catch {
+            let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
+            print("[APIClient] Decode error for slot detail: \(error)")
+            print("[APIClient] Response preview: \(preview)")
             throw APIError.decodingError(error)
         }
     }
@@ -87,9 +92,9 @@ actor APIClient {
         try await delete(url: url)
     }
 
-    /// `POST /api/chat` with `{slot, message}` body
+    /// `POST /api/chat?ws=1` with `{slot, message}` body
     func sendMessage(slot: String, message: String) async throws {
-        let url = try requireURL(path: "/chat")
+        let url = try requireURL(path: "/chat?ws=1")
         let body = SendMessageRequest(slot: slot, message: message)
         _ = try await post(url: url, body: body)
     }
@@ -98,6 +103,30 @@ actor APIClient {
     func stopGeneration(slot: String) async throws {
         let url = try requireURL(path: "/chat/slots/\(slot)/stop")
         _ = try await post(url: url, body: EmptyBody())
+    }
+
+    // MARK: - Models & Thinking
+
+    /// `GET /api/models` → available models
+    func fetchModels() async throws -> [ModelInfo] {
+        let url = try requireURL(path: "/models")
+        let data = try await get(url: url)
+        let response = try decoder.decode(ModelsResponse.self, from: data)
+        return response.models
+    }
+
+    /// `POST /api/chat/slots/:key/model`
+    func setModel(slot: String, provider: String, modelId: String) async throws {
+        let url = try requireURL(path: "/chat/slots/\(slot)/model")
+        let body = SetModelRequest(provider: provider, modelId: modelId)
+        _ = try await post(url: url, body: body)
+    }
+
+    /// `POST /api/chat/slots/:key/thinking`
+    func setThinking(slot: String, level: String) async throws {
+        let url = try requireURL(path: "/chat/slots/\(slot)/thinking")
+        let body = SetThinkingRequest(level: level)
+        _ = try await post(url: url, body: body)
     }
 
     /// `GET /api/status` — for settings connection test
@@ -135,15 +164,22 @@ actor APIClient {
 
     private func perform(_ request: URLRequest) async throws -> Data {
         do {
+            print("[APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "nil")")
             let (data, response) = try await session.data(for: request)
-            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                let body = String(data: data, encoding: .utf8)
-                throw APIError.httpError(http.statusCode, body)
+            if let http = response as? HTTPURLResponse {
+                print("[APIClient] Response: \(http.statusCode) (\(data.count) bytes)")
+                if !(200..<300).contains(http.statusCode) {
+                    let body = String(data: data, encoding: .utf8)
+                    throw APIError.httpError(http.statusCode, body)
+                }
             }
             return data
         } catch let error as APIError {
+            print("[APIClient] APIError: \(error.errorDescription ?? "")")
             throw error
         } catch {
+            print("[APIClient] Error: \(type(of: error)) \(error.localizedDescription)")
+            print("[APIClient] Error detail: \(error)")
             throw APIError.networkError(error)
         }
     }
@@ -157,3 +193,22 @@ actor APIClient {
 }
 
 private struct EmptyBody: Encodable {}
+
+// MARK: - Insecure Session Delegate
+
+/// Allows plain HTTP connections by accepting all server trust challenges.
+/// Required for connecting to local/Tailscale servers without TLS.
+private final class InsecureSessionDelegate: NSObject, URLSessionDelegate {
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.performDefaultHandling, nil)
+        }
+    }
+}

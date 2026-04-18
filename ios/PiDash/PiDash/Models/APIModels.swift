@@ -25,6 +25,14 @@ struct SlotDetailResponse: Decodable {
     let model: String?
     let cwd: String?
     let contextUsage: ContextUsageDTO?
+
+    enum CodingKeys: String, CodingKey {
+        case messages, running, stopping, total, model, cwd
+        case pendingApproval = "pending_approval"
+        case hasMore = "has_more"
+        // API sends camelCase for this one
+        case contextUsage
+    }
 }
 
 struct ContextUsageDTO: Decodable {
@@ -45,6 +53,11 @@ struct SlotDTO: Decodable {
     let pendingApproval: Bool?
     let model: String?
     let cwd: String?
+
+    enum CodingKeys: String, CodingKey {
+        case key, title, messages, running, stopping, model, cwd
+        case pendingApproval = "pending_approval"
+    }
 
     func toChatSlot() -> ChatSlot {
         return ChatSlot(
@@ -120,6 +133,27 @@ struct MessageMetaDTO: Decodable {
     let args: String?         // JSON string
     let result: String?
     let isError: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case thinking, model, args, result
+        case inputTokens = "input_tokens"
+        case outputTokens = "output_tokens"
+        // API sends camelCase for these
+        case toolName, toolCallId, isError
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        thinking = try c.decodeIfPresent(String.self, forKey: .thinking)
+        model = try c.decodeIfPresent(String.self, forKey: .model)
+        args = try c.decodeIfPresent(String.self, forKey: .args)
+        result = try c.decodeIfPresent(String.self, forKey: .result)
+        inputTokens = try c.decodeIfPresent(Int.self, forKey: .inputTokens)
+        outputTokens = try c.decodeIfPresent(Int.self, forKey: .outputTokens)
+        toolName = try c.decodeIfPresent(String.self, forKey: .toolName)
+        toolCallId = try c.decodeIfPresent(String.self, forKey: .toolCallId)
+        isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
+    }
 }
 
 // MARK: - WebSocket Event Payloads (data-wrapped)
@@ -229,6 +263,32 @@ struct CreateSlotRequest: Encodable {
     init(title: String? = nil) {
         self.name = title
     }
+}
+
+struct SetModelRequest: Encodable {
+    let provider: String
+    let modelId: String
+}
+
+struct SetThinkingRequest: Encodable {
+    let level: String
+}
+
+struct ModelsResponse: Decodable {
+    let models: [ModelInfo]
+}
+
+struct ModelInfo: Decodable, Identifiable, Hashable {
+    let provider: String
+    let id: String
+    let name: String?
+    let reasoning: Bool?
+    let contextWindow: Int?
+
+    var label: String { name ?? id }
+
+    // For setModel API call, extract just the model ID portion
+    var modelId: String { id }
 }
 
 // MARK: - AnyCodable helper

@@ -24,6 +24,9 @@ final class AppState {
     let apiClient: APIClient
     let wsManager: WebSocketManager
 
+    // Active chat view models that need WS events
+    @ObservationIgnored private var chatViewModels: [String: ChatViewModel] = [:]
+
     private var eventTask: Task<Void, Never>?
     private var connectionObserver: AnyCancellable?
 
@@ -100,6 +103,18 @@ final class AppState {
         Task { await loadSlots() }
     }
 
+    // MARK: - Chat ViewModel Registration
+
+    func registerChatViewModel(_ vm: ChatViewModel, for slotKey: String) {
+        chatViewModels[slotKey] = vm
+        print("[AppState] Registered VM for slot \(slotKey) (total: \(chatViewModels.count))")
+    }
+
+    func unregisterChatViewModel(for slotKey: String) {
+        chatViewModels.removeValue(forKey: slotKey)
+        print("[AppState] Unregistered VM for slot \(slotKey) (total: \(chatViewModels.count))")
+    }
+
     // MARK: - WS Event Handling
 
     private func handle(event: ServerEvent) async {
@@ -124,6 +139,14 @@ final class AppState {
             }
         default:
             break
+        }
+
+        // Forward to registered chat view models
+        if !chatViewModels.isEmpty {
+            for (key, vm) in chatViewModels {
+                print("[AppState] Forwarding event to VM for slot \(key)")
+                vm.handle(event: event)
+            }
         }
     }
 

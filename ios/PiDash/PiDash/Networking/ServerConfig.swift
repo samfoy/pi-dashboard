@@ -4,14 +4,21 @@ import Foundation
 
 /// Manages the server base URL and derived endpoint URLs.
 struct ServerConfig {
-    static let defaultBaseURL = "http://100.103.130.31:7777"
+    static let defaultBaseURL = "http://samuels-macbook-air-1.taile86245.ts.net:7777"
     static let userDefaultsKey = "serverBaseURL"
 
     private(set) var baseURL: String
 
     init(baseURL: String? = nil) {
         let stored = UserDefaults.standard.string(forKey: Self.userDefaultsKey)
-        self.baseURL = baseURL ?? stored ?? Self.defaultBaseURL
+        let resolved = baseURL ?? stored ?? Self.defaultBaseURL
+        // Migrate old IP-based URLs to MagicDNS hostname
+        if resolved.contains("100.103.130.31") {
+            self.baseURL = Self.defaultBaseURL
+            UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)
+        } else {
+            self.baseURL = resolved
+        }
     }
 
     mutating func update(baseURL: String) {
