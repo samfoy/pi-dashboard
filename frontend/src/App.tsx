@@ -132,7 +132,7 @@ export default function App() {
   return (
     <WsContext.Provider value={{ subscribeLogs, subscribeFileChange, wsRef }}>
     <ConnectionOverlay />
-    <div className={`relative z-[1] h-screen grid grid-rows-[52px_1fr_56px] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
+    <div className={`relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
       {/* Topbar */}
       <header className="topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2">
@@ -324,7 +324,7 @@ export default function App() {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden flex justify-around items-center bg-bg border-t border-border h-14 px-1 pb-[env(safe-area-inset-bottom,0px)]">
+      <nav className="md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))]">
         {NAV_ITEMS.map(n => (
           <button
             key={n.id}
@@ -337,7 +337,7 @@ export default function App() {
                 <span className="absolute -top-1.5 -right-2.5 bg-danger text-white text-[10px] font-bold px-1 py-[1px] rounded-full min-w-[16px] text-center leading-[12px]">{notifCount}</span>
               )}
             </span>
-            <span className="text-[10px] font-medium">{n.label}</span>
+            <span className="text-[11px] font-medium">{n.label}</span>
           </button>
         ))}
       </nav>

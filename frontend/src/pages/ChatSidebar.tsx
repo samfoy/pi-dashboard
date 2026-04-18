@@ -115,9 +115,10 @@ function ChatSidebar({
   return (
     <>
     {mobileOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onMobileClose} />}
-    <div className={`bg-bg-accent border-r border-border flex flex-col shrink-0 relative
-      fixed top-0 left-0 bottom-0 w-[280px] z-50 transition-transform duration-300 md:relative md:z-auto md:translate-x-0 md:transition-none
-      ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+    <div className={`bg-bg-accent border-r border-border flex-col shrink-0 relative
+      fixed top-0 left-0 bottom-0 w-[280px] z-50 transition-transform duration-300
+      md:relative md:z-auto md:translate-x-0 md:transition-none md:flex
+      ${mobileOpen ? 'flex translate-x-0' : 'hidden md:flex -translate-x-full md:translate-x-0'}`}
       style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? sidebarWidth : undefined }}>
       {/* Drag handle (desktop only) */}
       <div

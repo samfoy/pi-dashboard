@@ -402,6 +402,8 @@ export default function ChatPage() {
   const [showTree, setShowTree] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
   const [showRefs, setShowRefs] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false)
 
   // Sync viewingNotification from Redux store (e.g. after auto-ack)
   useEffect(() => {
@@ -916,9 +918,11 @@ export default function ChatPage() {
         history={history}
         historyHasMore={historyHasMore}
         viewingNotification={viewingNotification}
-        onViewNotification={setViewingNotification}
-        onNewSessionInCwd={(cwd) => { setPendingCwd(cwd); wantsNewSession.current = true; dispatch(switchSlot(null)) }}
-        onNewSession={() => { wantsNewSession.current = true; dispatch(switchSlot(null)) }}
+        onViewNotification={(n) => { setViewingNotification(n); setMobileSidebarOpen(false) }}
+        onNewSessionInCwd={(cwd) => { setPendingCwd(cwd); wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
+        onNewSession={() => { wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
       {/* Chat pane */}
@@ -946,19 +950,24 @@ export default function ChatPage() {
           />
         ) : (
           <>
-            <div className="px-5 py-2.5 border-b border-border flex justify-between items-center bg-chrome">
-              <div className="flex items-center gap-2">
+            <div className="px-3 md:px-5 py-2 md:py-2.5 border-b border-border flex justify-between items-center bg-chrome gap-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {/* Mobile hamburger */}
+                <button className="md:hidden w-8 h-8 flex items-center justify-center bg-transparent border-none text-muted cursor-pointer hover:text-text shrink-0" onClick={() => setMobileSidebarOpen(true)} aria-label="Open sessions">
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+                </button>
                 {editingHeader ? (
-                  <input className="text-sm font-semibold font-mono bg-transparent border border-accent rounded px-1 py-0 text-text-strong outline-none min-w-[120px]" aria-label="Edit session title" autoFocus maxLength={200} value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={() => { if (!cancelEditRef.current && editingTitle.trim() && editingTitle !== title) { dispatch(sseSlotTitle({ key: activeSlot!, title: editingTitle.trim() })); api.renameSlot(activeSlot!, editingTitle.trim()).catch(() => {}) } cancelEditRef.current = false; setEditingHeader(false) }} onKeyDown={e => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } else if (e.key === 'Escape') { cancelEditRef.current = true; setEditingHeader(false) } }} />
+                  <input className="text-sm font-semibold font-mono bg-transparent border border-accent rounded px-1 py-0 text-text-strong outline-none min-w-[80px] max-w-[200px]" aria-label="Edit session title" autoFocus maxLength={200} value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={() => { if (!cancelEditRef.current && editingTitle.trim() && editingTitle !== title) { dispatch(sseSlotTitle({ key: activeSlot!, title: editingTitle.trim() })); api.renameSlot(activeSlot!, editingTitle.trim()).catch(() => {}) } cancelEditRef.current = false; setEditingHeader(false) }} onKeyDown={e => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } else if (e.key === 'Escape') { cancelEditRef.current = true; setEditingHeader(false) } }} />
                 ) : (
-                  <TypewriterText className="text-sm font-semibold text-text font-mono" text={title} onDoubleClick={() => { setEditingHeader(true); setEditingTitle(title) }} />
+                  <TypewriterText className="text-sm font-semibold text-text font-mono truncate" text={title} onDoubleClick={() => { setEditingHeader(true); setEditingTitle(title) }} />
                 )}
-                {!editingHeader && <span className="text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
-                {currentSlot?.model && <span className="px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
-                {contextUsage && <ContextBar usage={contextUsage} />}
-                {currentSlot?.cwd && <span className="px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
+                {!editingHeader && <span className="hidden md:inline text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
+                {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
+                {contextUsage && <span className="hidden md:inline"><ContextBar usage={contextUsage} /></span>}
+                {currentSlot?.cwd && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
               </div>
-              <div className="flex gap-1.5">
+              {/* Desktop toolbar */}
+              <div className="hidden md:flex gap-1.5 shrink-0">
                 {slotRunning && <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all font-body" aria-label={slotStopping ? 'Skip queue' : 'Stop generation'} onClick={() => { if (activeSlot) api.stopChatSlot(activeSlot) }}>{slotStopping ? '■ Skip Queue' : '■ Stop'}</button>}
                 <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTree ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle session tree" onClick={() => setShowTree(t => !t)}>🌳 Tree</button>
                 <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showRefs ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle referenced files" onClick={() => setShowRefs(t => !t)}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
@@ -966,6 +975,24 @@ export default function ChatPage() {
                 <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTerminal ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle terminal" onClick={() => setShowTerminal(t => !t)}>▸_ Terminal</button>
                 <ChatSettings config={chatConfig} onChange={setChatConfig} activeSlot={activeSlot} currentModel={currentSlot?.model} models={availableModels} />
                 <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-danger hover:border-danger transition-all font-body" aria-label="Close session" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)) }}>✕ Close</button>
+              </div>
+              {/* Mobile overflow menu */}
+              <div className="md:hidden relative shrink-0">
+                {slotRunning && <button className="bg-transparent border border-border text-muted rounded-md px-2 py-1 text-[13px] font-medium cursor-pointer hover:text-text mr-1" onClick={() => { if (activeSlot) api.stopChatSlot(activeSlot) }}>■</button>}
+                <button className="bg-transparent border border-border text-muted rounded-md w-8 h-8 text-[16px] cursor-pointer hover:text-text hover:border-border-strong" onClick={() => setShowOverflowMenu(v => !v)}>⋯</button>
+                {showOverflowMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                      <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTree(t => !t); setShowOverflowMenu(false) }}>🌳 Tree</button>
+                      <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
+                      <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files</button>
+                      <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal</button>
+                      <div className="border-t border-border my-1" />
+                      <button className="w-full text-left px-3 py-2 text-[13px] text-danger hover:bg-bg-hover" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)); setShowOverflowMenu(false) }}>✕ Close Session</button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex-1 min-h-0 flex">
@@ -1039,10 +1066,10 @@ export default function ChatPage() {
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
-              {isMac && <button className="w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted flex items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={pickFiles} disabled={uploading} title="Attach file or folder">
+              {isMac && <button className="hidden md:flex w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={pickFiles} disabled={uploading} title="Attach file or folder">
                 {uploading ? <span className="text-[13px] animate-pulse">⏳</span> : <span className="text-base">📎</span>}
               </button>}
-              {isMac && <button className="w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted flex items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={takeScreenshot} disabled={uploading} title="Screenshot (grant Screen Recording to your terminal app in System Settings)">
+              {isMac && <button className="hidden md:flex w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={takeScreenshot} disabled={uploading} title="Screenshot (grant Screen Recording to your terminal app in System Settings)">
                 <span className="text-base">📷</span>
               </button>}
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
