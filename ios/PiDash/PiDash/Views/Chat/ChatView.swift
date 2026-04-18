@@ -115,10 +115,12 @@ private struct ChatContentView: View {
                         MessageBubble(message: message)
                             .id(message.id)
                     }
-                    // Invisible anchor at bottom
+                    // Invisible anchor at bottom — onAppear/onDisappear tracks if user is at bottom
                     Color.clear
                         .frame(height: 1)
                         .id("bottom")
+                        .onAppear { isAtBottom = true }
+                        .onDisappear { isAtBottom = false }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -146,16 +148,7 @@ private struct ChatContentView: View {
                     scrollToBottom(proxy: proxy, animated: true)
                 }
             }
-            // Detect user scrolling away from bottom
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 10)
-                    .onChanged { value in
-                        // Dragging up (negative y) means scrolling up away from bottom
-                        if value.translation.height > 20 {
-                            isAtBottom = false
-                        }
-                    }
-            )
+            // Real bottom detection via sentinel onAppear/onDisappear (iOS 17 compatible)
         }
     }
 
@@ -165,7 +158,10 @@ private struct ChatContentView: View {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
         } else {
-            proxy.scrollTo("bottom", anchor: .bottom)
+            // Explicit .none suppresses any inherited animation context (prevents streaming jank)
+            withAnimation(.none) {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
         }
     }
 }

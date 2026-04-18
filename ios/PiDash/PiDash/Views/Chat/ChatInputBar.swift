@@ -118,6 +118,8 @@ struct ChatInputBar: View {
                         .animation(.spring(duration: 0.3), value: isStreaming)
                 }
                 .disabled(!isStreaming && !canSend)
+                .scaleEffect(canSend || isStreaming ? 1.0 : 0.82)
+                .animation(.spring(response: 0.25, dampingFraction: 0.6), value: canSend)
             }
             .padding(.horizontal, 12)
         }
