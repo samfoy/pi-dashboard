@@ -75,7 +75,10 @@ final class AppState {
     func createSlot(title: String? = nil) async -> ChatSlot? {
         do {
             let slot = try await apiClient.createSlot(title: title)
-            slots.insert(slot, at: 0)
+            // Only insert if WS hasn't already added it
+            if !slots.contains(where: { $0.key == slot.key }) {
+                slots.insert(slot, at: 0)
+            }
             return slot
         } catch {
             slotsError = error.localizedDescription
