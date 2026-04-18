@@ -16,7 +16,7 @@ final class ChatViewModel {
 
     // Model & thinking
     var currentModel: ModelInfo?
-    var thinkingLevel: String = "off"
+    var thinkingLevel: String = "medium"
     var availableModels: [ModelInfo] = []
     static let thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh"]
 
@@ -100,7 +100,13 @@ final class ChatViewModel {
 
     func loadModels() async {
         do {
-            availableModels = try await apiClient.fetchModels()
+            let allModels = try await apiClient.fetchModels()
+            // Filter to only sonnet 4.6 and opus 4.6
+            availableModels = allModels.filter { m in
+                let id = m.id.lowercased()
+                return (id.contains("sonnet-4-6") || id.contains("opus-4-6"))
+                    && !id.hasPrefix("eu.") && !id.hasPrefix("global.")
+            }
         } catch {
             print("[ChatVM] Failed to load models: \(error)")
         }

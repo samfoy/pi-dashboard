@@ -27,6 +27,8 @@ struct ChatView: View {
             appState.registerChatViewModel(vm, for: slot.key)
             await vm.loadHistory()
             await vm.loadModels()
+            // Set default thinking level on the server
+            await vm.setThinking(vm.thinkingLevel)
         }
         .onDisappear {
             appState.unregisterChatViewModel(for: slot.key)
