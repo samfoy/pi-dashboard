@@ -342,7 +342,7 @@ export default function App() {
         {NAV_ITEMS.map(n => (
           <button
             key={n.id}
-            className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full bg-transparent border-none cursor-pointer transition-colors ${activePath === n.path ? 'text-accent' : 'text-muted'}`}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full min-h-[44px] bg-transparent border-none cursor-pointer transition-colors ${activePath === n.path ? 'text-accent' : 'text-muted'}`}
             onClick={() => navigate(n.path)}
           >
             <span className="relative">

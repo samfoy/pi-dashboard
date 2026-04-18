@@ -36,7 +36,7 @@ const ChatFooter = memo(function ChatFooter({ running, stopping, state, lastRole
     : null
 
   return (
-    <div className="flex gap-3 items-start mb-3 mr-4 px-5 animate-slide-up">
+    <div className="flex gap-3 items-start mb-3 mr-4 px-5 animate-slide-up" role="status" aria-live="polite" aria-label={stopping ? 'Stopping' : state === 'tool_running' ? 'Running tool' : label}>
       <img src="/logo.png" alt="Pi Dashboard" className="w-8 h-8 rounded-md shrink-0 self-end mb-0.5 object-cover" />
       <div className="px-4 py-3 rounded-lg rounded-bl-[4px] bg-card border border-border shadow-[inset_0_1px_0_var(--card-hl)] min-w-[140px]">
         {stopping ? (

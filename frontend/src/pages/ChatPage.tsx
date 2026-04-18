@@ -1051,7 +1051,7 @@ export default function ChatPage() {
             {!isAtBottom && messages.length > 0 && (
               <div className="flex justify-center py-1.5">
                 <button
-                  className="px-3 py-1.5 rounded-full bg-accent text-white text-[13px] font-medium shadow-lg cursor-pointer hover:bg-accent-hover transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 rounded-full bg-accent text-white text-[13px] font-medium shadow-lg cursor-pointer border-none hover:bg-accent-hover transition-all flex items-center gap-1"
                   onClick={() => { setIsAtBottom(true); isAtBottomRef.current = true; scrollBottom() }}
                   aria-label="Scroll to bottom"
                 >↓ Bottom</button>
@@ -1063,7 +1063,7 @@ export default function ChatPage() {
                 <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={() => setPrefillHint(false)}>✕</button>
               </div>
             )}
-            <div className={`flex flex-col md:flex-row gap-2.5 px-3 md:px-5 py-3.5 border-t border-border bg-chrome md:items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
+            <div className={`flex flex-col md:flex-row gap-2.5 px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome md:items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
