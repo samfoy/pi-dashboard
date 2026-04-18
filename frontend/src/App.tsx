@@ -132,11 +132,10 @@ export default function App() {
   return (
     <WsContext.Provider value={{ subscribeLogs, subscribeFileChange, wsRef }}>
     <ConnectionOverlay />
-    <div className={`relative z-[1] h-screen grid grid-rows-[52px_1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'grid-cols-[56px_minmax(0,1fr)]' : 'grid-cols-[220px_minmax(0,1fr)]'}`}
-      style={{ gridTemplateAreas: '"topbar topbar" "nav content"' }}>
+    <div className={`relative z-[1] h-screen grid grid-rows-[52px_1fr_56px] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
       {/* Topbar */}
-      <header className="topbar-glass flex justify-between items-center px-5 pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad" style={{ gridArea: 'topbar' }}>
+      <header className="topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5 opacity-100 w-40 transition-all duration-300 ease-in-out">
             <span className="text-xl">🥧</span>
@@ -149,19 +148,19 @@ export default function App() {
             <span>Health</span>
             <span className="font-mono text-[13px]">{connected ? 'OK' : 'Offline'}</span>
           </div>
-          <div className="bg-card border border-border rounded-full px-2.5 py-[5px] text-[13px] text-muted font-body font-mono">
+          <div className="hidden md:inline-flex bg-card border border-border rounded-full px-2.5 py-[5px] text-[13px] text-muted font-body font-mono">
             v{version}
           </div>
-          <button className="bg-card border border-border rounded-full px-2.5 py-1 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all" onClick={cycleTheme}>
+          <button className="hidden md:inline-flex bg-card border border-border rounded-full px-2.5 py-1 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all" onClick={cycleTheme}>
             {preference === 'system' ? '🖥 Auto' : preference === 'light' ? '☀ Light' : '🌙 Dark'}
           </button>
-          <button className="bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all flex items-center justify-center" onClick={() => { dispatch(fetchSlots()); dispatch(fetchNotifications()); api.status().then(s => dispatch(sseStatus(s))).catch(() => {}) }} title="Refresh">
+          <button className="hidden md:inline-flex bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all items-center justify-center" onClick={() => { dispatch(fetchSlots()); dispatch(fetchNotifications()); api.status().then(s => dispatch(sseStatus(s))).catch(() => {}) }} title="Refresh">
             🔄
           </button>
-          <button className="bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-danger hover:text-danger hover:scale-105 active:scale-95 transition-all flex items-center justify-center" onClick={() => { if (confirm('Restart the server? Sessions will be preserved.')) api.restartSessions().catch(() => {}) }} title="Restart server">
+          <button className="hidden md:inline-flex bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-danger hover:text-danger hover:scale-105 active:scale-95 transition-all items-center justify-center" onClick={() => { if (confirm('Restart the server? Sessions will be preserved.')) api.restartSessions().catch(() => {}) }} title="Restart server">
             ⏻
           </button>
-          <button className="bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all flex items-center justify-center" onClick={() => setShowShortcuts(s => !s)} title="Keyboard shortcuts (/)">
+          <button className="hidden md:inline-flex bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all items-center justify-center" onClick={() => setShowShortcuts(s => !s)} title="Keyboard shortcuts (/)">
             ?
           </button>
         </div>
@@ -267,7 +266,7 @@ export default function App() {
       )}
 
       {/* Nav */}
-      <aside className={`overflow-y-auto overflow-x-hidden bg-bg border-r border-border flex flex-col scrollbar-none transition-[padding] duration-[350ms] ease-in-out ${navCollapsed ? 'px-1.5 pb-4' : 'px-3 pb-4'}`} style={{ gridArea: 'nav', scrollbarWidth: 'none' }}>
+      <aside className={`hidden md:flex overflow-y-auto overflow-x-hidden bg-bg border-r border-border flex-col scrollbar-none transition-[padding] duration-[350ms] ease-in-out ${navCollapsed ? 'px-1.5 pb-4' : 'px-3 pb-4'}`} style={{ scrollbarWidth: 'none' }}>
         <button className={`flex items-center w-full py-2.5 bg-transparent border-none border-b border-border cursor-pointer text-muted hover:text-text hover:bg-bg-hover transition-colors mb-1 shrink-0 ${navCollapsed ? 'justify-center' : 'justify-end pr-2'}`} onClick={toggleNav} title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           <svg viewBox="0 0 24 24" className={`w-4 h-4 stroke-current fill-none stroke-2 transition-transform duration-[350ms] ease-in-out ${navCollapsed ? 'rotate-180' : ''}`} strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -311,7 +310,7 @@ export default function App() {
       </aside>
 
       {/* Content */}
-      <main className={`flex flex-col min-h-0 overflow-x-hidden ${isChat ? 'overflow-hidden p-0' : 'overflow-y-auto'}`} style={{ gridArea: 'content' }}>
+      <main className={`flex flex-col min-h-0 overflow-x-hidden min-w-0 ${isChat ? 'overflow-hidden p-0' : 'overflow-y-auto'}`}>
         <ErrorBoundary>
           <Routes>
             <Route path="/chat" element={<ChatPage />} />
@@ -323,6 +322,25 @@ export default function App() {
           </Routes>
         </ErrorBoundary>
       </main>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="md:hidden flex justify-around items-center bg-bg border-t border-border h-14 px-1 pb-[env(safe-area-inset-bottom,0px)]">
+        {NAV_ITEMS.map(n => (
+          <button
+            key={n.id}
+            className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full bg-transparent border-none cursor-pointer transition-colors ${activePath === n.path ? 'text-accent' : 'text-muted'}`}
+            onClick={() => navigate(n.path)}
+          >
+            <span className="relative">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">{n.icon}</svg>
+              {n.id === 'chat' && notifCount > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 bg-danger text-white text-[10px] font-bold px-1 py-[1px] rounded-full min-w-[16px] text-center leading-[12px]">{notifCount}</span>
+              )}
+            </span>
+            <span className="text-[10px] font-medium">{n.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
     </WsContext.Provider>
   )
