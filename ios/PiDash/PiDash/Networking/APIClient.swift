@@ -54,15 +54,7 @@ actor APIClient {
         let data = try await get(url: url)
         do {
             let dtos = try decoder.decode([SlotDTO].self, from: data)
-            // Server returns slots in activity order (most recently used first-ish).
-            // Assign updatedAt so first slot = now, each subsequent one slightly older,
-            // preserving the server's ordering for temporal grouping.
-            let now = Date()
-            return dtos.enumerated().map { (i, dto) in
-                var slot = dto.toChatSlot()
-                slot.updatedAt = now.addingTimeInterval(Double(-i))
-                return slot
-            }
+            return dtos.map { $0.toChatSlot() }
         } catch {
             throw APIError.decodingError(error)
         }
