@@ -22,6 +22,20 @@ function saveImagesToTemp(images) {
   })
 }
 
+/**
+ * Normalize image payloads to pi's expected format:
+ *   { type: "image", mimeType: "image/jpeg", data: "<base64>" }
+ * Accepts various input formats from web frontend or iOS app.
+ */
+function normalizeImages(images) {
+  if (!images?.length) return undefined
+  return images.map(img => ({
+    type: 'image',
+    mimeType: img.mimeType || img.media_type || 'image/png',
+    data: img.data || img.source?.data || '',
+  })).filter(img => img.data)
+}
+
 export class PiProcess extends EventEmitter {
   constructor(slotKey, opts = {}) {
     super()
@@ -135,6 +149,8 @@ export class PiProcess extends EventEmitter {
   }
 
   async prompt(message, images) {
+    // Normalize images to pi's expected format
+    const normalizedImages = normalizeImages(images)
     // Wait for pi to be ready (templates loaded) before sending
     if (this._readyPromise) {
       await this._readyPromise
@@ -183,9 +199,9 @@ export class PiProcess extends EventEmitter {
       this.running = true
       this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
       const promptCmd = { type: 'prompt', message }
-      if (images?.length) {
-        const paths = saveImagesToTemp(images)
-        promptCmd.images = images
+      if (normalizedImages?.length) {
+        const paths = saveImagesToTemp(normalizedImages)
+        promptCmd.images = normalizedImages
         promptCmd.message += `\n\n[Images saved to disk: ${paths.join(', ')}]`
       }
       return this.send(promptCmd)
@@ -194,9 +210,9 @@ export class PiProcess extends EventEmitter {
     // Regular message
     let msg = message
     const cmd = { type: 'prompt' }
-    if (images?.length) {
-      const paths = saveImagesToTemp(images)
-      cmd.images = images
+    if (normalizedImages?.length) {
+      const paths = saveImagesToTemp(normalizedImages)
+      cmd.images = normalizedImages
       msg += `\n\n[Images saved to disk: ${paths.join(', ')}]`
     }
     cmd.message = msg
