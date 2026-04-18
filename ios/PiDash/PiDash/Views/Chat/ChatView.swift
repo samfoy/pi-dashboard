@@ -66,6 +66,7 @@ struct ChatView: View {
 private struct ChatContentView: View {
     @Bindable var viewModel: ChatViewModel
     @State private var isAtBottom = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -122,7 +123,7 @@ private struct ChatContentView: View {
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .animation(.spring(duration: 0.3), value: isAtBottom)
+        .animation(reduceMotion ? .none : .spring(duration: 0.3), value: isAtBottom)
     }
 
     private var messageList: some View {
@@ -132,6 +133,13 @@ private struct ChatContentView: View {
                     if viewModel.isLoadingHistory {
                         ProgressView()
                             .padding()
+                    }
+                    if viewModel.messages.isEmpty && !viewModel.isLoadingHistory {
+                        ChatEmptyStateView { prompt in
+                            viewModel.inputText = prompt
+                            Task { await viewModel.send() }
+                        }
+                        .padding(.top, 40)
                     }
                     ForEach(viewModel.messages) { message in
                         MessageBubble(message: message)
@@ -175,7 +183,7 @@ private struct ChatContentView: View {
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
-        if animated {
+        if animated && !reduceMotion {
             withAnimation(.easeOut(duration: 0.2)) {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
