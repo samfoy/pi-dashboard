@@ -566,6 +566,16 @@ app.get('/api/agents/installed', (_req, res) => res.json([]))
 
 // Pi environment APIs
 app.get('/api/pi/extensions', (_req, res) => res.json(piEnv.getExtensions()))
+
+// Dashboard config
+app.get('/api/dash/config', (_req, res) => res.json(piEnv.getDashConfig()))
+app.put('/api/dash/config', (req, res) => {
+  try {
+    const saved = piEnv.saveDashConfig(req.body)
+    res.json(saved)
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 app.get('/api/pi/vault', (_req, res) => res.json(piEnv.getVaultStats()))
 app.get('/api/pi/vault/daily', (req, res) => {
   const limit = parseInt(req.query.limit || '7', 10)

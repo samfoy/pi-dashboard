@@ -11,7 +11,7 @@ export default function SystemPage() {
   const [skills, setSkills] = useState<{name: string; description: string}[]>([])
   const [extensions, setExtensions] = useState<{name: string; file: string; description: string}[]>([])
   const [crontab, setCrontab] = useState<{schedule: string; command: string}[]>([])
-  const [vault, setVault] = useState<{dailyNotes: number; taskNotes: number; meetingNotes: number; persons: number; recentDaily: string} | null>(null)
+  const [vault, setVault] = useState<{path: string; dailyNotes: number; taskNotes: number; meetingNotes: number; persons: number; recipes: number; recentDaily: string} | null>(null)
   const [memory, setMemory] = useState<{stats: {facts: number; lessons: number; events: number; episodic: number}; facts: any[]; lessons: any[]} | null>(null)
   const [sessions, setSessions] = useState<any[]>([])
   const [dailyNotes, setDailyNotes] = useState<{date: string; size: number}[]>([])
@@ -76,7 +76,7 @@ export default function SystemPage() {
           <StatCard label="Extensions" value={extensions.length} />
           <StatCard label="Lessons" value={memory?.stats.lessons || 0} />
           <StatCard label="Facts" value={memory?.stats.facts || 0} />
-          <StatCard label="Vault Notes" value={vault ? vault.dailyNotes + vault.taskNotes + vault.meetingNotes : 0} />
+          <StatCard label="Vault Notes" value={vault?.path ? vault.dailyNotes + vault.taskNotes + vault.meetingNotes + vault.recipes : '—'} />
         </div>
 
         {/* Tabs */}
@@ -116,13 +116,15 @@ export default function SystemPage() {
               ))}
             </Card>
             <Card title="📁 Vault">
-              {vault && <>
+              {vault && vault.path ? <>
+                <Info k="Path" v={vault.path} />
                 <Info k="Daily Notes" v={vault.dailyNotes} />
                 <Info k="Task Notes" v={vault.taskNotes} />
                 <Info k="Meeting Notes" v={vault.meetingNotes} />
-                <Info k="Person Notes" v={vault.persons} />
+                <Info k="People" v={vault.persons} />
+                <Info k="Recipes" v={vault.recipes} />
                 <Info k="Latest" v={vault.recentDaily} />
-              </>}
+              </> : <div className="text-muted text-[13px] py-2">Not configured. Set vault path in <a href="#" className="text-accent" onClick={e => { e.preventDefault(); window.location.hash = '/settings' }}>Settings</a>.</div>}
             </Card>
           </div>
         )}
@@ -259,9 +261,12 @@ export default function SystemPage() {
 
         {/* Vault tab */}
         {activeTab === 'vault' && (
+          vault?.path ? (
           <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-4">
             <Card title="📅 Daily Notes">
-              {dailyNotes.map((dn, i) => (
+              {dailyNotes.length === 0 ? (
+                <div className="text-muted text-[13px] py-2 italic">No daily notes found</div>
+              ) : dailyNotes.map((dn, i) => (
                 <div key={i} className={`py-2 px-2 border-b border-border last:border-0 cursor-pointer rounded transition-all ${selectedDaily === dn.date ? 'bg-accent-subtle text-accent' : 'hover:bg-bg-hover text-text'}`} onClick={() => loadDaily(dn.date)}>
                   <div className="text-[13px] font-mono font-medium">{dn.date}</div>
                   <div className="text-[12px] text-muted">{(dn.size / 1024).toFixed(1)} KB</div>
@@ -278,6 +283,14 @@ export default function SystemPage() {
               )}
             </Card>
           </div>
+          ) : (
+            <Card title="📁 Vault">
+              <div className="text-[13px] text-muted py-4 text-center">
+                <p className="mb-3">Vault path not configured.</p>
+                <p>Go to <a href="#/settings" className="text-accent hover:underline">Settings → Vault</a> to set your Obsidian vault path.</p>
+              </div>
+            </Card>
+          )
         )}
       </div>
     </>

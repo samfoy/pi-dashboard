@@ -2,7 +2,7 @@
  * Pi environment data — reads real data from the pi setup, vault, crontab, etc.
  * Uses sqlite3 CLI for memory DB access (avoids native module compilation).
  */
-import { readFileSync, readdirSync, statSync, existsSync } from 'fs'
+import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { execSync } from 'child_process'
 import { homedir } from 'os'
@@ -11,8 +11,58 @@ import { extractText } from './session-store.js'
 const HOME = homedir()
 const PI_DIR = join(HOME, '.pi', 'agent')
 const MEMORY_DB = join(HOME, '.pi', 'memory', 'memory.db')
-const VAULT_DIR = join(HOME, 'vault')
 const SESSIONS_DIR = join(PI_DIR, 'sessions')
+const DASH_CONFIG_PATH = join(HOME, '.pi', 'dashboard.json')
+
+// ── Dashboard config (vault path etc.) ──
+
+const DEFAULT_DASH_CONFIG = {
+  vault: {
+    path: '',  // empty = disabled
+    dirs: {
+      daily: 'Daily',
+      tasks: 'TaskNotes/Tasks',
+      meetings: 'Meeting Notes',
+      people: 'People',
+      recipes: 'Recipes',
+    },
+  },
+}
+
+let _dashConfig = null
+
+export function getDashConfig() {
+  if (_dashConfig) return _dashConfig
+  try {
+    if (existsSync(DASH_CONFIG_PATH)) {
+      const raw = JSON.parse(readFileSync(DASH_CONFIG_PATH, 'utf-8'))
+      _dashConfig = { ...DEFAULT_DASH_CONFIG, ...raw, vault: { ...DEFAULT_DASH_CONFIG.vault, ...raw.vault, dirs: { ...DEFAULT_DASH_CONFIG.vault.dirs, ...(raw.vault?.dirs || {}) } } }
+    } else {
+      _dashConfig = DEFAULT_DASH_CONFIG
+    }
+  } catch {
+    _dashConfig = DEFAULT_DASH_CONFIG
+  }
+  return _dashConfig
+}
+
+export function saveDashConfig(config) {
+  _dashConfig = { ...DEFAULT_DASH_CONFIG, ...config, vault: { ...DEFAULT_DASH_CONFIG.vault, ...config.vault, dirs: { ...DEFAULT_DASH_CONFIG.vault.dirs, ...(config.vault?.dirs || {}) } } }
+  const dir = join(HOME, '.pi')
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  writeFileSync(DASH_CONFIG_PATH, JSON.stringify(_dashConfig, null, 2) + '\n')
+  return _dashConfig
+}
+
+function getVaultDir() {
+  const cfg = getDashConfig()
+  return cfg.vault?.path || ''
+}
+
+function getVaultSubdir(key) {
+  const cfg = getDashConfig()
+  return cfg.vault?.dirs?.[key] || DEFAULT_DASH_CONFIG.vault.dirs[key]
+}
 
 // ── SQLite helper (via CLI) ──
 
@@ -163,32 +213,40 @@ export function getCrontab() {
 // ── Vault ──
 
 export function getVaultStats() {
-  const stats = { dailyNotes: 0, taskNotes: 0, meetingNotes: 0, persons: 0, recentDaily: '' }
+  const VAULT_DIR = getVaultDir()
+  const stats = { path: VAULT_DIR, dailyNotes: 0, taskNotes: 0, meetingNotes: 0, persons: 0, recipes: 0, recentDaily: '' }
+  if (!VAULT_DIR || !existsSync(VAULT_DIR)) return stats
   try {
-    const dn = join(VAULT_DIR, 'Daily Notes')
+    const dn = join(VAULT_DIR, getVaultSubdir('daily'))
     if (existsSync(dn)) {
       const files = readdirSync(dn).filter(f => f.endsWith('.md')).sort()
       stats.dailyNotes = files.length
       stats.recentDaily = files[files.length - 1]?.replace('.md', '') || ''
     }
-    const tn = join(VAULT_DIR, 'TaskNotes', 'Tasks')
+    const tn = join(VAULT_DIR, getVaultSubdir('tasks'))
     if (existsSync(tn)) stats.taskNotes = readdirSync(tn).filter(f => f.endsWith('.md')).length
-    const mn = join(VAULT_DIR, 'Meeting Notes')
+    const mn = join(VAULT_DIR, getVaultSubdir('meetings'))
     if (existsSync(mn)) stats.meetingNotes = readdirSync(mn).filter(f => f.endsWith('.md')).length
-    const pn = join(VAULT_DIR, 'Person')
+    const pn = join(VAULT_DIR, getVaultSubdir('people'))
     if (existsSync(pn)) stats.persons = readdirSync(pn).filter(f => f.endsWith('.md')).length
+    const rn = join(VAULT_DIR, getVaultSubdir('recipes'))
+    if (existsSync(rn)) stats.recipes = readdirSync(rn).filter(f => f.endsWith('.md')).length
   } catch {}
   return stats
 }
 
 export function getDailyNote(date) {
-  const file = join(VAULT_DIR, 'Daily Notes', `${date}.md`)
+  const VAULT_DIR = getVaultDir()
+  if (!VAULT_DIR) return null
+  const file = join(VAULT_DIR, getVaultSubdir('daily'), `${date}.md`)
   if (!existsSync(file)) return null
   return readFileSync(file, 'utf-8')
 }
 
 export function getRecentDailyNotes(limit = 7) {
-  const dn = join(VAULT_DIR, 'Daily Notes')
+  const VAULT_DIR = getVaultDir()
+  if (!VAULT_DIR) return []
+  const dn = join(VAULT_DIR, getVaultSubdir('daily'))
   if (!existsSync(dn)) return []
   return readdirSync(dn)
     .filter(f => f.endsWith('.md'))

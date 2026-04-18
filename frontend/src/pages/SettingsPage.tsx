@@ -6,7 +6,7 @@ import { useAppSelector } from '../store'
 import { useTheme } from '../hooks/useTheme'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
 
-type Tab = 'general' | 'skills' | 'chat' | 'display' | 'developer'
+type Tab = 'general' | 'skills' | 'chat' | 'display' | 'vault' | 'developer'
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -434,6 +434,118 @@ function SkillsTab() {
   )
 }
 
+interface DashConfig {
+  vault: {
+    path: string
+    dirs: {
+      daily: string
+      tasks: string
+      meetings: string
+      people: string
+      recipes: string
+    }
+  }
+}
+
+function VaultTab() {
+  const [config, setConfig] = useState<DashConfig | null>(null)
+  const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; msg: string } | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/dash/config').then(j).then(setConfig).catch(() => {})
+  }, [])
+
+  const save = useCallback(async (next: DashConfig) => {
+    setSaving(true)
+    setConfig(next)
+    try {
+      const saved = await fetch('/api/dash/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      }).then(j)
+      setConfig(saved)
+      setFeedback({ type: 'ok', msg: 'Saved' })
+    } catch {
+      setFeedback({ type: 'err', msg: 'Save failed' })
+    }
+    setSaving(false)
+    setTimeout(() => setFeedback(null), 2000)
+  }, [])
+
+  if (!config) return <div className="text-muted text-[13px] py-4">Loading…</div>
+
+  const setVaultPath = (path: string) => save({ ...config, vault: { ...config.vault, path } })
+  const setDir = (key: string, value: string) => save({ ...config, vault: { ...config.vault, dirs: { ...config.vault.dirs, [key]: value } } })
+
+  const dirFields: { key: string; label: string; hint: string }[] = [
+    { key: 'daily', label: 'Daily Notes', hint: 'Folder containing daily .md files (e.g. 2026-04-17.md)' },
+    { key: 'tasks', label: 'Task Notes', hint: 'Folder containing task notes' },
+    { key: 'meetings', label: 'Meeting Notes', hint: 'Folder containing meeting notes' },
+    { key: 'people', label: 'People', hint: 'Folder containing person notes' },
+    { key: 'recipes', label: 'Recipes', hint: 'Folder containing recipes' },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {feedback && (
+        <div className={`px-3 py-2 rounded-md text-[13px] font-medium animate-scale-in ${feedback.type === 'ok' ? 'bg-ok-subtle text-ok border border-ok/20' : 'bg-danger-subtle text-danger border border-danger/20'}`}>
+          {feedback.msg}
+        </div>
+      )}
+
+      <Card>
+        <CardTitle>Obsidian Vault Path <InfoTip text="Absolute path to your Obsidian vault directory. Leave empty to disable vault features." /></CardTitle>
+        <div className="flex gap-2">
+          <input
+            className="flex-1 bg-bg-elevated border border-border rounded-md px-3 py-2 text-[13px] font-mono text-text outline-none focus-ring transition-colors"
+            placeholder="/Users/you/Documents/MyVault"
+            value={config.vault.path}
+            onChange={e => setConfig({ ...config, vault: { ...config.vault, path: e.target.value } })}
+            onBlur={e => {
+              const trimmed = e.target.value.trim()
+              if (trimmed !== config.vault.path) setVaultPath(trimmed)
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') setVaultPath((e.target as HTMLInputElement).value.trim()) }}
+          />
+          <button
+            className="px-3 py-2 rounded-md text-[13px] font-medium border border-accent text-accent bg-transparent cursor-pointer hover:bg-accent hover:text-white transition-all disabled:opacity-30"
+            disabled={saving}
+            onClick={() => setVaultPath(config.vault.path.trim())}
+          >
+            {saving ? '⏳' : '💾'} Save
+          </button>
+        </div>
+        {config.vault.path && (
+          <div className="text-[12px] text-muted mt-2">Stored in <span className="font-mono">~/.pi/dashboard.json</span></div>
+        )}
+      </Card>
+
+      <Card>
+        <CardTitle>Subdirectory Mapping <InfoTip text="Map vault features to the folder names in your vault. Paths are relative to the vault root." /></CardTitle>
+        <div className="divide-y divide-border">
+          {dirFields.map(({ key, label, hint }) => (
+            <div key={key} className="flex items-center justify-between gap-4 py-2.5">
+              <div>
+                <span className="text-[13px] text-text">{label}</span>
+                <div className="text-[12px] text-muted/60 mt-0.5">{hint}</div>
+              </div>
+              <input
+                className="w-48 bg-bg-elevated border border-border rounded-md px-2.5 py-1.5 text-[13px] font-mono text-text outline-none focus-ring transition-colors text-right"
+                value={(config.vault.dirs as any)[key] || ''}
+                onChange={e => setConfig({ ...config, vault: { ...config.vault, dirs: { ...config.vault.dirs, [key]: e.target.value } } })}
+                onBlur={e => setDir(key, e.target.value.trim())}
+                onKeyDown={e => { if (e.key === 'Enter') setDir(key, (e.target as HTMLInputElement).value.trim()) }}
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
 function DeveloperTab() {
   const [logLevel, setLogLevel] = useState('info')
   const status = useAppSelector(s => s.dashboard.status)
@@ -491,6 +603,7 @@ export default function SettingsPage() {
     { id: 'skills', label: 'Skills', icon: '🛠' },
     { id: 'chat', label: 'Chat', icon: '💬' },
     { id: 'display', label: 'Display', icon: '🎨' },
+    { id: 'vault', label: 'Vault', icon: '📁' },
     { id: 'developer', label: 'Developer', icon: '🔧' },
   ]
 
@@ -515,6 +628,7 @@ export default function SettingsPage() {
           {tab === 'skills' && <SkillsTab />}
           {tab === 'chat' && <ChatTab />}
           {tab === 'display' && <DisplayTab />}
+          {tab === 'vault' && <VaultTab />}
           {tab === 'developer' && <DeveloperTab />}
         </div>
       </div>
