@@ -7,6 +7,7 @@ import SwiftUI
 struct ConnectionBanner: View {
     let state: ConnectionState
     var onTap: (() -> Void)?
+    @Environment(\.appTheme) private var theme
 
     var shouldShow: Bool {
         switch state {
@@ -37,7 +38,7 @@ struct ConnectionBanner: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.orange)
+                .background(theme.warning)
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)

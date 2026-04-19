@@ -7,6 +7,7 @@ import MarkdownUI
 private struct CodeBlockHeader: View {
     let language: String
     let content: String
+    let theme: AppTheme
     @State private var copied = false
 
     var body: some View {
@@ -29,7 +30,7 @@ private struct CodeBlockHeader: View {
                     systemImage: copied ? "checkmark" : "doc.on.doc"
                 )
                 .font(.caption)
-                .foregroundStyle(copied ? Color.green : Color.accentColor)
+                .foregroundStyle(copied ? theme.success : theme.accent)
                 .contentTransition(.symbolEffect(.replace))
                 .animation(.easeInOut(duration: 0.2), value: copied)
             }
@@ -37,31 +38,31 @@ private struct CodeBlockHeader: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color(.systemGray5))
+        .background(theme.codeBlockBg)
     }
 }
 
 // MARK: - MarkdownTheme
 
 extension Theme {
-    /// PiDash custom theme — clean GitHub style with slight personalizations.
-    static var piDash: Theme {
+    /// PiDash custom theme — derives colors from the active AppTheme.
+    static func piDash(theme: AppTheme) -> Theme {
         Theme.gitHub
             .text {
-                ForegroundColor(.primary)
+                ForegroundColor(theme.text)
                 FontSize(16)
             }
             .code {
                 FontFamilyVariant(.monospaced)
                 FontSize(14)
-                ForegroundColor(Color(.label))
-                BackgroundColor(Color(.systemGray6))
+                ForegroundColor(theme.codeBlockText)
+                BackgroundColor(theme.codeBlockBg)
             }
             .codeBlock { config in
                 VStack(alignment: .leading, spacing: 0) {
                     // Language label
                     if let language = config.language {
-                        CodeBlockHeader(language: language, content: config.content)
+                        CodeBlockHeader(language: language, content: config.content, theme: theme)
                     }
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -70,15 +71,16 @@ extension Theme {
                             .markdownTextStyle {
                                 FontFamilyVariant(.monospaced)
                                 FontSize(13)
+                                ForegroundColor(theme.codeBlockText)
                             }
                             .padding(12)
                     }
                 }
-                .background(Color(.systemGray6))
+                .background(theme.codeBlockBg)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color(.separator), lineWidth: 0.5)
+                        .stroke(theme.border, lineWidth: 0.5)
                 )
             }
     }

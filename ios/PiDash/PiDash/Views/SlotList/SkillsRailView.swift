@@ -8,6 +8,7 @@ struct SkillsRailView: View {
     let onSelect: (ChatSlot) -> Void
 
     @Environment(AppState.self) private var appState
+    @Environment(\.appTheme) private var theme
     @State private var selectedAll = true
 
     var body: some View {
@@ -23,7 +24,7 @@ struct SkillsRailView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
-        .background(Color(.systemBackground))
+        .background(theme.pageBg)
     }
 
     private var allChip: some View {
@@ -37,7 +38,7 @@ struct SkillsRailView: View {
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(selectedAll ? Color.accentColor : Color(.systemGray5))
+                        .fill(selectedAll ? theme.accent : theme.cardBg)
                 )
         }
         .buttonStyle(.plain)
@@ -63,7 +64,7 @@ struct SkillsRailView: View {
             .padding(.horizontal, 8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemGray6))
+                    .fill(theme.infoBg)
             )
         }
         .buttonStyle(.plain)

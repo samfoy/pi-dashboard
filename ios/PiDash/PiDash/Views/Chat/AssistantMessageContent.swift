@@ -8,6 +8,7 @@ import MarkdownUI
 /// image segments go to InlineImageView. Relative URLs are resolved against the server base URL.
 struct AssistantMessageContent: View {
     let content: String
+    @Environment((\.appTheme)) private var theme
 
     private var segments: [ContentSegment] { parseSegments(content) }
 
@@ -18,7 +19,7 @@ struct AssistantMessageContent: View {
                 case .text(let text):
                     if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Markdown(text)
-                            .markdownTheme(.piDash)
+                            .markdownTheme(.piDash(theme: theme))
                     }
                 case .image(let url):
                     InlineImageView(url: url)

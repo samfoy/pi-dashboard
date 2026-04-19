@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SlotRow: View {
     let slot: ChatSlot
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -14,7 +15,7 @@ struct SlotRow: View {
                 Spacer()
                 if slot.inputNeeded {
                     Circle()
-                        .fill(Color.accentColor)
+                        .fill(theme.accent)
                         .frame(width: 8, height: 8)
                 }
                 Text(RelativeTimeFormatter.string(from: slot.updatedAt))

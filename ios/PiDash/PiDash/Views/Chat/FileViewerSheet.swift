@@ -76,6 +76,7 @@ struct FileViewerSheet: View {
     let path: String
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @Environment(AppState.self) private var appState
 
     @State private var viewModel: FileViewerViewModel
@@ -190,6 +191,7 @@ struct FileViewerSheet: View {
 
 struct FileViewerContent: View {
     let viewModel: FileViewerViewModel
+    @Environment(\.appTheme) private var theme
 
     private var fileExtension: String {
         (viewModel.path as NSString).pathExtension.lowercased()
@@ -254,7 +256,7 @@ struct FileViewerContent: View {
     private var markdownView: some View {
         ScrollView {
             Markdown(viewModel.content)
-                .markdownTheme(.piDash)
+                .markdownTheme(.piDash(theme: theme))
                 .padding()
         }
     }

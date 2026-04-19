@@ -61,12 +61,18 @@ actor APIClient {
     }
 
     /// `GET /api/chat/slots/:key` → flat `SlotDetailResponse`
-    func fetchSlotDetail(key: String) async throws -> [ChatMessage] {
+    struct SlotDetailResult {
+        let messages: [ChatMessage]
+        let running: Bool
+    }
+
+    func fetchSlotDetail(key: String) async throws -> SlotDetailResult {
         let url = try requireURL(path: "/chat/slots/\(key)")
         let data = try await get(url: url)
         do {
             let response = try decoder.decode(SlotDetailResponse.self, from: data)
-            return response.messages.map { $0.toChatMessage(slotKey: key) }
+            let msgs = response.messages.map { $0.toChatMessage(slotKey: key) }
+            return SlotDetailResult(messages: msgs, running: response.running ?? false)
         } catch {
             let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
             print("[APIClient] Decode error for slot detail: \(error)")

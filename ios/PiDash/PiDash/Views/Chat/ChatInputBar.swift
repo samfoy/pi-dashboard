@@ -35,6 +35,7 @@ struct ChatInputBar: View {
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     @State private var showPhotoPicker = false
     @State private var showDocumentPicker = false
@@ -111,7 +112,7 @@ struct ChatInputBar: View {
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(Color(.systemGray5))
+                                .fill(theme.cardBg)
                         )
                     }
                     // Command palette
@@ -199,7 +200,7 @@ struct ChatInputBar: View {
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(Color(.systemGray6))
+                            .fill(theme.inputBg)
                     )
                     .submitLabel(.return)
                     .disabled(isDisabled)
@@ -216,8 +217,8 @@ struct ChatInputBar: View {
                     Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
                         .font(.title)
                         .foregroundStyle(
-                            isStreaming ? Color.red
-                                : (canSend ? Color.accentColor : Color.secondary)
+                            isStreaming ? theme.error
+                                : (canSend ? theme.accent : theme.textSecondary)
                         )
                         .contentTransition(.symbolEffect(.replace))
                         .animation(reduceMotion ? nil : .spring(duration: 0.3), value: isStreaming)
@@ -271,7 +272,7 @@ struct ChatInputBar: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(theme.cardBg)
             )
         }
         .buttonStyle(.plain)

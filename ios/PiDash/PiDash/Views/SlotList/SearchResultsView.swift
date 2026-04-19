@@ -7,6 +7,7 @@ struct SearchResultsView: View {
     let isSearching: Bool
     let query: String
     let onSelect: (ChatSlot, UUID) -> Void
+    @Environment(\.appTheme) private var theme
 
     private var grouped: [(slot: ChatSlot, results: [SearchResult])] {
         var seen = [String: Int]()
@@ -46,7 +47,7 @@ struct SearchResultsView: View {
                     } header: {
                         Text(section.slot.title)
                             .font(.subheadline.bold())
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(theme.accent)
                     }
                 }
             }
@@ -60,6 +61,7 @@ struct SearchResultsView: View {
 private struct SearchResultRow: View {
     let result: SearchResult
     let query: String
+    @Environment(\.appTheme) private var theme
 
     private var highlightedExcerpt: AttributedString {
         var attributed = AttributedString(result.excerpt)
@@ -74,7 +76,7 @@ private struct SearchResultRow: View {
             guard found.location != NSNotFound else { break }
             if let swiftRange = Range(found, in: result.excerpt),
                let attrRange = Range(swiftRange, in: attributed) {
-                attributed[attrRange].foregroundColor = Color(red: 1.0, green: 0.75, blue: 0.0)
+                attributed[attrRange].foregroundColor = theme.warning
                 attributed[attrRange].font = .body.bold()
             }
             let nextLoc = found.upperBound

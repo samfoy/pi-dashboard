@@ -46,8 +46,8 @@ final class SearchViewModel {
                     group.addTask {
                         guard !Task.isCancelled else { return [] }
                         do {
-                            let messages = try await apiClient.fetchSlotDetail(key: slot.key)
-                            return messages.compactMap { message in
+                            let result = try await apiClient.fetchSlotDetail(key: slot.key)
+                            return result.messages.compactMap { message in
                                 guard message.content.lowercased().contains(q) else { return nil }
                                 let excerpt = Self.makeExcerpt(content: message.content, query: q)
                                 return SearchResult(

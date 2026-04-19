@@ -195,6 +195,7 @@ private struct ProjectRow: View {
 struct BrowseView: View {
     let apiClient: APIClient
     let onSelect: (String) -> Void
+    @Environment(\.appTheme) private var theme
 
     @State private var currentPath: String? = nil
     @State private var response: BrowseResponse? = nil
@@ -235,7 +236,7 @@ struct BrowseView: View {
                     Label("Use \"\(folderName)\"",
                           systemImage: "checkmark.circle.fill")
                         .font(.body.bold())
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(theme.accent)
                 }
             }
             if resp.entries.isEmpty {

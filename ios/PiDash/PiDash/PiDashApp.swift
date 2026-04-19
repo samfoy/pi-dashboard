@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct PiDashApp: App {
     @State private var appState = AppState()
+    @State private var themeManager = ThemeManager()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -13,6 +14,8 @@ struct PiDashApp: App {
         WindowGroup {
             RootView()
                 .environment(appState)
+                .environment(themeManager)
+                .environment(\.appTheme, themeManager.current)
                 .task {
                     appState.start()
                 }

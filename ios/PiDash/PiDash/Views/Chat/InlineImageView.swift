@@ -13,6 +13,7 @@ struct InlineImageView: View {
     @State private var savedToPhotos = false
     @State private var showFileSaver = false
     @State private var tempFileURL: URL?
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         Group {
@@ -53,7 +54,7 @@ struct InlineImageView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(Color.green.opacity(0.9))
+                                .background(theme.success.opacity(0.9))
                                 .clipShape(Capsule())
                                 .padding(8)
                                 .transition(.scale.combined(with: .opacity))
@@ -66,14 +67,14 @@ struct InlineImageView: View {
                     }
             } else if isLoading {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(theme.cardBg)
                     .frame(width: 200, height: 150)
                     .overlay {
                         ProgressView()
                     }
             } else if failed {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(theme.cardBg)
                     .frame(width: 200, height: 80)
                     .overlay {
                         VStack(spacing: 4) {

@@ -208,11 +208,12 @@ struct LineDiffView: View {
 
 private struct DiffLineRow: View {
     let line: DiffLine
+    @Environment(\.appTheme) private var theme
 
     private var background: Color {
         switch line.kind {
-        case .added:   return Color.green.opacity(0.12)
-        case .removed: return Color.red.opacity(0.12)
+        case .added:   return theme.diffAdded
+        case .removed: return theme.diffRemoved
         case .context: return Color.clear
         }
     }
@@ -227,9 +228,9 @@ private struct DiffLineRow: View {
 
     private var prefixColor: Color {
         switch line.kind {
-        case .added:   return .green
-        case .removed: return .red
-        case .context: return .secondary
+        case .added:   return theme.success
+        case .removed: return theme.error
+        case .context: return theme.textMuted
         }
     }
 
@@ -254,6 +255,7 @@ private struct CollapsibleContextBlock: View {
     let hunk: DiffHunk
     let isExpanded: Bool
     let onToggle: () -> Void
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         if isExpanded {
@@ -266,7 +268,7 @@ private struct CollapsibleContextBlock: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background(Color(.systemGray6))
+                    .background(theme.codeBlockBg)
             }
             .buttonStyle(.plain)
         } else {
@@ -279,7 +281,7 @@ private struct CollapsibleContextBlock: View {
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
-                .background(Color(.systemGray6))
+                .background(theme.codeBlockBg)
             }
             .buttonStyle(.plain)
         }

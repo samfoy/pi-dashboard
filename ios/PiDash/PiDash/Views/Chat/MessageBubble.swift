@@ -7,6 +7,7 @@ struct MessageBubble: View {
     let message: ChatMessage
     @State private var showTimestamp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -99,7 +100,7 @@ struct MessageBubble: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.accentColor.opacity(0.7))
+                    .background(theme.userBubble.opacity(0.7))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 // Render text (stripping image markdown)
@@ -108,8 +109,8 @@ struct MessageBubble: View {
                     Text(text)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
+                        .background(theme.userBubble)
+                        .foregroundStyle(theme.userBubbleText)
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .contextMenu {
                             Button {
@@ -154,7 +155,7 @@ struct MessageBubble: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Color(.systemGray5))
+                .background(theme.cardBg)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
     }
@@ -195,10 +196,11 @@ private struct UserImagesView: View {
 struct StreamingCursor: View {
     @State private var isVisible = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         Circle()
-            .fill(Color.accentColor)
+            .fill(theme.accent)
             .frame(width: 8, height: 8)
             .opacity(isVisible ? 1 : 0)
             .onAppear {

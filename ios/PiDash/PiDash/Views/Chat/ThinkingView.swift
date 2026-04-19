@@ -8,6 +8,7 @@ struct ThinkingView: View {
     @State private var expanded = false
     @State private var startTime: Date?
     @State private var thinkingSeconds: Int?
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -41,15 +42,15 @@ struct ThinkingView: View {
             if expanded, !content.isEmpty {
                 Text(content)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(theme.thinkingText)
                     .italic()
                     .padding(8)
-                    .background(Color(.systemGray6))
+                    .background(theme.codeBlockBg)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
         .padding(10)
-        .background(Color(.systemGray5))
+        .background(theme.thinkingBg)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 

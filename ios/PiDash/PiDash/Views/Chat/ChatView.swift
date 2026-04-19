@@ -117,6 +117,7 @@ private struct ChatContentView: View {
     @State private var showCommandPalette = false
     @State private var showModelPickerFromToolbar = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appTheme) private var theme
     private let healthService = HealthKitService.shared
     private let calendarService = CalendarService.shared
     private let remindersService = RemindersService.shared
@@ -142,7 +143,7 @@ private struct ChatContentView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(Color.red)
+                    .background(theme.error)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
@@ -247,8 +248,8 @@ private struct ChatContentView: View {
                 } label: {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.title)
-                        .foregroundStyle(Color.accentColor)
-                        .background(Circle().fill(Color(.systemBackground)))
+                        .foregroundStyle(theme.accent)
+                        .background(Circle().fill(theme.pageBg))
                         .shadow(radius: 4)
                 }
                 .padding(.trailing, 16)
@@ -408,6 +409,7 @@ private struct ChatSettingsMenu: View {
 struct ModelPickerSheet: View {
     @Bindable var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     @State private var searchText = ""
 
     private var filteredModels: [ModelInfo] {
@@ -477,7 +479,7 @@ struct ModelPickerSheet: View {
                 Spacer()
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(theme.accent)
                 }
             }
         }
@@ -488,6 +490,7 @@ struct ModelPickerSheet: View {
 
 private struct ChatEmptyStateView: View {
     let onSelect: (String) -> Void
+    @Environment(\.appTheme) private var theme
 
     private let prompts = [
         (icon: "chevron.left.forwardslash.chevron.right", text: "Explain this code"),
@@ -520,7 +523,7 @@ private struct ChatEmptyStateView: View {
                         HStack(spacing: 8) {
                             Image(systemName: prompt.icon)
                                 .font(.callout)
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(theme.accent)
                             Text(prompt.text)
                                 .font(.subheadline)
                                 .foregroundStyle(.primary)
@@ -531,7 +534,7 @@ private struct ChatEmptyStateView: View {
                         .padding(.vertical, 10)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(.systemGray6))
+                                .fill(theme.infoBg)
                         )
                     }
                     .buttonStyle(.plain)
@@ -547,11 +550,12 @@ private struct ChatEmptyStateView: View {
 
 private struct ContextUsageBar: View {
     let percent: Double   // 0.0 – 1.0
+    @Environment(\.appTheme) private var theme
 
     private var tint: Color {
-        if percent >= 0.95 { return .red }
-        if percent >= 0.80 { return .yellow }
-        return Color.accentColor
+        if percent >= 0.95 { return theme.error }
+        if percent >= 0.80 { return theme.warning }
+        return theme.accent
     }
 
     private var label: String {

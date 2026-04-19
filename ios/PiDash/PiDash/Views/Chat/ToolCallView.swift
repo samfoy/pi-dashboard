@@ -11,6 +11,7 @@ struct ToolCallView: View {
     var isError: Bool = false
 
     @State private var expanded = false
+    @Environment(\.appTheme) private var theme
 
     private var parsedArgs: [String: Any]? {
         guard let args, let data = args.data(using: .utf8) else { return nil }
@@ -26,7 +27,7 @@ struct ToolCallView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color(.systemGray5))
+        .background(theme.cardBg)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -54,7 +55,7 @@ struct ToolCallView: View {
                 if result != nil {
                     Image(systemName: isError ? "xmark.circle.fill" : "checkmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(isError ? .red : .green)
+                        .foregroundStyle(isError ? theme.error : theme.success)
                 } else {
                     ProgressView()
                         .controlSize(.mini)
@@ -157,7 +158,7 @@ struct ToolCallView: View {
 private struct ReadToolDetail: View {
     let args: [String: Any]?
     let result: String?
-
+    @Environment(\.appTheme) private var theme
     @State private var showFileViewer = false
 
     var body: some View {
@@ -172,7 +173,7 @@ private struct ReadToolDetail: View {
                 }
             }
             if let result, !result.isEmpty {
-                filePreview(result, language: fileLanguage)
+                FilePreviewView(content: result, language: fileLanguage)
             }
         }
         .padding(10)
@@ -189,7 +190,7 @@ private struct ReadToolDetail: View {
 private struct EditToolDetail: View {
     let args: [String: Any]?
     let result: String?
-
+    @Environment(\.appTheme) private var theme
     @State private var showFileViewer = false
 
     var body: some View {
@@ -219,7 +220,7 @@ private struct EditToolDetail: View {
             if let result, !result.isEmpty {
                 Text(result)
                     .font(.caption)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(theme.success)
                     .padding(.top, 2)
             }
         }
@@ -232,7 +233,7 @@ private struct EditToolDetail: View {
 private struct WriteToolDetail: View {
     let args: [String: Any]?
     let result: String?
-
+    @Environment(\.appTheme) private var theme
     @State private var showContent = false
     @State private var showFileViewer = false
 
@@ -263,13 +264,13 @@ private struct WriteToolDetail: View {
                 .buttonStyle(.plain)
 
                 if showContent {
-                    filePreview(content, language: fileLanguage)
+                    FilePreviewView(content: content, language: fileLanguage)
                 }
             }
             if let result, !result.isEmpty {
                 Text(result)
                     .font(.caption)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(theme.success)
                     .padding(.top, 2)
             }
         }
@@ -287,6 +288,7 @@ private struct WriteToolDetail: View {
 private struct BashToolDetail: View {
     let args: [String: Any]?
     let result: String?
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -297,19 +299,19 @@ private struct BashToolDetail: View {
                         .foregroundStyle(.primary)
                         .padding(8)
                 }
-                .background(Color(.systemGray6))
+                .background(theme.codeBlockBg)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             if let result, !result.isEmpty {
                 ScrollView {
                     Text(String(result.prefix(2000)))
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(theme.textSecondary)
                         .padding(8)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxHeight: 200)
-                .background(Color(.systemGray6))
+                .background(theme.codeBlockBg)
                 .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
         }
@@ -323,6 +325,7 @@ private struct GenericToolDetail: View {
     let args: String?
     let result: String?
     let isError: Bool
+    @Environment(\.appTheme) private var theme
 
     /// True when the result string contains inline markdown image syntax
     private var resultHasImages: Bool {
@@ -337,7 +340,7 @@ private struct GenericToolDetail: View {
                     .foregroundStyle(.secondary)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(.systemGray6))
+                    .background(theme.codeBlockBg)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             }
             if let result, !result.isEmpty {
@@ -346,10 +349,10 @@ private struct GenericToolDetail: View {
                 } else {
                     Text(String(result.prefix(500)))
                         .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(isError ? .red : .secondary)
+                        .foregroundStyle(isError ? theme.error : theme.textSecondary)
                         .padding(8)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(.systemGray6))
+                        .background(theme.codeBlockBg)
                         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
             }
@@ -380,6 +383,7 @@ private struct PathLabel: View {
 private struct DiffView: View {
     let oldText: String
     let newText: String
+    @Environment(\.appTheme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -387,20 +391,20 @@ private struct DiffView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(truncate(oldText))
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(theme.error)
                         .padding(6)
                 }
-                .background(Color.red.opacity(0.08))
+                .background(theme.diffRemoved)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
             if !newText.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     Text(truncate(newText))
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(theme.success)
                         .padding(6)
                 }
-                .background(Color.green.opacity(0.08))
+                .background(theme.diffAdded)
                 .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
         }
@@ -421,6 +425,7 @@ private struct ArtifactCard: View {
     let path: String
     let action: String
     let onTap: () -> Void
+    @Environment(\.appTheme) private var theme
 
     private var filename: String {
         (path as NSString).lastPathComponent
@@ -481,7 +486,7 @@ private struct ArtifactCard: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color(.systemBackground))
+            .background(theme.pageBg)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -521,25 +526,32 @@ extension String {
     }
 }
 
-/// File content preview with optional syntax hint
-private func filePreview(_ content: String, language: String? = nil) -> some View {
-    let preview = String(content.prefix(1500))
-    let lines = preview.components(separatedBy: .newlines)
-    let display = lines.count > 20
-        ? lines.prefix(18).joined(separator: "\n") + "\n… +\(lines.count - 18) more lines"
-        : preview
+// MARK: - File Preview View
 
-    return ScrollView(.horizontal, showsIndicators: false) {
-        Text(display)
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(.primary)
-            .padding(8)
+private struct FilePreviewView: View {
+    let content: String
+    var language: String? = nil
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        let preview = String(content.prefix(1500))
+        let lines = preview.components(separatedBy: .newlines)
+        let display = lines.count > 20
+            ? lines.prefix(18).joined(separator: "\n") + "\n… +\(lines.count - 18) more lines"
+            : preview
+
+        ScrollView(.horizontal, showsIndicators: false) {
+            Text(display)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(theme.codeBlockText)
+                .padding(8)
+        }
+        .frame(maxHeight: 250)
+        .background(theme.codeBlockBg)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(theme.border, lineWidth: 0.5)
+        )
     }
-    .frame(maxHeight: 250)
-    .background(Color(.systemGray6))
-    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-    .overlay(
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .stroke(Color(.separator), lineWidth: 0.5)
-    )
 }

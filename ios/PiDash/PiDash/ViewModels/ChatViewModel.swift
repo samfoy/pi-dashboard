@@ -39,10 +39,13 @@ final class ChatViewModel {
         isLoadingHistory = true
         error = nil
         do {
-            let msgs = try await apiClient.fetchSlotDetail(key: slotKey)
-            messages = msgs
-            // Detect if currently streaming (last message is assistant without content closure)
-            if let last = msgs.last, last.role == .assistant, last.isStreaming {
+            let result = try await apiClient.fetchSlotDetail(key: slotKey)
+            messages = result.messages
+            // Sync streaming state with server — if server says not running, stop spinner
+            if !result.running {
+                isStreaming = false
+                streamingMessageId = nil
+            } else if let last = result.messages.last, last.role == .assistant, last.isStreaming {
                 isStreaming = true
             }
         } catch is CancellationError {
