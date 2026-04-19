@@ -1140,6 +1140,7 @@ let _chunkSeq = 0
 
 function _wireSlotEvents(pi, slotKey) {
   let streamBuf = ''
+  let midTurn = false  // true between agent_start and agent_end
   const toolStartTimes = new Map() // toolCallId → { startTime, toolName }
 
   // Track partial streaming content and persist incrementally
@@ -1198,9 +1199,11 @@ function _wireSlotEvents(pi, slotKey) {
 
   pi.on('agent_start', () => {
     agentStartTime = Date.now()
+    midTurn = true
   })
 
   pi.on('agent_end', () => {
+    midTurn = false
     streamBuf = ''
     _partialTextMsg = null
     _partialThinkMsg = null
@@ -1341,8 +1344,34 @@ function _wireSlotEvents(pi, slotKey) {
 
   pi.on('session_file', () => persistSlots())
 
+  pi.on('error', (err) => {
+    if (midTurn) {
+      midTurn = false
+      streamBuf = ''
+      _partialTextMsg = null
+      _partialThinkMsg = null
+      broadcast('chat_error', {
+        slot: slotKey,
+        message: `Pi process error: ${err?.message || String(err)}`,
+      })
+      broadcastSlots()
+      persistSlots()
+    }
+  })
+
   pi.on('exit', () => {
-    broadcast('chat_done', { slot: slotKey })
+    if (midTurn) {
+      midTurn = false
+      streamBuf = ''
+      _partialTextMsg = null
+      _partialThinkMsg = null
+      broadcast('chat_error', {
+        slot: slotKey,
+        message: 'Pi process exited unexpectedly during generation.',
+      })
+    } else {
+      broadcast('chat_done', { slot: slotKey })
+    }
     broadcastSlots()
   })
 
@@ -1363,7 +1392,7 @@ function _wireSlotEvents(pi, slotKey) {
 }
 
 // ── Export for testing ──
-export { app }
+export { app, server }
 
 // ── Start ──
 const hostname = os.hostname()

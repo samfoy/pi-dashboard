@@ -35,6 +35,7 @@ enum ServerEvent {
     case slotTitle(key: String, title: String)
     case contextUsage(slot: String, tokens: Int?, percent: Double?)
     case notification(kind: String, title: String, body: String?, slot: String?, ts: String)
+    case chatError(slot: String, message: String)
     case unknown(String)
 }
 
@@ -219,6 +220,10 @@ final class WebSocketManager: ObservableObject {
                     slot: e.data.slot,
                     ts: e.data.ts ?? ""
                 )
+            }
+        case "chat_error":
+            if let e = try? dec.decode(WSChatErrorEvent.self, from: rawData) {
+                return .chatError(slot: e.data.slot, message: e.data.message)
             }
         default:
             break

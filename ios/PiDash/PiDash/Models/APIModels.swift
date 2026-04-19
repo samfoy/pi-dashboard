@@ -273,6 +273,16 @@ struct WSContextUsageEvent: Decodable {
     let data: WSContextUsageData
 }
 
+struct WSChatErrorData: Decodable {
+    let slot: String
+    let message: String
+}
+
+struct WSChatErrorEvent: Decodable {
+    let type: String
+    let data: WSChatErrorData
+}
+
 // MARK: - Send Message Request
 
 struct SendMessageRequest: Encodable {

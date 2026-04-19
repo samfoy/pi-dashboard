@@ -6,8 +6,9 @@
  * spawning real processes or binding to a port.  Each test starts the app on
  * a random port (listen(0)) and tears it down afterwards.
  */
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { createServer } from 'http'
+import { EventEmitter } from 'events'
 
 // ── Mocks must be declared before the module under test is imported ──────────
 
@@ -111,7 +112,7 @@ vi.mock('../pi-manager.js', () => {
 })
 
 // ── Import app after all mocks are set up ─────────────────────────────────────
-const { app } = await import('../server.js')
+const { app, server } = await import('../server.js')
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -400,5 +401,136 @@ describe('POST /api/chat/slots/:key/stop', () => {
     const res = await post(port, '/api/chat/slots/chat-1-1000/stop')
     expect(res.status).toBe(200)
     expect(abort).toHaveBeenCalled()
+  })
+})
+
+// ── Helper: make a mock pi that is a real EventEmitter ──────────────────────
+function makeMockPi(key = 'chat-ws-test') {
+  const pi = new EventEmitter()
+  pi.slotKey = key
+  pi._wired = false
+  pi.messages = []
+  pi._title = 'Test'
+  pi._userRenamed = false
+  pi.modelProvider = null
+  pi.modelId = null
+  pi.cwd = null
+  pi._contextUsage = null
+  pi.prompt = vi.fn(async () => {})
+  pi.request = vi.fn(async () => ({}))
+  return pi
+}
+
+// Helper: connect a WS client and collect messages until timeout
+async function collectWsMessages(url, timeoutMs = 300) {
+  const { WebSocket: NodeWS } = await import('ws')
+  const ws = new NodeWS(url)
+  await new Promise((resolve, reject) => {
+    ws.on('open', resolve)
+    ws.on('error', reject)
+  })
+  const msgs = []
+  ws.on('message', (data) => msgs.push(JSON.parse(data)))
+  return { ws, msgs }
+}
+
+describe('_wireSlotEvents: chat_error WS broadcasting', () => {
+  let wsPort
+  let mockPi
+
+  beforeAll(async () => {
+    // The real `server` instance (with WS upgrade handler) has not been listened on
+    // in VITEST mode — safe to bind it here once for all WS tests.
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+    wsPort = server.address().port
+  })
+
+  afterAll(() => new Promise((resolve) => server.close(resolve)))
+
+  beforeEach(() => {
+    mockPi = makeMockPi()
+    mockManager.ensureRunning.mockReturnValue(mockPi)
+    mockManager.getSlot.mockReturnValue(mockPi)
+  })
+
+  afterEach(() => {
+    mockPi.removeAllListeners()
+  })
+
+  it('broadcasts chat_error when pi process exits unexpectedly mid-turn', async () => {
+    // Wire slot by posting a chat message (this calls _wireSlotEvents)
+    const res = await fetch(`http://127.0.0.1:${wsPort}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slot: 'chat-ws-test', message: 'hello' }),
+    })
+    expect(res.status).toBe(200)
+
+    const { ws, msgs } = await collectWsMessages(`ws://127.0.0.1:${wsPort}/api/ws`)
+    try {
+      // Simulate mid-turn: start agent, then process exits with no agent_end
+      mockPi.emit('agent_start')
+      await new Promise((r) => setTimeout(r, 20))
+      mockPi.emit('exit', 1)
+      await new Promise((r) => setTimeout(r, 100))
+
+      const errEvent = msgs.find((m) => m.type === 'chat_error')
+      expect(errEvent).toBeDefined()
+      expect(errEvent.data.slot).toBe('chat-ws-test')
+      expect(typeof errEvent.data.message).toBe('string')
+      expect(errEvent.data.message.length).toBeGreaterThan(0)
+    } finally {
+      ws.close()
+    }
+  })
+
+  it('broadcasts chat_error on pi process error event mid-turn', async () => {
+    mockPi.slotKey = 'chat-ws-test-2'
+    mockPi = makeMockPi('chat-ws-test-2')
+    mockManager.ensureRunning.mockReturnValue(mockPi)
+
+    await fetch(`http://127.0.0.1:${wsPort}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slot: 'chat-ws-test-2', message: 'hello' }),
+    })
+
+    const { ws, msgs } = await collectWsMessages(`ws://127.0.0.1:${wsPort}/api/ws`)
+    try {
+      mockPi.emit('agent_start')
+      await new Promise((r) => setTimeout(r, 20))
+      mockPi.emit('error', new Error('spawn failed'))
+      await new Promise((r) => setTimeout(r, 100))
+
+      const errEvent = msgs.find((m) => m.type === 'chat_error')
+      expect(errEvent).toBeDefined()
+      expect(errEvent.data.slot).toBe('chat-ws-test-2')
+      expect(errEvent.data.message).toContain('spawn failed')
+    } finally {
+      ws.close()
+    }
+  })
+
+  it('broadcasts chat_done (not chat_error) on clean exit when not mid-turn', async () => {
+    mockPi = makeMockPi('chat-ws-test-3')
+    mockManager.ensureRunning.mockReturnValue(mockPi)
+
+    await fetch(`http://127.0.0.1:${wsPort}/api/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slot: 'chat-ws-test-3', message: 'hello' }),
+    })
+
+    const { ws, msgs } = await collectWsMessages(`ws://127.0.0.1:${wsPort}/api/ws`)
+    try {
+      // Exit with NO agent_start — not mid-turn
+      mockPi.emit('exit', 0)
+      await new Promise((r) => setTimeout(r, 100))
+
+      expect(msgs.find((m) => m.type === 'chat_error')).toBeUndefined()
+      expect(msgs.find((m) => m.type === 'chat_done')).toBeDefined()
+    } finally {
+      ws.close()
+    }
   })
 })

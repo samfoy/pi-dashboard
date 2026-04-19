@@ -207,6 +207,11 @@ final class ChatViewModel {
         case .chatMessage(let slot, let role, let content, let ts, let meta) where slot == slotKey:
             print("[ChatVM] message for \(slot) role=\(role)")
             handleInboundMessage(role: role, content: content, ts: ts, meta: meta)
+        case .chatError(let slot, let message) where slot == slotKey:
+            print("[ChatVM] chat_error for \(slot): \(message)")
+            finalizeStreaming()
+            self.error = message
+            HapticManager.error()
         case .toolCall(let slot, let tool, let id, let args) where slot == slotKey:
             print("[ChatVM] tool_call \(tool) for \(slot)")
             handleToolCall(tool: tool, id: id, args: args)
@@ -292,13 +297,14 @@ final class ChatViewModel {
     }
 
     private func handleToolCall(tool: String, id: String, args: AnyCodable?) {
-        // Finalize any open streaming text message first
+        // Finalize any open streaming text message (text chunk is done) but keep
+        // isStreaming=true — the agent is still running (tool calls are mid-turn).
         if let sid = streamingMessageId,
            let i = messages.firstIndex(where: { $0.id == sid }) {
             messages[i].isStreaming = false
         }
         streamingMessageId = nil
-        isStreaming = false
+        // Do NOT set isStreaming = false here — spinner must stay active during tool calls.
 
         let argsStr = args?.jsonString
         let msg = ChatMessage(
