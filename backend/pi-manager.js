@@ -53,7 +53,7 @@ export class PiProcess extends EventEmitter {
     this._title = opts.title || null
     this._userRenamed = false  // true if user manually renamed
     this._startTime = Date.now()
-    this._lastActivity = Date.now()
+    this._lastActivity = 0  // 0 = never; updated on actual activity
     this._pendingRequests = new Map() // id → { resolve, timer }
     this._stopping = false
     this._pendingApproval = false
@@ -175,6 +175,7 @@ export class PiProcess extends EventEmitter {
   }
 
   async prompt(message, images) {
+    this._lastActivity = Date.now()
     // Normalize images to pi's expected format
     const normalizedImages = normalizeImages(images)
     // Wait for pi to be ready (templates loaded) before sending
@@ -358,6 +359,7 @@ export class PiProcess extends EventEmitter {
         this.running = false
         this._stopping = false
         this._pendingApproval = false
+        this._lastActivity = Date.now()
         if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
         // Remove partial streaming messages, replace with final
         if (this._streamIdx >= 0) {
