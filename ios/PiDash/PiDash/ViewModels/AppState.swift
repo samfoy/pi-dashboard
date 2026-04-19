@@ -12,6 +12,9 @@ final class AppState {
     var serverConfig: ServerConfig
     var connectionState: ConnectionState = .disconnected
 
+    // Notifications
+    let notificationService = LocalNotificationService()
+
     // Slots
     var slots: [ChatSlot] = []
     var isLoadingSlots = false
@@ -52,6 +55,7 @@ final class AppState {
         }
         Task { await loadSlots() }
         Task { await loadInitialNotifications() }
+        Task { await notificationService.requestPermission() }
     }
 
     func stop() {
@@ -150,11 +154,14 @@ final class AppState {
 
     func registerChatViewModel(_ vm: ChatViewModel, for slotKey: String) {
         chatViewModels[slotKey] = vm
+        notificationService.activeSlotKey = slotKey
+        notificationService.clearNotifications(forSlot: slotKey)
         print("[AppState] Registered VM for slot \(slotKey) (total: \(chatViewModels.count))")
     }
 
     func unregisterChatViewModel(for slotKey: String) {
         chatViewModels.removeValue(forKey: slotKey)
+        notificationService.activeSlotKey = chatViewModels.keys.first  // nil if none left
         print("[AppState] Unregistered VM for slot \(slotKey) (total: \(chatViewModels.count))")
     }
 
@@ -172,6 +179,7 @@ final class AppState {
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].isStreaming = false
                 slots[i].updatedAt = Date()
+                notificationService.notifyChatDone(slotKey: slotKey, title: slots[i].title)
             }
         case .chatChunk(let slotKey, _, _):
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
@@ -192,11 +200,12 @@ final class AppState {
                 // Server sends percent as 0-100, normalize to 0.0-1.0
                 slots[i].contextPercent = (percent ?? 0) / 100.0
             }
-        case .notification(let kind, _, _, let slotKey, _) where kind == "input_needed":
+        case .notification(let kind, let title, let body, let slotKey, _) where kind == "input_needed":
             if let slotKey,
                let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].inputNeeded = true
                 slots[i].updatedAt = Date()
+                notificationService.notifyInputNeeded(slotKey: slotKey, title: slots[i].title, body: body)
             }
         default:
             break

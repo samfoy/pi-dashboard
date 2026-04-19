@@ -25,6 +25,7 @@
 		B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39DCB7941AD46363E454E0DA /* SlotListView.swift */; };
 		BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */; };
 		C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */; };
+		AA11BB22CC33DD44EE550002 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */; };
 		C3E702B869BB720E486311CD /* NetworkImage in Frameworks */ = {isa = PBXBuildFile; productRef = 100E491F5272A14398DEED4C /* NetworkImage */; };
 		C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD49B269C69BABE939F77B86 /* AppState.swift */; };
 		C756272D812BC761C179B47D /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0887298D39E179DD0FD5986 /* ChatMessage.swift */; };
@@ -61,6 +62,7 @@
 		BEC4BB88795149637EA1305F /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		C0887298D39E179DD0FD5986 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotificationService.swift; sourceTree = "<group>"; };
 		DBA38927A210B8A6BFB78498 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
 		E6D62D76D4F4395254F5CFF5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 				EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */,
 				25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */,
 				CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */,
+				AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -296,6 +299,7 @@
 				81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */,
 				3568E9A59A2673F94DA7A9F2 /* PiDashApp.swift in Sources */,
 				C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */,
+				AA11BB22CC33DD44EE550002 /* LocalNotificationService.swift in Sources */,
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,
