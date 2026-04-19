@@ -26,15 +26,20 @@ final class LocalNotificationService: NSObject, UNUserNotificationCenterDelegate
         [.banner, .sound, .badge]
     }
 
-    /// Handle notification tap — could navigate to the chat in the future.
+    /// Handle notification tap — navigate to the relevant chat.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        // threadIdentifier is the slot key
-        let _ = response.notification.request.content.threadIdentifier
-        // TODO: navigate to that chat
+        let slotKey = response.notification.request.content.threadIdentifier
+        guard !slotKey.isEmpty else { return }
+        await MainActor.run {
+            onNotificationTap?(slotKey)
+        }
     }
+
+    /// Callback set by AppState to handle navigation on notification tap.
+    var onNotificationTap: ((String) -> Void)?
 
     func requestPermission() async {
         let center = UNUserNotificationCenter.current()

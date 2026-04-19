@@ -73,6 +73,10 @@ final class AppState {
         Task { await loadSlots() }
         Task { await loadInitialNotifications() }
         Task { await notificationService.requestPermission() }
+        // Wire notification tap → navigate to chat
+        notificationService.onNotificationTap = { [weak self] slotKey in
+            self?.pendingDeepLinkKey = slotKey
+        }
     }
 
     func stop() {
