@@ -68,5 +68,14 @@
 	</array>
 	<key>UIUserInterfaceStyle</key>
 	<string>Automatic</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.pidash.refresh</string>
+	</array>
 </dict>
 </plist>

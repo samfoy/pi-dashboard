@@ -5,6 +5,10 @@ struct PiDashApp: App {
     @State private var appState = AppState()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        BackgroundRefreshService.register()
+    }
+
     var body: some Scene {
         WindowGroup {
             SlotListView()
@@ -19,7 +23,7 @@ struct PiDashApp: App {
                         appState.notificationService.clearBadge()
                         Task { await appState.notificationService.checkPermission() }
                     case .background:
-                        break
+                        BackgroundRefreshService.scheduleRefresh()
                     default:
                         break
                     }

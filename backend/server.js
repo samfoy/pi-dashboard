@@ -414,6 +414,18 @@ app.post('/api/chat/mode', (_req, res) => res.json({ ok: true }))
 
 // Notifications (stubs)
 app.get('/api/notifications', (_req, res) => res.json({ notifications }))
+
+// Lightweight poll endpoint for iOS background refresh
+app.get('/api/poll', (_req, res) => {
+  const slots = manager.listSlots().map(s => ({
+    key: s.key,
+    title: s.title,
+    running: s.running,
+    updated_at: s.updated_at,
+  }))
+  const unacked = notifications.filter(n => !n.acked)
+  res.json({ slots, notifications: unacked })
+})
 app.post('/api/notifications/clear', (_req, res) => { notifications.length = 0; res.json({ ok: true }) })
 app.post('/api/notifications/ack', (req, res) => {
   const n = notifications.find(n => n.ts === req.body.ts)
