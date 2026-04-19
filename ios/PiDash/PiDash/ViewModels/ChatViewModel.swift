@@ -19,6 +19,7 @@ final class ChatViewModel {
     var currentModel: ModelInfo?
     var thinkingLevel: String = "medium"
     var availableModels: [ModelInfo] = []
+    var slashCommands: [SlashCommand] = []
     static let thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh"]
 
     private let apiClient: APIClient
@@ -53,6 +54,12 @@ final class ChatViewModel {
     }
 
     // MARK: - Send message
+
+    /// Sends a slash command (e.g. "compact" → sends "/compact" as a message).
+    func sendCommand(_ name: String) async {
+        inputText = "/\(name)"
+        await send()
+    }
 
     func send() async {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -139,6 +146,16 @@ final class ChatViewModel {
         do {
             try await apiClient.setThinking(slot: slotKey, level: level)
             thinkingLevel = level
+            HapticManager.messageSent()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func rename(title: String) async {
+        do {
+            try await apiClient.renameSlot(key: slotKey, title: title)
+            slot.title = title
             HapticManager.messageSent()
         } catch {
             self.error = error.localizedDescription

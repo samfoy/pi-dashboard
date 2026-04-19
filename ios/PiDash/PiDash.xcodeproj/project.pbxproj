@@ -31,6 +31,7 @@
 		C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD49B269C69BABE939F77B86 /* AppState.swift */; };
 		C756272D812BC761C179B47D /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0887298D39E179DD0FD5986 /* ChatMessage.swift */; };
 		DA50A60429D0606D519F4751 /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7329591BD291B8D5E93094E6 /* APIModels.swift */; };
+		30D48ACCE21E42F0AF82DF01 /* SlashCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDB095C49F34C4DAB621761 /* SlashCommand.swift */; };
 		E19B2E1E1AFCBACB52B59417 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DEF0C100C668F368D19E82F /* ChatView.swift */; };
 		E35A5E968F9C09FFED05BDC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0EBD7361EF456B5F0436A74A /* Assets.xcassets */; };
 		F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */; };
@@ -69,6 +70,7 @@
 		E6D62D76D4F4395254F5CFF5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		F447C462AA02BA23363BA71B /* ChatSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSlot.swift; sourceTree = "<group>"; };
+		5FDB095C49F34C4DAB621761 /* SlashCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommand.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +129,7 @@
 				7329591BD291B8D5E93094E6 /* APIModels.swift */,
 				C0887298D39E179DD0FD5986 /* ChatMessage.swift */,
 				F447C462AA02BA23363BA71B /* ChatSlot.swift */,
+				5FDB095C49F34C4DAB621761 /* SlashCommand.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -289,6 +292,7 @@
 			files = (
 				406290EEA5DD8454C4308998 /* APIClient.swift in Sources */,
 				DA50A60429D0606D519F4751 /* APIModels.swift in Sources */,
+				30D48ACCE21E42F0AF82DF01 /* SlashCommand.swift in Sources */,
 				C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */,
 				3A35FD7E7F0A99B1AA2C7B67 /* ChatInputBar.swift in Sources */,
 				C756272D812BC761C179B47D /* ChatMessage.swift in Sources */,

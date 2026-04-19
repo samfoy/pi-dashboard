@@ -112,6 +112,20 @@ actor APIClient {
         _ = try await post(url: url, body: EmptyBody())
     }
 
+    // MARK: - Slash Commands
+
+    /// `GET /api/slash-commands` → `[SlashCommand]` (direct array)
+    func fetchSlashCommands() async throws -> [SlashCommand] {
+        let url = try requireURL(path: "/slash-commands")
+        let data = try await get(url: url)
+        do {
+            let dtos = try decoder.decode([SlashCommandDTO].self, from: data)
+            return dtos.map { $0.toSlashCommand() }
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
     // MARK: - Models & Thinking
 
     /// `GET /api/models` → available models

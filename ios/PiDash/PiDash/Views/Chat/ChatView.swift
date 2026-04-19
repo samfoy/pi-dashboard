@@ -212,9 +212,19 @@ private struct ChatSettingsMenu: View {
     @Bindable var viewModel: ChatViewModel
     @State private var showModelPicker = false
     @State private var showThinkingPicker = false
+    @State private var showRename = false
+    @State private var renameText = ""
 
     var body: some View {
         Menu {
+            // Rename
+            Button {
+                renameText = viewModel.slot.title
+                showRename = true
+            } label: {
+                Label("Rename", systemImage: "pencil")
+            }
+
             // Current model display
             Section("Model") {
                 Button {
@@ -248,6 +258,15 @@ private struct ChatSettingsMenu: View {
         }
         .sheet(isPresented: $showModelPicker) {
             ModelPickerSheet(viewModel: viewModel)
+        }
+        .alert("Rename Chat", isPresented: $showRename) {
+            TextField("Chat name", text: $renameText)
+            Button("Cancel", role: .cancel) {}
+            Button("Save") {
+                let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty else { return }
+                Task { await viewModel.rename(title: trimmed) }
+            }
         }
     }
 }
