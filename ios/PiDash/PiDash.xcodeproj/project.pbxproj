@@ -40,6 +40,8 @@
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
 		C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
+		A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234561 /* HealthKitService.swift */; };
+		A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234563 /* HealthKit.framework */; };
 		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
 		D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */; };
 /* End PBXBuildFile section */
@@ -78,6 +80,9 @@
 		E6D62D76D4F4395254F5CFF5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		F447C462AA02BA23363BA71B /* ChatSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSlot.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6078901234561 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6078901234563 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
+		A1B2C3D4E5F6078901234565 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
 		5FDB095C49F34C4DAB621761 /* SlashCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommand.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -89,6 +94,7 @@
 				2A3742F5813615FECE00AF38 /* MarkdownUI in Frameworks */,
 				C3E702B869BB720E486311CD /* NetworkImage in Frameworks */,
 				87A3EE96219338AAF7ED07A1 /* Highlightr in Frameworks */,
+				A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -100,6 +106,7 @@
 			children = (
 				0EBD7361EF456B5F0436A74A /* Assets.xcassets */,
 				22694B85988C36300067EA53 /* Info.plist */,
+				A1B2C3D4E5F6078901234565 /* PiDash.entitlements */,
 				A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */,
 				362CDBE2489801C680958006 /* Models */,
 				5FAC22AC1835E9B04C4250FC /* Networking */,
@@ -127,6 +134,7 @@
 				CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */,
 				AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */,
 				BB22CC33DD44EE55FF660001 /* BackgroundRefreshService.swift */,
+				A1B2C3D4E5F6078901234561 /* HealthKitService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -209,6 +217,7 @@
 			children = (
 				0FBD0B08711010CA9B546724 /* PiDash */,
 				8050E845E70EDEAD920DD7C3 /* Products */,
+				A1B2C3D4E5F6078901234563 /* HealthKit.framework */,
 			);
 			sourceTree = "<group>";
 		};
@@ -323,6 +332,7 @@
 				C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */,
 				AA11BB22CC33DD44EE550002 /* LocalNotificationService.swift in Sources */,
 				BB22CC33DD44EE55FF660002 /* BackgroundRefreshService.swift in Sources */,
+				A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */,
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,
@@ -414,6 +424,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PiDash/PiDash.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZBL5RZ37FG;
@@ -433,6 +444,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PiDash/PiDash.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZBL5RZ37FG;

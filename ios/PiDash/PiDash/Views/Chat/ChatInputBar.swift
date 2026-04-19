@@ -24,6 +24,7 @@ struct ChatInputBar: View {
     var onShowPalette: (() -> Void)? = nil
     var onShowModelPicker: (() -> Void)? = nil
     var onCompact: (() -> Void)? = nil
+    var onHealthSummary: (() -> Void)? = nil
     let onSend: () -> Void
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
@@ -136,6 +137,11 @@ struct ChatInputBar: View {
                         } message: {
                             Text("Summarises the conversation to free up context (\(Int((pct * 100).rounded()))% used).")
                         }
+                    }
+
+                    // Health summary
+                    if let onHealth = onHealthSummary {
+                        quickButton(icon: "heart.fill", label: "Health", tint: .pink) { onHealth() }
                     }
 
                     // Copy last assistant message

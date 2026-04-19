@@ -80,6 +80,7 @@ private struct ChatContentView: View {
     @State private var showCommandPalette = false
     @State private var showModelPickerFromToolbar = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let healthService = HealthKitService.shared
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -120,6 +121,15 @@ private struct ChatContentView: View {
                     onShowPalette: { showCommandPalette = true },
                     onShowModelPicker: { showModelPickerFromToolbar = true },
                     onCompact: { Task { await viewModel.sendCommand("compact") } },
+                    onHealthSummary: {
+                        Task {
+                            try? await healthService.requestAuthorization()
+                            let summary = await healthService.fetchTodaySummary()
+                            await MainActor.run {
+                                viewModel.inputText = summary + viewModel.inputText
+                            }
+                        }
+                    },
                     onSend: { Task { await viewModel.send() } },
                     onStop: { Task { await viewModel.stop() } }
                 )
