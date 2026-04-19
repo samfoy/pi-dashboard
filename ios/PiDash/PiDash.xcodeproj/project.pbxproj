@@ -43,7 +43,9 @@
 		A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234561 /* HealthKitService.swift */; };
 		A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234571 /* CalendarService.swift */; };
 		A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234581 /* RemindersService.swift */; };
+		A1B2C3D4E5F6078901234592 /* ContactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234591 /* ContactsService.swift */; };
 		A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234563 /* HealthKit.framework */; };
+		A1B2C3D4E5F6078901234594 /* Contacts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234593 /* Contacts.framework */; };
 		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
 		D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */; };
 /* End PBXBuildFile section */
@@ -85,7 +87,9 @@
 		A1B2C3D4E5F6078901234561 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234571 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234581 /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6078901234591 /* ContactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234563 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
+		A1B2C3D4E5F6078901234593 /* Contacts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Contacts.framework; path = System/Library/Frameworks/Contacts.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F6078901234565 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
 		5FDB095C49F34C4DAB621761 /* SlashCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommand.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -99,6 +103,7 @@
 				C3E702B869BB720E486311CD /* NetworkImage in Frameworks */,
 				87A3EE96219338AAF7ED07A1 /* Highlightr in Frameworks */,
 				A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */,
+				A1B2C3D4E5F6078901234594 /* Contacts.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,6 +146,7 @@
 				A1B2C3D4E5F6078901234561 /* HealthKitService.swift */,
 				A1B2C3D4E5F6078901234571 /* CalendarService.swift */,
 				A1B2C3D4E5F6078901234581 /* RemindersService.swift */,
+				A1B2C3D4E5F6078901234591 /* ContactsService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -224,6 +230,7 @@
 				0FBD0B08711010CA9B546724 /* PiDash */,
 				8050E845E70EDEAD920DD7C3 /* Products */,
 				A1B2C3D4E5F6078901234563 /* HealthKit.framework */,
+				A1B2C3D4E5F6078901234593 /* Contacts.framework */,
 			);
 			sourceTree = "<group>";
 		};
@@ -341,6 +348,7 @@
 				A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */,
 				A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */,
 				A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */,
+				A1B2C3D4E5F6078901234592 /* ContactsService.swift in Sources */,
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,

@@ -39,6 +39,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSContactsUsageDescription</key>
+	<string>PiDash reads your contacts so the AI can help you with names, phone numbers, and emails.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>PiDash reads your reminders so the AI can help you manage your to-do list.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

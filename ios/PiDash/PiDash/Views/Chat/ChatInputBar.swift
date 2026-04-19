@@ -27,6 +27,7 @@ struct ChatInputBar: View {
     var onHealthSummary: (() -> Void)? = nil
     var onCalendarSummary: (() -> Void)? = nil
     var onRemindersSummary: (() -> Void)? = nil
+    var onContactsSummary: (() -> Void)? = nil
     let onSend: () -> Void
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
@@ -154,6 +155,11 @@ struct ChatInputBar: View {
                     // Reminders summary
                     if let onReminders = onRemindersSummary {
                         quickButton(icon: "checklist", label: "Reminders", tint: .green) { onReminders() }
+                    }
+
+                    // Contacts summary
+                    if let onContacts = onContactsSummary {
+                        quickButton(icon: "person.2", label: "Contacts", tint: .orange) { onContacts() }
                     }
 
                     // Copy last assistant message

@@ -83,6 +83,7 @@ private struct ChatContentView: View {
     private let healthService = HealthKitService.shared
     private let calendarService = CalendarService.shared
     private let remindersService = RemindersService.shared
+    private let contactsService = ContactsService.shared
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -145,6 +146,15 @@ private struct ChatContentView: View {
                         Task {
                             try? await remindersService.requestAuthorization()
                             let summary = await remindersService.fetchIncompleteReminders()
+                            await MainActor.run {
+                                viewModel.inputText = summary + "\n" + viewModel.inputText
+                            }
+                        }
+                    },
+                    onContactsSummary: {
+                        Task {
+                            try? await contactsService.requestAuthorization()
+                            let summary = await contactsService.fetchContacts()
                             await MainActor.run {
                                 viewModel.inputText = summary + "\n" + viewModel.inputText
                             }
