@@ -82,6 +82,7 @@ private struct ChatContentView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let healthService = HealthKitService.shared
     private let calendarService = CalendarService.shared
+    private let remindersService = RemindersService.shared
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -135,6 +136,15 @@ private struct ChatContentView: View {
                         Task {
                             try? await calendarService.requestAuthorization()
                             let summary = await calendarService.fetchUpcomingEvents()
+                            await MainActor.run {
+                                viewModel.inputText = summary + "\n" + viewModel.inputText
+                            }
+                        }
+                    },
+                    onRemindersSummary: {
+                        Task {
+                            try? await remindersService.requestAuthorization()
+                            let summary = await remindersService.fetchIncompleteReminders()
                             await MainActor.run {
                                 viewModel.inputText = summary + "\n" + viewModel.inputText
                             }

@@ -42,6 +42,7 @@
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
 		A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234561 /* HealthKitService.swift */; };
 		A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234571 /* CalendarService.swift */; };
+		A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234581 /* RemindersService.swift */; };
 		A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234563 /* HealthKit.framework */; };
 		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
 		D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */; };
@@ -83,6 +84,7 @@
 		F447C462AA02BA23363BA71B /* ChatSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSlot.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234561 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234571 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6078901234581 /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234563 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F6078901234565 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
 		5FDB095C49F34C4DAB621761 /* SlashCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommand.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				BB22CC33DD44EE55FF660001 /* BackgroundRefreshService.swift */,
 				A1B2C3D4E5F6078901234561 /* HealthKitService.swift */,
 				A1B2C3D4E5F6078901234571 /* CalendarService.swift */,
+				A1B2C3D4E5F6078901234581 /* RemindersService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -337,6 +340,7 @@
 				BB22CC33DD44EE55FF660002 /* BackgroundRefreshService.swift in Sources */,
 				A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */,
 				A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */,
+				A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */,
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,

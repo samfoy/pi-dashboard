@@ -39,6 +39,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>PiDash reads your reminders so the AI can help you manage your to-do list.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>PiDash reads your calendar events so the AI can answer questions about your schedule.</string>
 	<key>NSHealthShareUsageDescription</key>
