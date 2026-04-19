@@ -22,6 +22,8 @@ final class AppState {
 
     // Navigation
     var selectedSlotKey: String?
+    /// Message ID to scroll to when opening a chat from search results.
+    var selectedScrollTarget: UUID? = nil
     /// Set by deep-link handler (widget tap). SlotListView consumes + clears this.
     var pendingDeepLinkKey: String?
 

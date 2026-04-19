@@ -11,7 +11,7 @@ struct PiDashApp: App {
 
     var body: some Scene {
         WindowGroup {
-            SlotListView()
+            RootView()
                 .environment(appState)
                 .task {
                     appState.start()

@@ -6,14 +6,12 @@ struct SlotListView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: SlotListViewModel?
     @State private var showSettings = false
-    @State private var navigateToSlotKey: String?
 
     var body: some View {
         Group {
             if let vm = viewModel {
                 SlotListContent(
                     viewModel: vm,
-                    navigateToSlotKey: $navigateToSlotKey,
                     showSettings: $showSettings
                 )
             } else {
@@ -25,7 +23,7 @@ struct SlotListView: View {
         }
         .onChange(of: appState.pendingDeepLinkKey) { _, newKey in
             guard let key = newKey else { return }
-            navigateToSlotKey = key
+            appState.selectedSlotKey = key
             appState.pendingDeepLinkKey = nil
         }
     }
@@ -35,54 +33,40 @@ struct SlotListView: View {
 
 private struct SlotListContent: View {
     @Bindable var viewModel: SlotListViewModel
-    @Binding var navigateToSlotKey: String?
     @Binding var showSettings: Bool
     @Environment(AppState.self) private var appState
     @State private var renamingSlot: ChatSlot?
     @State private var renameTitle: String = ""
     @State private var showSessionHistory = false
-    @State private var searchScrollTarget: UUID? = nil
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .top) {
-                listBody
-                    .searchable(text: $viewModel.searchText, prompt: "Search chats")
-                    .onChange(of: viewModel.searchText) { _, query in
-                        viewModel.searchViewModel.search(
-                            query: query,
-                            slots: viewModel.slots,
-                            apiClient: appState.apiClient
-                        )
+        ZStack(alignment: .top) {
+            listBody
+                .searchable(text: $viewModel.searchText, prompt: "Search chats")
+                .onChange(of: viewModel.searchText) { _, query in
+                    viewModel.searchViewModel.search(
+                        query: query,
+                        slots: viewModel.slots,
+                        apiClient: appState.apiClient
+                    )
+                }
+                .navigationTitle("PiDash")
+                .toolbar { toolbarItems }
+                .task { await viewModel.loadSlashCommands() }
+                .sheet(isPresented: $showSettings) { SettingsView() }
+                .sheet(isPresented: $showSessionHistory) {
+                    SessionHistoryView { newSlotKey in
+                        appState.selectedSlotKey = newSlotKey
                     }
-                    .navigationTitle("PiDash")
-                    .toolbar { toolbarItems }
-                    .task { await viewModel.loadSlashCommands() }
-                    .sheet(isPresented: $showSettings) { SettingsView() }
-                    .sheet(isPresented: $showSessionHistory) {
-                        SessionHistoryView { newSlotKey in
-                            navigateToSlotKey = newSlotKey
-                        }
-                        .environment(appState)
+                    .environment(appState)
+                }
+                .overlay(alignment: .top) {
+                    ConnectionBanner(state: appState.connectionState) {
+                        appState.wsManager.connect()
                     }
-                    .overlay(alignment: .top) {
-                        ConnectionBanner(state: appState.connectionState) {
-                            appState.wsManager.connect()
-                        }
-                            .padding(.top, 8)
-                            .animation(.spring(duration: 0.4), value: appState.connectionState.isConnected)
-                    }
-                    // Navigate to newly created slot
-                    .navigationDestination(isPresented: Binding(
-                        get: { navigateToSlotKey != nil },
-                        set: { if !$0 { navigateToSlotKey = nil; searchScrollTarget = nil } }
-                    )) {
-                        if let key = navigateToSlotKey,
-                           let slot = appState.slots.first(where: { $0.key == key }) {
-                            ChatView(slot: slot, scrollToMessageId: searchScrollTarget)
-                        }
-                    }
-            }
+                        .padding(.top, 8)
+                        .animation(.spring(duration: 0.4), value: appState.connectionState.isConnected)
+                }
         }
     }
 
@@ -94,8 +78,8 @@ private struct SlotListContent: View {
                 isSearching: viewModel.searchViewModel.isSearching,
                 query: viewModel.searchText,
                 onSelect: { slot, messageId in
-                    searchScrollTarget = messageId
-                    navigateToSlotKey = slot.key
+                    appState.selectedScrollTarget = messageId
+                    appState.selectedSlotKey = slot.key
                 }
             )
         } else if appState.isLoadingSlots && viewModel.slots.isEmpty {
@@ -113,11 +97,14 @@ private struct SlotListContent: View {
     }
 
     private var chatList: some View {
-        List {
+        List(selection: Binding(
+            get: { appState.selectedSlotKey },
+            set: { appState.selectedSlotKey = $0 }
+        )) {
                 ForEach(viewModel.groupedSlots, id: \.group) { section in
                     Section(section.group.label) {
                         ForEach(section.slots) { slot in
-                            NavigationLink(destination: ChatView(slot: slot)) {
+                            NavigationLink(value: slot.key) {
                                 SlotRow(slot: slot)
                             }
                             .contextMenu {
@@ -171,7 +158,8 @@ private struct SlotListContent: View {
             Button {
                 Task {
                     if let newSlot = await viewModel.createNewSlot() {
-                        navigateToSlotKey = newSlot.key
+                        appState.selectedScrollTarget = nil
+                        appState.selectedSlotKey = newSlot.key
                     }
                 }
             } label: {
