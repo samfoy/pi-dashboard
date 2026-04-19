@@ -12,6 +12,8 @@ enum BackgroundRefreshService {
     /// Last known slot states — used to detect changes.
     private static let lastPollKey = "lastPollTimestamp"
     private static let knownCompletedKey = "knownCompletedSlots"
+    private static let seededKey = "knownCompletedSeeded"
+    private static let firedNotifIdsKey = "firedBGNotifIds"
     
     // MARK: - Registration
     
@@ -73,6 +75,7 @@ enum BackgroundRefreshService {
             
             // Check which slots completed since last poll
             let knownCompleted = Set(UserDefaults.standard.stringArray(forKey: knownCompletedKey) ?? [])
+            let isSeeded = UserDefaults.standard.bool(forKey: seededKey)
             var nowCompleted = Set<String>()
             
             for slot in result.slots {
@@ -80,8 +83,9 @@ enum BackgroundRefreshService {
                 if isComplete {
                     nowCompleted.insert(slot.key)
                     
-                    // If this slot was running last time and is now done, notify
-                    if !knownCompleted.contains(slot.key) {
+                    // Only notify if we have a baseline — skip the first poll to avoid
+                    // firing notifications for every already-completed slot.
+                    if isSeeded, !knownCompleted.contains(slot.key) {
                         await fireNotification(
                             id: "bg-done-\(slot.key)",
                             title: slot.title ?? "Chat",
@@ -92,16 +96,28 @@ enum BackgroundRefreshService {
                 }
             }
             
-            // Notify for unacked notifications from server
+            // Seed the baseline on first poll so subsequent polls detect real changes.
+            if !isSeeded {
+                UserDefaults.standard.set(true, forKey: seededKey)
+            }
+            
+            // Notify for unacked notifications from server — dedup by ts
+            var firedIds = Set(UserDefaults.standard.stringArray(forKey: firedNotifIdsKey) ?? [])
             for notif in result.notifications {
+                let notifId = notif.ts ?? UUID().uuidString
+                guard !firedIds.contains(notifId) else { continue }
+                firedIds.insert(notifId)
                 await fireNotification(
-                    id: "bg-notif-\(notif.ts ?? UUID().uuidString)",
+                    id: "bg-notif-\(notifId)",
                     title: notif.title ?? "Pi",
                     body: notif.body ?? "Needs your attention",
                     threadId: notif.slot,
                     timeSensitive: true
                 )
             }
+            // Keep firedIds bounded (last 200)
+            let firedArray = Array(firedIds.suffix(200))
+            UserDefaults.standard.set(firedArray, forKey: firedNotifIdsKey)
             
             // Update known state
             UserDefaults.standard.set(Array(nowCompleted), forKey: knownCompletedKey)
