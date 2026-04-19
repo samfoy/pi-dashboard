@@ -130,8 +130,12 @@ final class AppState {
     func loadInitialNotifications() async {
         do {
             let notifs = try await apiClient.fetchNotifications()
+            // Only mark input_needed for very recent unacked notifications (< 5 min)
+            let cutoff = Date().addingTimeInterval(-300)
             for notif in notifs where !(notif.acked) {
                 if let slotKey = notif.slot,
+                   let ts = isoDateParse(notif.ts),
+                   ts > cutoff,
                    let i = slots.firstIndex(where: { $0.key == slotKey }) {
                     slots[i].inputNeeded = true
                 }
@@ -139,6 +143,12 @@ final class AppState {
         } catch {
             print("[AppState] Failed to load notifications: \(error)")
         }
+    }
+
+    private func isoDateParse(_ string: String) -> Date? {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f.date(from: string) ?? ISO8601DateFormatter().date(from: string)
     }
 
     /// Call when a slot is opened to clear its notification badge.
