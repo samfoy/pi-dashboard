@@ -112,8 +112,6 @@ function langFromPath(path: string): string {
 /** Expandable tool call block with args and result — shows diff view for edit tool, code preview for write */
 function ToolCallBlock({ content, meta, onFileOpen }: { content: string; meta?: Record<string, unknown>; onFileOpen?: (path: string) => void }) {
   const toolName = (meta?.toolName as string) || content.replace('🔧 ', '')
-  if (toolName === 'subagent') return <SubagentCard meta={meta} />
-  if (toolName === 'process') return <ProcessCard meta={meta} />
   const [expanded, setExpanded] = useState(false)
   const args = meta?.args as string | undefined
   const result = meta?.result as string | undefined
@@ -151,6 +149,10 @@ function ToolCallBlock({ content, meta, onFileOpen }: { content: string; meta?: 
   const [editExpanded, setEditExpanded] = useState(false)
   const [writeExpanded, setWriteExpanded] = useState(false)
   const [readExpanded, setReadExpanded] = useState(false)
+
+  // Early returns AFTER all hooks (Rules of Hooks compliance)
+  if (toolName === 'subagent') return <SubagentCard meta={meta} />
+  if (toolName === 'process') return <ProcessCard meta={meta} />
 
   if (isEdit) {
     return (

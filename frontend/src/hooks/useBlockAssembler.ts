@@ -62,7 +62,7 @@ export function parseBlocks(raw: string, streaming: boolean): ContentBlock[] {
       const m = FENCE_OPEN.exec(line)
       if (m) {
         flushMd()
-        fenceTick = m[1].replace(/`/g, '\\`')
+        fenceTick = m[1]  // backticks don't need regex escaping
         fenceLang = m[2] || ''
         inFence = true
       } else {

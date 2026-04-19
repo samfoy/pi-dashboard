@@ -183,7 +183,8 @@ app.get('/api/system', (_req, res) => {
   // Disk usage
   let diskTotal = '', diskFree = ''
   try {
-    const df = execSync("df -BG / | tail -1", { encoding: 'utf-8' }).trim().split(/\s+/)
+    const dfCmd = process.platform === 'darwin' ? "df -g / | tail -1" : "df -BG / | tail -1"
+    const df = execSync(dfCmd, { encoding: 'utf-8' }).trim().split(/\s+/)
     diskTotal = parseFloat(df[1])
     diskFree = parseFloat(df[3])
   } catch {}
@@ -876,7 +877,8 @@ app.post('/api/pi/packages/install', (req, res) => {
   const { source } = req.body
   if (!source) return res.status(400).json({ error: 'source required' })
   try {
-    const out = execSync(`pi install ${JSON.stringify(source)} 2>&1`, { encoding: 'utf-8', timeout: 60000 })
+    const { execFileSync } = require('child_process')
+    const out = execFileSync('pi', ['install', source], { encoding: 'utf-8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] })
     res.json({ ok: true, output: out })
   } catch (e) { res.status(500).json({ error: e.stderr || e.message }) }
 })
@@ -1343,7 +1345,8 @@ function _wireSlotEvents(pi, slotKey) {
 
 // ── Start ──
 const hostname = os.hostname()
-server.listen(PORT, '0.0.0.0', () => {
+const BIND_HOST = process.env.PI_DASH_HOST || '0.0.0.0'
+server.listen(PORT, BIND_HOST, () => {
   console.log(`\n🥧 Pi Dashboard`)
   console.log(`   Local:    http://localhost:${PORT}`)
   console.log(`   Network:  http://${hostname}:${PORT}`)
