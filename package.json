@@ -10,7 +10,9 @@
     "restart:build": "./restart.sh --build",
     "build-frontend": "cd frontend && npm install --no-audit --no-fund && npm run build",
     "setup": "npm install --no-audit --no-fund && npm run build-frontend",
-    "start:tailscale": "PI_DASH_PORT=7777 node backend/server.js"
+    "start:tailscale": "PI_DASH_PORT=7777 node backend/server.js",
+    "test": "vitest run --config vitest.backend.config.js",
+    "test:watch": "vitest --config vitest.backend.config.js"
   },
   "dependencies": {
     "express": "^4.21.0",
@@ -18,5 +20,8 @@
     "node-pty": "^1.1.0",
     "uuid": "^10.0.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.4"
   }
 }

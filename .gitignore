@@ -18,3 +18,4 @@ test-document.pdf
 test-spreadsheet.xlsx
 *.tsbuildinfo
 .autoloop/
+ios/PiDash/PiDash.xcodeproj/project.pbxproj.bak

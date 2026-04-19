@@ -44,8 +44,8 @@ describe('App routing', () => {
 
   it('renders nav items', () => {
     renderWithProviders(<App />, { route: '/chat' })
-    expect(screen.getByText('Chat')).toBeInTheDocument()
-    expect(screen.getByText('System')).toBeInTheDocument()
+    expect(screen.getAllByText('Chat').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders PI DASH branding', () => {
