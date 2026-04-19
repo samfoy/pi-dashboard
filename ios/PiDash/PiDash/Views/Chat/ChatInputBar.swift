@@ -41,7 +41,7 @@ struct ChatInputBar: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             // Image thumbnails
             if !pendingImages.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -68,9 +68,57 @@ struct ChatInputBar: View {
                     }
                     .padding(.horizontal, 12)
                 }
-                .padding(.top, 6)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
             }
 
+            // Quick action row
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 2) {
+                    // Command palette
+                    if let onPalette = onShowPalette {
+                        quickButton(icon: "bolt.fill", label: "Commands") { onPalette() }
+                    }
+
+                    // Model picker
+                    if let onModel = onShowModelPicker {
+                        quickButton(icon: "cpu", label: "Model") { onModel() }
+                    }
+
+                    // Compact — only when context > 50%
+                    if let pct = contextPercent, pct > 0.5, let onCmpct = onCompact {
+                        quickButton(
+                            icon: "arrow.2.squarepath",
+                            label: "Compact",
+                            tint: pct > 0.8 ? .orange : nil
+                        ) {
+                            showCompactConfirm = true
+                        }
+                        .confirmationDialog(
+                            "Compact conversation?",
+                            isPresented: $showCompactConfirm,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Compact", role: .destructive) { onCmpct() }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Summarises the conversation to free up context (\(Int((pct * 100).rounded()))% used).")
+                        }
+                    }
+
+                    // Copy last assistant message
+                    if let content = lastAssistantContent, !content.isEmpty {
+                        quickButton(icon: "doc.on.doc", label: "Copy") {
+                            UIPasteboard.general.string = content
+                            HapticManager.messageSent()
+                        }
+                    }
+                }
+                .padding(.horizontal, 8)
+            }
+            .padding(.vertical, 4)
+
+            // Input row
             HStack(alignment: .bottom, spacing: 8) {
                 // Attachment button
                 Menu {
@@ -106,58 +154,6 @@ struct ChatInputBar: View {
                     .submitLabel(.return)
                     .disabled(isDisabled)
                     .focused($isFocused)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            // ⚡ Command palette
-                            if let onPalette = onShowPalette {
-                                Button {
-                                    onPalette()
-                                } label: {
-                                    Image(systemName: "bolt.fill")
-                                }
-                            }
-
-                            // 🗜 Compact — only when context > 50%
-                            if let pct = contextPercent, pct > 0.5, let onCmpct = onCompact {
-                                Button {
-                                    showCompactConfirm = true
-                                } label: {
-                                    Image(systemName: "arrow.2.squarepath")
-                                }
-                                .confirmationDialog(
-                                    "Compact conversation?",
-                                    isPresented: $showCompactConfirm,
-                                    titleVisibility: .visible
-                                ) {
-                                    Button("Compact", role: .destructive) { onCmpct() }
-                                    Button("Cancel", role: .cancel) {}
-                                } message: {
-                                    Text("Summarises the conversation to free up context (\(Int((pct * 100).rounded()))% used).")
-                                }
-                            }
-
-                            // 🧠 Model picker
-                            if let onModel = onShowModelPicker {
-                                Button {
-                                    onModel()
-                                } label: {
-                                    Image(systemName: "cpu")
-                                }
-                            }
-
-                            Spacer()
-
-                            // 📋 Copy last assistant message
-                            if let content = lastAssistantContent, !content.isEmpty {
-                                Button {
-                                    UIPasteboard.general.string = content
-                                    HapticManager.messageSent()
-                                } label: {
-                                    Image(systemName: "doc.on.doc")
-                                }
-                            }
-                        }
-                    }
 
                 Button(action: {
                     if isStreaming {
@@ -181,8 +177,9 @@ struct ChatInputBar: View {
                 .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: canSend)
             }
             .padding(.horizontal, 12)
+            .padding(.bottom, 10)
+            .padding(.top, 4)
         }
-        .padding(.vertical, 10)
         .background(.bar)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoSelection, maxSelectionCount: 5, matching: .images)
         .onChange(of: photoSelection) { _, items in
@@ -204,11 +201,36 @@ struct ChatInputBar: View {
         }
     }
 
+    // MARK: - Quick action button
+
+    private func quickButton(
+        icon: String,
+        label: String,
+        tint: Color? = nil,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption2)
+                Text(label)
+                    .font(.caption2)
+            }
+            .foregroundStyle(tint ?? Color.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(.systemGray5))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     private func loadPhotos(_ items: [PhotosPickerItem]) async {
         for item in items {
             if let data = try? await item.loadTransferable(type: Data.self) {
                 if let uiImage = UIImage(data: data) {
-                    // Compress to JPEG for reasonable size
                     let jpeg = uiImage.jpegData(compressionQuality: 0.8) ?? data
                     let thumb = uiImage.preparingThumbnail(of: CGSize(width: 120, height: 120)) ?? uiImage
                     let pending = PendingImage(data: jpeg, mimeType: "image/jpeg", thumbnail: thumb)
@@ -218,7 +240,6 @@ struct ChatInputBar: View {
         }
         await MainActor.run { photoSelection = [] }
     }
-
 }
 
 // MARK: - Document Picker (UIKit bridge)
@@ -253,7 +274,6 @@ struct DocumentPicker: UIViewControllerRepresentable {
                         let thumb = uiImage.preparingThumbnail(of: CGSize(width: 120, height: 120)) ?? uiImage
                         images.append(PendingImage(data: data, mimeType: mimeType, thumbnail: thumb))
                     } else {
-                        // Non-image file — create a placeholder thumbnail
                         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 120, height: 120))
                         let placeholder = renderer.image { ctx in
                             UIColor.systemGray5.setFill()

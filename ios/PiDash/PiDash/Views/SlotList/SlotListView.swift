@@ -85,16 +85,7 @@ private struct SlotListContent: View {
                 message: "Start a new conversation with the + button."
             )
         } else {
-            VStack(spacing: 0) {
-                let skills = viewModel.slashCommands.filter { $0.source == .skill }
-                if !skills.isEmpty {
-                    SkillsRailView(skills: skills) { newSlot in
-                        navigateToSlotKey = newSlot.key
-                    }
-                    Divider()
-                }
-                chatList
-            }
+            chatList
         }
     }
 
