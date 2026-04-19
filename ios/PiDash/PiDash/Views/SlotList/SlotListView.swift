@@ -23,6 +23,11 @@ struct SlotListView: View {
                     }
             }
         }
+        .onChange(of: appState.pendingDeepLinkKey) { _, newKey in
+            guard let key = newKey else { return }
+            navigateToSlotKey = key
+            appState.pendingDeepLinkKey = nil
+        }
     }
 }
 

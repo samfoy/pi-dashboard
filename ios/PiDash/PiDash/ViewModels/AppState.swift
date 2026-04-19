@@ -22,6 +22,8 @@ final class AppState {
 
     // Navigation
     var selectedSlotKey: String?
+    /// Set by deep-link handler (widget tap). SlotListView consumes + clears this.
+    var pendingDeepLinkKey: String?
 
     // Pending first-message commands for newly created slots (e.g. from skills rail)
     var pendingCommands: [String: String] = [String: String]()

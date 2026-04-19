@@ -28,6 +28,14 @@ struct PiDashApp: App {
                         break
                     }
                 }
+                .onOpenURL { url in
+                    // Handle deep links from widgets: pidash://slot/<key> or pidash://new-chat
+                    guard url.scheme == "pidash" else { return }
+                    if url.host == "slot", let key = url.pathComponents.dropFirst().first, !key.isEmpty {
+                        appState.pendingDeepLinkKey = key
+                    }
+                    // pidash://new-chat — no-op here; SlotListView shows new-chat UI by default
+                }
         }
     }
 }
