@@ -58,6 +58,36 @@ extension Theme {
                 ForegroundColor(theme.codeBlockText)
                 BackgroundColor(theme.codeBlockBg)
             }
+            .table { configuration in
+                ScrollView(.horizontal, showsIndicators: true) {
+                    configuration.label
+                        .fixedSize(horizontal: false, vertical: true)
+                        .markdownTableBorderStyle(
+                            .init(color: .init(theme.border))
+                        )
+                        .markdownTableBackgroundStyle(
+                            .alternatingRows(
+                                Color.clear,
+                                theme.codeBlockBg.opacity(0.5)
+                            )
+                        )
+                }
+                .markdownMargin(top: 0, bottom: 16)
+            }
+            .tableCell { configuration in
+                configuration.label
+                    .markdownTextStyle {
+                        if configuration.row == 0 {
+                            FontWeight(.semibold)
+                        }
+                        ForegroundColor(theme.text)
+                        BackgroundColor(nil)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 13)
+                    .relativeLineSpacing(.em(0.25))
+            }
             .codeBlock { config in
                 VStack(alignment: .leading, spacing: 0) {
                     // Language label
