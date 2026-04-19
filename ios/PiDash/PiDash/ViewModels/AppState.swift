@@ -260,8 +260,10 @@ final class AppState {
         var map: [String: ChatSlot] = Dictionary(uniqueKeysWithValues: slots.map { ($0.key, $0) })
         for var s in updated {
             if let existing = map[s.key] {
-                // Preserve local state that the server doesn't track
-                s.isStreaming = existing.isStreaming
+                // Server's `running` is the source of truth for streaming.
+                // Don't preserve local isStreaming — it can get stuck true if
+                // a chat_done event was missed during a WS disconnect.
+                // s.isStreaming already comes from the server DTO (running field).
                 s.contextPercent = existing.contextPercent
                 s.inputNeeded = existing.inputNeeded
                 // Keep local updatedAt if it's more recent (from WS events)
