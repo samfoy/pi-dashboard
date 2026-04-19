@@ -166,7 +166,7 @@ function cleanupClientWatchers(ws) {
 }
 
 // ── Status polling (push to WS every 5s) ──
-setInterval(() => broadcast('dashboard', manager.status()), 5000)
+if (!process.env.VITEST) setInterval(() => broadcast('dashboard', manager.status()), 5000)
 
 // ── REST API ──
 
@@ -1362,10 +1362,13 @@ function _wireSlotEvents(pi, slotKey) {
   })
 }
 
+// ── Export for testing ──
+export { app }
+
 // ── Start ──
 const hostname = os.hostname()
 const BIND_HOST = process.env.PI_DASH_HOST || '0.0.0.0'
-server.listen(PORT, BIND_HOST, () => {
+if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
   console.log(`\n🥧 Pi Dashboard`)
   console.log(`   Local:    http://localhost:${PORT}`)
   console.log(`   Network:  http://${hostname}:${PORT}`)

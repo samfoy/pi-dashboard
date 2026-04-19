@@ -71,6 +71,8 @@ AABB0011002200330044BB03 /* ChatSlotTests.swift in Sources */ = {isa = PBXBuildF
 AABB0011002200330044BB04 /* ServerConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0011002200330044AA04 /* ServerConfigTests.swift */; };
 AABB0011002200330044BB05 /* RelativeTimeFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0011002200330044AA05 /* RelativeTimeFormatterTests.swift */; };
 AABB0011002200330044BB06 /* ShareViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0011002200330044AA06 /* ShareViewModelTests.swift */; };
+		AABB0011002200330044BB07 /* SlotListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0011002200330044AA07 /* SlotListViewModelTests.swift */; };
+		AABB0011002200330044BB08 /* ChatViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AABB0011002200330044AA08 /* ChatViewModelTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -140,6 +142,8 @@ AABB0011002200330044AA03 /* ChatSlotTests.swift */ = {isa = PBXFileReference; la
 AABB0011002200330044AA04 /* ServerConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfigTests.swift; sourceTree = "<group>"; };
 AABB0011002200330044AA05 /* RelativeTimeFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatterTests.swift; sourceTree = "<group>"; };
 AABB0011002200330044AA06 /* ShareViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewModelTests.swift; sourceTree = "<group>"; };
+		AABB0011002200330044AA07 /* SlotListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListViewModelTests.swift; sourceTree = "<group>"; };
+		AABB0011002200330044AA08 /* ChatViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModelTests.swift; sourceTree = "<group>"; };
 AABB00110022003300440066 /* PiDashTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PiDashTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -277,6 +281,8 @@ AABB001100220033004400DD /* PiDashTests */ = {
 		AABB0011002200330044AA04 /* ServerConfigTests.swift */,
 		AABB0011002200330044AA05 /* RelativeTimeFormatterTests.swift */,
 		AABB0011002200330044AA06 /* ShareViewModelTests.swift */,
+		AABB0011002200330044AA07 /* SlotListViewModelTests.swift */,
+		AABB0011002200330044AA08 /* ChatViewModelTests.swift */,
 	);
 	path = PiDashTests;
 	sourceTree = "<group>";
@@ -617,6 +623,8 @@ AABB00110022003300440077 /* Sources */ = {
 		AABB0011002200330044BB04 /* ServerConfigTests.swift in Sources */,
 		AABB0011002200330044BB05 /* RelativeTimeFormatterTests.swift in Sources */,
 		AABB0011002200330044BB06 /* ShareViewModelTests.swift in Sources */,
+		AABB0011002200330044BB07 /* SlotListViewModelTests.swift in Sources */,
+		AABB0011002200330044BB08 /* ChatViewModelTests.swift in Sources */,
 	);
 	runOnlyForDeploymentPostprocessing = 0;
 };

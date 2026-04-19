@@ -13,8 +13,8 @@ export function stripMd(line: string): string {
     .replace(/^#{1,6}\s+/, '')              // headings
     .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1') // bold/italic
     .replace(/`([^`]+)`/g, '$1')            // inline code
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // images (must precede link rule)
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1') // images
     .replace(/^[-*+]\s+/, '')                // unordered list items
     .replace(/^\d+\.\s+/, '')                // ordered list items
     .replace(/^>\s+/, '')                    // blockquotes

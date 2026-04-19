@@ -67,8 +67,9 @@ final class ChatViewModel {
     // MARK: - Send message
 
     /// Sends a slash command (e.g. "compact" → sends "/compact" as a message).
+    /// Handles both bare names ("compact") and prefixed names ("/compact").
     func sendCommand(_ name: String) async {
-        inputText = "/\(name)"
+        inputText = name.hasPrefix("/") ? name : "/\(name)"
         await send()
     }
 
