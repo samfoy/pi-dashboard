@@ -75,6 +75,38 @@ struct ChatInputBar: View {
             // Quick action row
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 2) {
+                    // Attach
+                    Menu {
+                        Button {
+                            showPhotoPicker = true
+                        } label: {
+                            Label("Photo Library", systemImage: "photo.on.rectangle")
+                        }
+                        Button {
+                            showDocumentPicker = true
+                        } label: {
+                            Label("Document", systemImage: "doc")
+                        }
+                        Button {
+                            showCamera = true
+                        } label: {
+                            Label("Take Photo", systemImage: "camera")
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "paperclip")
+                                .font(.caption2)
+                            Text("Attach")
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(Color.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(Color(.systemGray5))
+                        )
+                    }
                     // Command palette
                     if let onPalette = onShowPalette {
                         quickButton(icon: "bolt.fill", label: "Commands") { onPalette() }
@@ -120,29 +152,6 @@ struct ChatInputBar: View {
 
             // Input row
             HStack(alignment: .bottom, spacing: 8) {
-                // Attachment button
-                Menu {
-                    Button {
-                        showPhotoPicker = true
-                    } label: {
-                        Label("Photo Library", systemImage: "photo.on.rectangle")
-                    }
-                    Button {
-                        showDocumentPicker = true
-                    } label: {
-                        Label("Document", systemImage: "doc")
-                    }
-                    Button {
-                        showCamera = true
-                    } label: {
-                        Label("Take Photo", systemImage: "camera")
-                    }
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(Color.accentColor)
-                }
-
                 TextField("Message", text: $text, axis: .vertical)
                     .lineLimit(1...6)
                     .padding(.horizontal, 14)

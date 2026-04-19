@@ -32,7 +32,7 @@ struct CommandPaletteSheet: View {
     @State private var searchText = ""
     @State private var recents = RecentCommandsStore()
 
-    private let desktopOnly = Set(["lsp", "bemol", "reload", "mcp", "lsp-config", "lsp-lombok"])
+    private let desktopOnly = Set(["/lsp", "/bemol", "/reload", "/mcp", "/lsp-config", "/lsp-lombok"])
 
     private var eligible: [SlashCommand] {
         commands.filter { !desktopOnly.contains($0.name) }
@@ -117,7 +117,7 @@ struct CommandPaletteSheet: View {
                     .font(.title3)
                     .frame(width: 32, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("/\(cmd.name)")
+                    Text(cmd.name)
                         .font(.body.monospaced())
                         .foregroundStyle(.primary)
                     if !cmd.description.isEmpty {
