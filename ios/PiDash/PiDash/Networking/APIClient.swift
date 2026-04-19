@@ -307,6 +307,10 @@ actor APIClient {
         } catch let error as APIError {
             print("[APIClient] APIError: \(error.errorDescription ?? "")")
             throw error
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            throw CancellationError()
         } catch {
             print("[APIClient] Error: \(type(of: error)) \(error.localizedDescription)")
             print("[APIClient] Error detail: \(error)")
