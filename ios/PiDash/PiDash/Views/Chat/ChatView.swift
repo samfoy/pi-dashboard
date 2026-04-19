@@ -222,7 +222,6 @@ private struct ChatContentView: View {
                 .padding(.vertical, 8)
             }
             .scrollDismissesKeyboard(.interactively)
-            .defaultScrollAnchor(.bottom)
             .onAppear {
                 scrollToBottom(proxy: proxy, animated: false)
             }
@@ -251,12 +250,11 @@ private struct ChatContentView: View {
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         if animated && !reduceMotion {
             withAnimation(.easeOut(duration: 0.2)) {
-                proxy.scrollTo("bottom", anchor: .bottom)
+                proxy.scrollTo("bottom", anchor: .top)
             }
         } else {
-            // Explicit .none suppresses any inherited animation context (prevents streaming jank)
             withAnimation(.none) {
-                proxy.scrollTo("bottom", anchor: .bottom)
+                proxy.scrollTo("bottom", anchor: .top)
             }
         }
     }
