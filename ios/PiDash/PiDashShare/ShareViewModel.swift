@@ -101,81 +101,80 @@ final class ShareViewModel {
         }
         let attachments = item.attachments ?? []
 
-        // Try image first, then URL, then text, then file.
-        if let provider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
-            do {
-                let loaded = try await provider.loadItem(forTypeIdentifier: UTType.image.identifier)
-                if let img = loaded as? UIImage {
-                    sharedContent = .image(img)
-                } else if let url = loaded as? URL, let data = try? Data(contentsOf: url),
-                          let img = UIImage(data: data) {
-                    sharedContent = .image(img)
-                } else if let data = loaded as? Data, let img = UIImage(data: data) {
-                    sharedContent = .image(img)
-                } else {
-                    state = .error("Could not load image.")
-                    return
+        // Collect all available content types — apps often share URL + image together
+        var foundURL: URL?
+        var foundImage: UIImage?
+        var foundText: String?
+        var foundFile: (name: String, data: Data)?
+
+        for provider in attachments {
+            if foundURL == nil, provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                if let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier) {
+                    if let url = loaded as? URL, !url.isFileURL {
+                        foundURL = url
+                    }
                 }
-            } catch {
-                state = .error("Image load failed: \(error.localizedDescription)")
-                return
             }
-        } else if let provider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.url.identifier) }) {
-            do {
-                let loaded = try await provider.loadItem(forTypeIdentifier: UTType.url.identifier)
-                if let url = loaded as? URL {
-                    sharedContent = .url(url)
-                } else {
-                    state = .error("Could not load URL.")
-                    return
+            if foundImage == nil, provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                if let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.image.identifier) {
+                    if let img = loaded as? UIImage {
+                        foundImage = img
+                    } else if let url = loaded as? URL, let data = try? Data(contentsOf: url),
+                              let img = UIImage(data: data) {
+                        foundImage = img
+                    } else if let data = loaded as? Data, let img = UIImage(data: data) {
+                        foundImage = img
+                    }
                 }
-            } catch {
-                state = .error("URL load failed: \(error.localizedDescription)")
-                return
             }
-        } else if let provider = attachments.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) }) {
-            do {
-                let loaded = try await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier)
-                if let text = loaded as? String {
-                    sharedContent = .text(text)
-                } else {
-                    state = .error("Could not load text.")
-                    return
+            if foundText == nil, provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                if let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier),
+                   let text = loaded as? String {
+                    foundText = text
                 }
-            } catch {
-                state = .error("Text load failed: \(error.localizedDescription)")
-                return
             }
-        } else if let provider = attachments.first {
-            // Generic file fallback
-            let typeIdentifier = provider.registeredTypeIdentifiers.first ?? UTType.data.identifier
-            do {
-                let loaded = try await provider.loadItem(forTypeIdentifier: typeIdentifier)
-                if let url = loaded as? URL {
-                    let data = try Data(contentsOf: url)
+        }
+
+        // If we don't have any of the above, try generic file fallback
+        if foundURL == nil && foundImage == nil && foundText == nil {
+            if let provider = attachments.first {
+                let typeIdentifier = provider.registeredTypeIdentifiers.first ?? UTType.data.identifier
+                if let loaded = try? await provider.loadItem(forTypeIdentifier: typeIdentifier),
+                   let url = loaded as? URL,
+                   let data = try? Data(contentsOf: url) {
                     let name = url.lastPathComponent
                     if let img = UIImage(data: data) {
-                        sharedContent = .image(img)
+                        foundImage = img
                     } else {
-                        sharedContent = .file(name: name, data: data)
+                        foundFile = (name: name, data: data)
                     }
-                } else {
-                    state = .error("Unsupported content type.")
-                    return
                 }
-            } catch {
-                state = .error("File load failed: \(error.localizedDescription)")
-                return
             }
+        }
+
+        // Decide what to use — prefer URL (with image as supplement), then image, then text
+        if let url = foundURL {
+            // If we also have an image, include it alongside the URL
+            if let image = foundImage {
+                sharedContent = .image(image)
+                // Prepend URL to additional message so both go through
+                additionalMessage = url.absoluteString
+            } else {
+                sharedContent = .url(url)
+            }
+            selectedAction = .research
+        } else if let image = foundImage {
+            sharedContent = .image(image)
+            selectedAction = .chat
+        } else if let text = foundText {
+            sharedContent = .text(text)
+            selectedAction = .chat
+        } else if let file = foundFile {
+            sharedContent = .file(name: file.name, data: file.data)
+            selectedAction = .chat
         } else {
             state = .error("Nothing to share.")
             return
-        }
-
-        // Set default action based on content type
-        switch sharedContent {
-        case .url: selectedAction = .research
-        default:   selectedAction = .chat
         }
 
         // Content loaded — now fetch slots
@@ -280,20 +279,20 @@ final class ShareViewModel {
                               userInfo: [NSLocalizedDescriptionKey: "Could not encode image"])
             }
             let b64 = jpeg.base64EncodedString()
-            body["images"] = [b64]
+            body["images"] = [["data": b64, "mimeType": "image/jpeg"]]
             var msgParts: [String] = []
             if !actionPrefix.isEmpty { msgParts.append(actionPrefix.trimmingCharacters(in: .newlines)) }
             if !additionalMessage.isEmpty { msgParts.append(additionalMessage) }
-            if !msgParts.isEmpty { body["message"] = msgParts.joined(separator: "\n\n") }
+            body["message"] = msgParts.isEmpty ? "Shared image" : msgParts.joined(separator: "\n\n")
 
         case .file(let name, let data):
             if let img = UIImage(data: data), let jpeg = img.jpegData(compressionQuality: 0.8) {
                 let b64 = jpeg.base64EncodedString()
-                body["images"] = [b64]
+                body["images"] = [["data": b64, "mimeType": "image/jpeg"]]
                 var msgParts: [String] = []
                 if !actionPrefix.isEmpty { msgParts.append(actionPrefix.trimmingCharacters(in: .newlines)) }
                 if !additionalMessage.isEmpty { msgParts.append(additionalMessage) }
-                if !msgParts.isEmpty { body["message"] = msgParts.joined(separator: "\n\n") }
+                body["message"] = msgParts.isEmpty ? "Shared image" : msgParts.joined(separator: "\n\n")
             } else {
                 let note = "Attached file: \(name) (\(data.count) bytes)"
                 let content = actionPrefix + note
