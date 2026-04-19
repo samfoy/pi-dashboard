@@ -39,6 +39,8 @@
 		F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */; };
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
 		C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */; };
+		D2B3C4D5E6F7089012345702 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B3C4D5E6F7089012345701 /* SearchViewModel.swift */; };
+		D2B3C4D5E6F7089012345704 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B3C4D5E6F7089012345703 /* SearchResultsView.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
 		A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234561 /* HealthKitService.swift */; };
 		A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234571 /* CalendarService.swift */; };
@@ -55,6 +57,12 @@
 		SE000013 /* ShareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000012 /* ShareViewModel.swift */; };
 		SE000015 /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000014 /* ShareView.swift */; };
 		SE000030 /* PiDashShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = SE000001 /* PiDashShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AA00BB11CC22DD330011AAAA /* IntentNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330010AAAA /* IntentNetworking.swift */; };
+		AA00BB11CC22DD330021AAAA /* AskPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330020AAAA /* AskPiIntent.swift */; };
+		AA00BB11CC22DD330031AAAA /* SendToPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330030AAAA /* SendToPiIntent.swift */; };
+		AA00BB11CC22DD330041AAAA /* GetActiveChatsIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330040AAAA /* GetActiveChatsIntent.swift */; };
+		AA00BB11CC22DD330051AAAA /* CheckPiStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330050AAAA /* CheckPiStatusIntent.swift */; };
+		AA00BB11CC22DD330061AAAA /* PiDashShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330060AAAA /* PiDashShortcuts.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +85,8 @@
 		A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashApp.swift; sourceTree = "<group>"; };
 		A55A63DAAA5085318A112FC9 /* SlotRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotRow.swift; sourceTree = "<group>"; };
 		C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
+		D2B3C4D5E6F7089012345701 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
+		D2B3C4D5E6F7089012345703 /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
 		2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSheet.swift; sourceTree = "<group>"; };
@@ -108,6 +118,12 @@
 		SE000014 /* ShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareView.swift; sourceTree = "<group>"; };
 		SE000016 /* Info.plist (Share) */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		SE000017 /* PiDashShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashShare.entitlements; sourceTree = "<group>"; };
+		AA00BB11CC22DD330010AAAA /* IntentNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentNetworking.swift; sourceTree = "<group>"; };
+		AA00BB11CC22DD330020AAAA /* AskPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPiIntent.swift; sourceTree = "<group>"; };
+		AA00BB11CC22DD330030AAAA /* SendToPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendToPiIntent.swift; sourceTree = "<group>"; };
+		AA00BB11CC22DD330040AAAA /* GetActiveChatsIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetActiveChatsIntent.swift; sourceTree = "<group>"; };
+		AA00BB11CC22DD330050AAAA /* CheckPiStatusIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckPiStatusIntent.swift; sourceTree = "<group>"; };
+		AA00BB11CC22DD330060AAAA /* PiDashShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashShortcuts.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -170,6 +186,19 @@
 			path = PiDashShare;
 			sourceTree = "<group>";
 		};
+		AA00BB11CC22DD330001AAAA /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				AA00BB11CC22DD330010AAAA /* IntentNetworking.swift */,
+				AA00BB11CC22DD330020AAAA /* AskPiIntent.swift */,
+				AA00BB11CC22DD330030AAAA /* SendToPiIntent.swift */,
+				AA00BB11CC22DD330040AAAA /* GetActiveChatsIntent.swift */,
+				AA00BB11CC22DD330050AAAA /* CheckPiStatusIntent.swift */,
+				AA00BB11CC22DD330060AAAA /* PiDashShortcuts.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
 		0FBD0B08711010CA9B546724 /* PiDash */ = {
 			isa = PBXGroup;
 			children = (
@@ -182,6 +211,7 @@
 				25E5C00413035A07F3532567 /* Utilities */,
 				B39D49DFEBC40793A4CB4F84 /* ViewModels */,
 				C472670A2535C475EDB9E9D1 /* Views */,
+				AA00BB11CC22DD330001AAAA /* Intents */,
 			);
 			path = PiDash;
 			sourceTree = "<group>";
@@ -264,6 +294,7 @@
 				BD49B269C69BABE939F77B86 /* AppState.swift */,
 				836EB2F569568AD01EBB6732 /* ChatViewModel.swift */,
 				39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */,
+				D2B3C4D5E6F7089012345701 /* SearchViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -306,6 +337,7 @@
 				EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */,
 				A55A63DAAA5085318A112FC9 /* SlotRow.swift */,
 				C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */,
+				D2B3C4D5E6F7089012345703 /* SearchResultsView.swift */,
 			);
 			path = SlotList;
 			sourceTree = "<group>";
@@ -463,9 +495,17 @@
 				A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */,
 				F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */,
 				C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */,
+				D2B3C4D5E6F7089012345702 /* SearchViewModel.swift in Sources */,
+				D2B3C4D5E6F7089012345704 /* SearchResultsView.swift in Sources */,
 				F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */,
 				1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */,
 				63904453439371641F247790 /* WebSocketManager.swift in Sources */,
+				AA00BB11CC22DD330011AAAA /* IntentNetworking.swift in Sources */,
+				AA00BB11CC22DD330021AAAA /* AskPiIntent.swift in Sources */,
+				AA00BB11CC22DD330031AAAA /* SendToPiIntent.swift in Sources */,
+				AA00BB11CC22DD330041AAAA /* GetActiveChatsIntent.swift in Sources */,
+				AA00BB11CC22DD330051AAAA /* CheckPiStatusIntent.swift in Sources */,
+				AA00BB11CC22DD330061AAAA /* PiDashShortcuts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

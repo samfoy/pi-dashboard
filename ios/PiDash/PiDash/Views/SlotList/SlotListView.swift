@@ -36,12 +36,20 @@ private struct SlotListContent: View {
     @State private var renamingSlot: ChatSlot?
     @State private var renameTitle: String = ""
     @State private var showSessionHistory = false
+    @State private var searchScrollTarget: UUID? = nil
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
                 listBody
                     .searchable(text: $viewModel.searchText, prompt: "Search chats")
+                    .onChange(of: viewModel.searchText) { _, query in
+                        viewModel.searchViewModel.search(
+                            query: query,
+                            slots: viewModel.slots,
+                            apiClient: appState.apiClient
+                        )
+                    }
                     .navigationTitle("PiDash")
                     .toolbar { toolbarItems }
                     .task { await viewModel.loadSlashCommands() }
@@ -62,11 +70,11 @@ private struct SlotListContent: View {
                     // Navigate to newly created slot
                     .navigationDestination(isPresented: Binding(
                         get: { navigateToSlotKey != nil },
-                        set: { if !$0 { navigateToSlotKey = nil } }
+                        set: { if !$0 { navigateToSlotKey = nil; searchScrollTarget = nil } }
                     )) {
                         if let key = navigateToSlotKey,
                            let slot = appState.slots.first(where: { $0.key == key }) {
-                            ChatView(slot: slot)
+                            ChatView(slot: slot, scrollToMessageId: searchScrollTarget)
                         }
                     }
             }
@@ -75,7 +83,17 @@ private struct SlotListContent: View {
 
     @ViewBuilder
     private var listBody: some View {
-        if appState.isLoadingSlots && viewModel.slots.isEmpty {
+        if !viewModel.searchText.isEmpty {
+            SearchResultsView(
+                results: viewModel.searchViewModel.results,
+                isSearching: viewModel.searchViewModel.isSearching,
+                query: viewModel.searchText,
+                onSelect: { slot, messageId in
+                    searchScrollTarget = messageId
+                    navigateToSlotKey = slot.key
+                }
+            )
+        } else if appState.isLoadingSlots && viewModel.slots.isEmpty {
             ProgressView("Loading chats…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if viewModel.slots.isEmpty && !appState.isLoadingSlots {

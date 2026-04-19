@@ -9,6 +9,7 @@ final class SlotListViewModel {
     var searchText: String = ""
     var isSearching: Bool = false
     var slashCommands: [SlashCommand] = []
+    var searchViewModel = SearchViewModel()
 
     private let appState: AppState
 

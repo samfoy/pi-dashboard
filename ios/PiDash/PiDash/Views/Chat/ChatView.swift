@@ -5,6 +5,7 @@ import MarkdownUI
 
 struct ChatView: View {
     let slot: ChatSlot
+    var scrollToMessageId: UUID? = nil
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: ChatViewModel?
@@ -12,7 +13,7 @@ struct ChatView: View {
     var body: some View {
         Group {
             if let vm = viewModel {
-                ChatContentView(viewModel: vm)
+                ChatContentView(viewModel: vm, scrollToMessageId: scrollToMessageId)
             } else {
                 ProgressView()
             }
@@ -76,6 +77,7 @@ struct ChatView: View {
 
 private struct ChatContentView: View {
     @Bindable var viewModel: ChatViewModel
+    let scrollToMessageId: UUID?
     @State private var isAtBottom = true
     @State private var showCommandPalette = false
     @State private var showModelPickerFromToolbar = false
@@ -271,6 +273,17 @@ private struct ChatContentView: View {
             .onChange(of: isAtBottom) { _, newValue in
                 if newValue {
                     scrollToBottom(proxy: proxy, animated: true)
+                }
+            }
+            // Scroll to search target after history loads
+            .onChange(of: viewModel.isLoadingHistory) { _, isLoading in
+                if !isLoading, let targetId = scrollToMessageId {
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 200_000_000)
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            proxy.scrollTo(targetId, anchor: .center)
+                        }
+                    }
                 }
             }
             // Real bottom detection via sentinel onAppear/onDisappear (iOS 17 compatible)
