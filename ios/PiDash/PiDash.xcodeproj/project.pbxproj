@@ -62,6 +62,10 @@
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
 		FAB50CB7FFBE6724BAAE8EC2 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF277B8CC99355686B1C6F /* ProjectPickerSheet.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
+8E5319679DEEC2A816F70F4A /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 268ED32C4E849718AF8D4303 /* ShareView.swift */; };
+2441AE0E56B1A063674CB584 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC9D0B24B2D0B801EF003AF /* ShareViewController.swift */; };
+B691A305FC38F6DF01BEA7CA /* ShareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16C8185F7D80C638FD35A53 /* ShareViewModel.swift */; };
+C050F7E97122191AA8F77EB2 /* PiDashShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 600760179E2976E8A5E4618A /* PiDashShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -120,6 +124,12 @@
 		F0B5595BF9CE7B191C4011B9 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
 		F28C3416B9C8AAD81CB7E8DB /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		F447C462AA02BA23363BA71B /* ChatSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSlot.swift; sourceTree = "<group>"; };
+268ED32C4E849718AF8D4303 /* ShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareView.swift; sourceTree = "<group>"; };
+FDC9D0B24B2D0B801EF003AF /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+A16C8185F7D80C638FD35A53 /* ShareViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewModel.swift; sourceTree = "<group>"; };
+CCD3567E28F12B5C0134EAAD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+9C48420B71B5027D153CC4ED /* PiDashShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashShare.entitlements; sourceTree = "<group>"; };
+600760179E2976E8A5E4618A /* PiDashShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PiDashShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +143,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+A168520FC13293289778C452 /* Frameworks */ = {
+	isa = PBXFrameworksBuildPhase;
+	buildActionMask = 2147483647;
+	files = (
+	);
+	runOnlyForDeploymentPostprocessing = 0;
+};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -237,6 +254,7 @@
 		8050E845E70EDEAD920DD7C3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				600760179E2976E8A5E4618A /* PiDashShare.appex */,
 				BBFF5D72F491675D639A0E31 /* PiDash.app */,
 			);
 			name = Products;
@@ -275,6 +293,7 @@
 		E3E2EF9DBC321DF234EC23C2 = {
 			isa = PBXGroup;
 			children = (
+				450E1AB32F62032386FF326B /* PiDashShare */,
 				0FBD0B08711010CA9B546724 /* PiDash */,
 				8050E845E70EDEAD920DD7C3 /* Products */,
 			);
@@ -293,7 +312,51 @@
 			path = SlotList;
 			sourceTree = "<group>";
 		};
+450E1AB32F62032386FF326B /* PiDashShare */ = {
+	isa = PBXGroup;
+	children = (
+		CCD3567E28F12B5C0134EAAD /* Info.plist */,
+		9C48420B71B5027D153CC4ED /* PiDashShare.entitlements */,
+		268ED32C4E849718AF8D4303 /* ShareView.swift */,
+		FDC9D0B24B2D0B801EF003AF /* ShareViewController.swift */,
+		A16C8185F7D80C638FD35A53 /* ShareViewModel.swift */,
+	);
+	path = PiDashShare;
+	sourceTree = "<group>";
+};
 /* End PBXGroup section */
+
+/* Begin PBXContainerItemProxy section */
+		D93CAF5E6A2977B071E1919D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F3C83F3BACDF2B76FCEDC61 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 833EA51C97DA6AEE0BA36B67;
+			remoteInfo = PiDashShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8F3D34BE546F50D8B73E6E0B /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C050F7E97122191AA8F77EB2 /* PiDashShare.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D5251905BDDE7EC9B5F813A0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 833EA51C97DA6AEE0BA36B67 /* PiDashShare */;
+			targetProxy = D93CAF5E6A2977B071E1919D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXNativeTarget section */
 		777CC3B5B79BBAA6C06F1A7A /* PiDash */ = {
@@ -303,10 +366,12 @@
 				6D6F3F15225EAAC233D3AF45 /* Sources */,
 				5D383E056272AB421E5DE30D /* Resources */,
 				5D7C591675B45D41B1FB4A53 /* Frameworks */,
+				8F3D34BE546F50D8B73E6E0B /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D5251905BDDE7EC9B5F813A0 /* PBXTargetDependency */,
 			);
 			name = PiDash;
 			packageProductDependencies = (
@@ -318,6 +383,23 @@
 			productReference = BBFF5D72F491675D639A0E31 /* PiDash.app */;
 			productType = "com.apple.product-type.application";
 		};
+833EA51C97DA6AEE0BA36B67 /* PiDashShare */ = {
+	isa = PBXNativeTarget;
+	buildConfigurationList = 7DF550180B97CCB2EA8EB7FA /* Build configuration list for PBXNativeTarget "PiDashShare" */;
+	buildPhases = (
+		9B2FFAB9F60AFE5959EE9CAA /* Sources */,
+		52D18679F384125D35C3F534 /* Resources */,
+		A168520FC13293289778C452 /* Frameworks */,
+	);
+	buildRules = (
+	);
+	dependencies = (
+	);
+	name = PiDashShare;
+	productName = PiDashShare;
+	productReference = 600760179E2976E8A5E4618A /* PiDashShare.appex */;
+	productType = "com.apple.product-type.app-extension";
+};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -327,6 +409,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
+					833EA51C97DA6AEE0BA36B67 = {
+						DevelopmentTeam = ZBL5RZ37FG;
+						ProvisioningStyle = Automatic;
+					};
 					777CC3B5B79BBAA6C06F1A7A = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -353,6 +439,7 @@
 			projectRoot = "";
 			targets = (
 				777CC3B5B79BBAA6C06F1A7A /* PiDash */,
+				833EA51C97DA6AEE0BA36B67 /* PiDashShare */,
 			);
 		};
 /* End PBXProject section */
@@ -366,6 +453,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+52D18679F384125D35C3F534 /* Resources */ = {
+	isa = PBXResourcesBuildPhase;
+	buildActionMask = 2147483647;
+	files = (
+	);
+	runOnlyForDeploymentPostprocessing = 0;
+};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -427,6 +521,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+9B2FFAB9F60AFE5959EE9CAA /* Sources */ = {
+	isa = PBXSourcesBuildPhase;
+	buildActionMask = 2147483647;
+	files = (
+		8E5319679DEEC2A816F70F4A /* ShareView.swift in Sources */,
+		2441AE0E56B1A063674CB584 /* ShareViewController.swift in Sources */,
+		B691A305FC38F6DF01BEA7CA /* ShareViewModel.swift in Sources */,
+	);
+	runOnlyForDeploymentPostprocessing = 0;
+};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -603,6 +707,52 @@
 			};
 			name = Release;
 		};
+3113BA71780E5D7C28826035 /* Debug */ = {
+	isa = XCBuildConfiguration;
+	buildSettings = {
+		CODE_SIGN_IDENTITY = "iPhone Developer";
+		CODE_SIGN_STYLE = Automatic;
+		DEVELOPMENT_TEAM = ZBL5RZ37FG;
+		INFOPLIST_FILE = PiDashShare/Info.plist;
+		CODE_SIGN_ENTITLEMENTS = PiDashShare/PiDashShare.entitlements;
+		IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+		LD_RUNPATH_SEARCH_PATHS = (
+			"$(inherited)",
+			"@executable_path/Frameworks",
+			"@executable_path/../../Frameworks",
+		);
+		PRODUCT_BUNDLE_IDENTIFIER = com.sam.pidash.share;
+		PRODUCT_NAME = "$(TARGET_NAME)";
+		SDKROOT = iphoneos;
+		SKIP_INSTALL = YES;
+		SWIFT_VERSION = 5.9;
+		TARGETED_DEVICE_FAMILY = "1,2";
+	};
+	name = Debug;
+};
+E40AFE6D14FE3A6E70110B63 /* Release */ = {
+	isa = XCBuildConfiguration;
+	buildSettings = {
+		CODE_SIGN_IDENTITY = "iPhone Developer";
+		CODE_SIGN_STYLE = Automatic;
+		DEVELOPMENT_TEAM = ZBL5RZ37FG;
+		INFOPLIST_FILE = PiDashShare/Info.plist;
+		CODE_SIGN_ENTITLEMENTS = PiDashShare/PiDashShare.entitlements;
+		IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+		LD_RUNPATH_SEARCH_PATHS = (
+			"$(inherited)",
+			"@executable_path/Frameworks",
+			"@executable_path/../../Frameworks",
+		);
+		PRODUCT_BUNDLE_IDENTIFIER = com.sam.pidash.share;
+		PRODUCT_NAME = "$(TARGET_NAME)";
+		SDKROOT = iphoneos;
+		SKIP_INSTALL = YES;
+		SWIFT_VERSION = 5.9;
+		TARGETED_DEVICE_FAMILY = "1,2";
+	};
+	name = Release;
+};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -624,6 +774,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+7DF550180B97CCB2EA8EB7FA /* Build configuration list for PBXNativeTarget "PiDashShare" */ = {
+	isa = XCConfigurationList;
+	buildConfigurations = (
+		3113BA71780E5D7C28826035 /* Debug */,
+		E40AFE6D14FE3A6E70110B63 /* Release */,
+	);
+	defaultConfigurationIsVisible = 0;
+	defaultConfigurationName = Debug;
+};
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */

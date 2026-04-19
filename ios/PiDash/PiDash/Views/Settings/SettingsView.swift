@@ -12,6 +12,11 @@ struct SettingsView: View {
     @State private var testResult: String?
     @State private var isTesting = false
     @State private var slotCwds: [String] = []
+    @AppStorage("appearanceMode") private var appearanceMode: Int = 0
+
+    private func setAppearanceMode(_ mode: Int) {
+        appearanceMode = mode
+    }
 
     var body: some View {
         NavigationStack {

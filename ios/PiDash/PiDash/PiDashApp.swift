@@ -6,6 +6,16 @@ struct PiDashApp: App {
     @State private var themeManager = ThemeManager()
     @Environment(\.scenePhase) private var scenePhase
 
+    @AppStorage("appearanceMode") private var appearanceMode: Int = 0
+
+    private var colorScheme: ColorScheme? {
+        switch appearanceMode {
+        case 1: return .light
+        case 2: return .dark
+        default: return nil
+        }
+    }
+
     init() {
         BackgroundRefreshService.register()
     }
@@ -16,6 +26,7 @@ struct PiDashApp: App {
                 .environment(appState)
                 .environment(themeManager)
                 .environment(\.appTheme, themeManager.current)
+                .preferredColorScheme(colorScheme)
                 .task {
                     appState.start()
                 }
