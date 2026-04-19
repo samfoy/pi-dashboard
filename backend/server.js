@@ -350,6 +350,7 @@ app.patch('/api/chat/slots/:key/title', (req, res) => {
   const pi = manager.getSlot(req.params.key)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   pi._title = req.body.title || 'New Chat'
+  pi._userRenamed = true  // Don't let auto-naming overwrite this
   broadcastSlots()
   broadcast('slot_title', { key: req.params.key, title: pi._title })
   persistSlots()
@@ -1213,7 +1214,7 @@ function _wireSlotEvents(pi, slotKey) {
     // Sync session name set by auto-session-name extension
     pi.request({ type: 'get_state' }, 5000).then(resp => {
       const name = resp?.data?.sessionName
-      if (name && name !== pi._title) {
+      if (name && name !== pi._title && !pi._userRenamed) {
         pi._title = name
         broadcast('slot_title', { key: slotKey, title: name })
         broadcastSlots()

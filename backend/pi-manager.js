@@ -51,6 +51,7 @@ export class PiProcess extends EventEmitter {
     this.modelProvider = opts.modelProvider || null
     this.modelId = opts.modelId || null
     this._title = opts.title || null
+    this._userRenamed = false  // true if user manually renamed
     this._startTime = Date.now()
     this._lastActivity = Date.now()
     this._pendingRequests = new Map() // id → { resolve, timer }
