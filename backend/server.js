@@ -261,7 +261,11 @@ app.post('/api/chat/slots', (req, res) => {
     modelProvider = model.slice(0, idx)
     modelId = model.slice(idx + 1)
   }
-  const slot = manager.createSlot(name, agent, { modelProvider, modelId, cwd: cwd || null })
+  const rawCwd = cwd || null
+  const resolvedCwd = rawCwd
+    ? (rawCwd === '~' ? os.homedir() : rawCwd.startsWith('~/') ? join(os.homedir(), rawCwd.slice(2)) : rawCwd)
+    : null
+  const slot = manager.createSlot(name, agent, { modelProvider, modelId, cwd: resolvedCwd })
   const pi = manager.getSlot(slot.key)
   _wireSlotEvents(pi, slot.key)
   pi._wired = true
@@ -750,7 +754,7 @@ app.post('/api/chat/slots/:key/cwd', (req, res) => {
   const { cwd } = req.body
   const pi = manager.getSlot(req.params.key)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
-  pi.cwd = cwd
+  pi.cwd = cwd === '~' ? os.homedir() : cwd.startsWith('~/') ? join(os.homedir(), cwd.slice(2)) : cwd
   // If process already running with wrong CWD, restart it
   if (pi.proc && pi.messages.length === 0) {
     pi.kill()
