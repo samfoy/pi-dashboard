@@ -44,6 +44,7 @@
 		A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234571 /* CalendarService.swift */; };
 		A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234581 /* RemindersService.swift */; };
 		A1B2C3D4E5F6078901234592 /* ContactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234591 /* ContactsService.swift */; };
+		A1B2C3D4E5F60789012345A2 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60789012345A1 /* LocationService.swift */; };
 		A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234563 /* HealthKit.framework */; };
 		A1B2C3D4E5F6078901234594 /* Contacts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234593 /* Contacts.framework */; };
 		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
@@ -88,6 +89,7 @@
 		A1B2C3D4E5F6078901234571 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234581 /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234591 /* ContactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60789012345A1 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6078901234563 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F6078901234593 /* Contacts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Contacts.framework; path = System/Library/Frameworks/Contacts.framework; sourceTree = SDKROOT; };
 		A1B2C3D4E5F6078901234565 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
@@ -147,6 +149,7 @@
 				A1B2C3D4E5F6078901234571 /* CalendarService.swift */,
 				A1B2C3D4E5F6078901234581 /* RemindersService.swift */,
 				A1B2C3D4E5F6078901234591 /* ContactsService.swift */,
+				A1B2C3D4E5F60789012345A1 /* LocationService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -349,6 +352,7 @@
 				A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */,
 				A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */,
 				A1B2C3D4E5F6078901234592 /* ContactsService.swift in Sources */,
+				A1B2C3D4E5F60789012345A2 /* LocationService.swift in Sources */,
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,

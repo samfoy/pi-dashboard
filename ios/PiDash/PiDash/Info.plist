@@ -47,6 +47,8 @@
 	<string>PiDash reads your calendar events so the AI can answer questions about your schedule.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>PiDash reads your health data (steps, sleep, heart rate, calories, workouts) so the AI can answer questions about your activity.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>PiDash reads your current location so the AI can answer questions about where you are.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>PiDash uses the camera to take photos to share in chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

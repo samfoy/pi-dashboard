@@ -84,6 +84,7 @@ private struct ChatContentView: View {
     private let calendarService = CalendarService.shared
     private let remindersService = RemindersService.shared
     private let contactsService = ContactsService.shared
+    private let locationService = LocationService.shared
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -155,6 +156,15 @@ private struct ChatContentView: View {
                         Task {
                             try? await contactsService.requestAuthorization()
                             let summary = await contactsService.fetchContacts()
+                            await MainActor.run {
+                                viewModel.inputText = summary + "\n" + viewModel.inputText
+                            }
+                        }
+                    },
+                    onLocationSummary: {
+                        Task {
+                            await locationService.requestAuthorization()
+                            let summary = await locationService.fetchLocationSummary()
                             await MainActor.run {
                                 viewModel.inputText = summary + "\n" + viewModel.inputText
                             }
