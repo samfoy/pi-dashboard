@@ -5,12 +5,37 @@ import UserNotifications
 
 /// Manages local notifications for chat events when the app is backgrounded or on another screen.
 @Observable
-final class LocalNotificationService {
+final class LocalNotificationService: NSObject, UNUserNotificationCenterDelegate {
     private(set) var isAuthorized = false
     
     /// Slot key currently being viewed — suppress notifications for this slot.
     var activeSlotKey: String?
-    
+
+    override init() {
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// Show notification banners even when the app is in the foreground.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .badge]
+    }
+
+    /// Handle notification tap — could navigate to the chat in the future.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        // threadIdentifier is the slot key
+        let _ = response.notification.request.content.threadIdentifier
+        // TODO: navigate to that chat
+    }
+
     func requestPermission() async {
         let center = UNUserNotificationCenter.current()
         do {
