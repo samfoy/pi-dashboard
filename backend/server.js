@@ -1345,6 +1345,21 @@ function _wireSlotEvents(pi, slotKey) {
     broadcast('chat_done', { slot: slotKey })
     broadcastSlots()
   })
+
+  pi.on('startup_error', ({ code, stderr }) => {
+    const errorMsg = {
+      role: 'system',
+      content: `⚠️ Pi process crashed at startup (exit code ${code}).\n\n${stderr ? '```\n' + stderr + '\n```' : 'No error output captured.'}`,
+      ts: new Date().toISOString(),
+    }
+    pi.messages.push(errorMsg)
+    broadcast('startup_error', {
+      slot: slotKey,
+      message: errorMsg,
+    })
+    broadcastSlots()
+    persistSlots()
+  })
 }
 
 // ── Start ──

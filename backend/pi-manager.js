@@ -58,6 +58,8 @@ export class PiProcess extends EventEmitter {
     this._stopping = false
     this._pendingApproval = false
     this._streamIdx = -1  // index where partial streaming messages start
+    this._stderrLines = []
+    this._startupTimer = null
   }
 
   start() {
@@ -108,7 +110,11 @@ export class PiProcess extends EventEmitter {
 
     this.proc.stderr.on('data', (chunk) => {
       const text = chunk.toString().trim()
-      if (text) this.emit('log', { level: 'warn', msg: text })
+      if (text) {
+        this._stderrLines.push(text)
+        if (this._stderrLines.length > 20) this._stderrLines.shift()
+        this.emit('log', { level: 'warn', msg: text })
+      }
     })
 
     this.proc.on('exit', (code) => {
@@ -116,6 +122,12 @@ export class PiProcess extends EventEmitter {
       this.running = false
       this._stopping = false
       this._pendingApproval = false
+      if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
+      if (this._startupTimer) {
+        clearTimeout(this._startupTimer)
+        this._startupTimer = null
+        this.emit('startup_error', { code, slotKey: this.slotKey, stderr: this._stderrLines.join('\n') })
+      }
       this.emit('exit', code)
     })
 
@@ -123,11 +135,23 @@ export class PiProcess extends EventEmitter {
       this.emit('error', err)
     })
 
+    // Detect early crash (within first 5s = likely extension/startup failure)
+    this._startupTimer = setTimeout(() => { this._startupTimer = null }, 5000)
+
     this.ready = true
   }
 
   send(cmd) {
-    if (!this.proc || !this.proc.stdin.writable) return false
+    if (!this.proc || this.proc.killed || this.proc.exitCode !== null || !this.proc.stdin.writable) {
+      // Process is dead — reset state
+      if (this.running || this._stopping) {
+        this.running = false
+        this._stopping = false
+        this._pendingApproval = false
+        this.emit('agent_end', { messages: [] })
+      }
+      return false
+    }
     this.proc.stdin.write(JSON.stringify(cmd) + '\n')
     return true
   }
@@ -228,6 +252,22 @@ export class PiProcess extends EventEmitter {
 
   abort() {
     this._stopping = true
+    // If process is already dead, reset state immediately
+    if (!this.proc || this.proc.killed || this.proc.exitCode !== null) {
+      this.running = false
+      this._stopping = false
+      this._pendingApproval = false
+      this.emit('agent_end', { messages: [] })
+      return false
+    }
+    // Watchdog: if still stopping after 10s, force-kill
+    if (this._stoppingTimer) clearTimeout(this._stoppingTimer)
+    this._stoppingTimer = setTimeout(() => {
+      if (this._stopping) {
+        this.emit('log', { level: 'warn', msg: `Slot ${this.slotKey}: abort watchdog triggered, force-killing` })
+        this.kill()
+      }
+    }, 10000)
     return this.send({ type: 'abort' })
   }
 
@@ -297,6 +337,7 @@ export class PiProcess extends EventEmitter {
         this.running = false
         this._stopping = false
         this._pendingApproval = false
+        if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
         // Remove partial streaming messages, replace with final
         if (this._streamIdx >= 0) {
           this.messages.splice(this._streamIdx)
