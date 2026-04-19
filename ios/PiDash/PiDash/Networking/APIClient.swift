@@ -182,6 +182,49 @@ actor APIClient {
         _ = try await post(url: url, body: body)
     }
 
+    // MARK: - File I/O
+
+    /// `GET /api/file-read?path=` → plain text file content
+    func readFile(path: String) async throws -> String {
+        guard var components = URLComponents(url: try requireURL(path: "/file-read"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    /// `GET /api/file-versions?path=` → version list
+    func getFileVersions(path: String) async throws -> [FileVersion] {
+        guard var components = URLComponents(url: try requireURL(path: "/file-versions"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [URLQueryItem(name: "path", value: path)]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        do {
+            let response = try decoder.decode(FileVersionsResponse.self, from: data)
+            return response.versions
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
+    /// `GET /api/file-version?path=&version=` → plain text version content
+    func getFileVersion(path: String, version: Int) async throws -> String {
+        guard var components = URLComponents(url: try requireURL(path: "/file-version"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "path", value: path),
+            URLQueryItem(name: "version", value: "\(version)"),
+        ]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
     // MARK: - Sessions
 
     /// `GET /api/sessions` → recent pi agent sessions

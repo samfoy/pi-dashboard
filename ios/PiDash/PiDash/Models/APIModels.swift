@@ -386,7 +386,34 @@ struct ModelInfo: Decodable, Identifiable, Hashable {
     var modelId: String { id }
 }
 
+// MARK: - File I/O
+
+struct FileVersion: Decodable, Identifiable {
+    let version: Int
+    let timestamp: String
+    let size: Int
+
+    var id: Int { version }
+
+    var formattedDate: String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: timestamp) {
+            let display = DateFormatter()
+            display.dateStyle = .short
+            display.timeStyle = .short
+            return display.string(from: date)
+        }
+        return timestamp
+    }
+}
+
+struct FileVersionsResponse: Decodable {
+    let versions: [FileVersion]
+}
+
 // MARK: - AnyCodable helper
+
 
 struct AnyCodable: Codable {
     let value: Any
