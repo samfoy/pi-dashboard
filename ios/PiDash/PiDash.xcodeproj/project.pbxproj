@@ -12,6 +12,7 @@
 		31B85B2F0C4A784FB94F430C /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836EB2F569568AD01EBB6732 /* ChatViewModel.swift */; };
 		3568E9A59A2673F94DA7A9F2 /* PiDashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */; };
 		3A35FD7E7F0A99B1AA2C7B67 /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */; };
+		B97AC20C5C1C40D0A42AE2A3 /* CommandPaletteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */; };
 		406290EEA5DD8454C4308998 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 789BC0FED50B9B63A997FAA7 /* APIClient.swift */; };
 		4293E98BC576FAD343780971 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */; };
 		63904453439371641F247790 /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E15861A2217BBE79B79972 /* WebSocketManager.swift */; };
@@ -23,6 +24,7 @@
 		9E826C343BEDE35DB8DA9F78 /* ChatSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F447C462AA02BA23363BA71B /* ChatSlot.swift */; };
 		A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */; };
 		B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39DCB7941AD46363E454E0DA /* SlotListView.swift */; };
+		C2B1F7031E3F4E76B260CDE4 /* SkillsRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */; };
 		BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */; };
 		C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */; };
 		AA11BB22CC33DD44EE550002 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */; };
@@ -48,6 +50,7 @@
 		25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTheme.swift; sourceTree = "<group>"; };
 		39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListViewModel.swift; sourceTree = "<group>"; };
 		39DCB7941AD46363E454E0DA /* SlotListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListView.swift; sourceTree = "<group>"; };
+		EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsRailView.swift; sourceTree = "<group>"; };
 		64FD511FAE1D25366BE99B3F /* ConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionBanner.swift; sourceTree = "<group>"; };
 		69E15861A2217BBE79B79972 /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
 		7329591BD291B8D5E93094E6 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
@@ -59,6 +62,7 @@
 		C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
+		2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSheet.swift; sourceTree = "<group>"; };
 		BBFF5D72F491675D639A0E31 /* PiDash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD49B269C69BABE939F77B86 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		BEC4BB88795149637EA1305F /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
@@ -138,6 +142,7 @@
 			isa = PBXGroup;
 			children = (
 				B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */,
+				2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */,
 				1DEF0C100C668F368D19E82F /* ChatView.swift */,
 				A6C0956DDB33362A723DD498 /* MessageBubble.swift */,
 				85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */,
@@ -205,6 +210,7 @@
 			isa = PBXGroup;
 			children = (
 				39DCB7941AD46363E454E0DA /* SlotListView.swift */,
+				EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */,
 				A55A63DAAA5085318A112FC9 /* SlotRow.swift */,
 				C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */,
 			);
@@ -295,6 +301,7 @@
 				30D48ACCE21E42F0AF82DF01 /* SlashCommand.swift in Sources */,
 				C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */,
 				3A35FD7E7F0A99B1AA2C7B67 /* ChatInputBar.swift in Sources */,
+				B97AC20C5C1C40D0A42AE2A3 /* CommandPaletteSheet.swift in Sources */,
 				C756272D812BC761C179B47D /* ChatMessage.swift in Sources */,
 				9E826C343BEDE35DB8DA9F78 /* ChatSlot.swift in Sources */,
 				E19B2E1E1AFCBACB52B59417 /* ChatView.swift in Sources */,
@@ -311,6 +318,7 @@
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,
+				C2B1F7031E3F4E76B260CDE4 /* SkillsRailView.swift in Sources */,
 				A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */,
 				F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */,
 				C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */,

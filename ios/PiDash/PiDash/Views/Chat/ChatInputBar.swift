@@ -19,6 +19,11 @@ struct ChatInputBar: View {
     @Binding var pendingImages: [PendingImage]
     let isStreaming: Bool
     var isDisabled: Bool = false
+    var contextPercent: Double? = nil
+    var lastAssistantContent: String? = nil
+    var onShowPalette: (() -> Void)? = nil
+    var onShowModelPicker: (() -> Void)? = nil
+    var onCompact: (() -> Void)? = nil
     let onSend: () -> Void
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
@@ -28,6 +33,7 @@ struct ChatInputBar: View {
     @State private var showDocumentPicker = false
     @State private var showCamera = false
     @State private var photoSelection: [PhotosPickerItem] = []
+    @State private var showCompactConfirm = false
 
     private var canSend: Bool {
         !isStreaming && !isDisabled &&
@@ -100,6 +106,58 @@ struct ChatInputBar: View {
                     .submitLabel(.return)
                     .disabled(isDisabled)
                     .focused($isFocused)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            // ⚡ Command palette
+                            if let onPalette = onShowPalette {
+                                Button {
+                                    onPalette()
+                                } label: {
+                                    Image(systemName: "bolt.fill")
+                                }
+                            }
+
+                            // 🗜 Compact — only when context > 50%
+                            if let pct = contextPercent, pct > 0.5, let onCmpct = onCompact {
+                                Button {
+                                    showCompactConfirm = true
+                                } label: {
+                                    Image(systemName: "arrow.2.squarepath")
+                                }
+                                .confirmationDialog(
+                                    "Compact conversation?",
+                                    isPresented: $showCompactConfirm,
+                                    titleVisibility: .visible
+                                ) {
+                                    Button("Compact", role: .destructive) { onCmpct() }
+                                    Button("Cancel", role: .cancel) {}
+                                } message: {
+                                    Text("Summarises the conversation to free up context (\(Int((pct * 100).rounded()))% used).")
+                                }
+                            }
+
+                            // 🧠 Model picker
+                            if let onModel = onShowModelPicker {
+                                Button {
+                                    onModel()
+                                } label: {
+                                    Image(systemName: "cpu")
+                                }
+                            }
+
+                            Spacer()
+
+                            // 📋 Copy last assistant message
+                            if let content = lastAssistantContent, !content.isEmpty {
+                                Button {
+                                    UIPasteboard.general.string = content
+                                    HapticManager.messageSent()
+                                } label: {
+                                    Image(systemName: "doc.on.doc")
+                                }
+                            }
+                        }
+                    }
 
                 Button(action: {
                     if isStreaming {

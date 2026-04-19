@@ -8,6 +8,7 @@ import Foundation
 final class SlotListViewModel {
     var searchText: String = ""
     var isSearching: Bool = false
+    var slashCommands: [SlashCommand] = []
 
     private let appState: AppState
 
@@ -61,6 +62,15 @@ final class SlotListViewModel {
 
     func refresh() async {
         await appState.loadSlots()
+    }
+
+    func loadSlashCommands() async {
+        guard slashCommands.isEmpty else { return }
+        do {
+            slashCommands = try await appState.apiClient.fetchSlashCommands()
+        } catch {
+            print("[SlotListVM] Failed to load slash commands: \(error)")
+        }
     }
 
     func createNewSlot() async -> ChatSlot? {

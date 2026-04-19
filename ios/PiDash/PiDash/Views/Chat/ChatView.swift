@@ -28,6 +28,7 @@ struct ChatView: View {
             appState.registerChatViewModel(vm, for: slot.key)
             await vm.loadHistory()
             await vm.loadModels()
+            await vm.loadSlashCommands()
             // Set default thinking level on the server
             await vm.setThinking(vm.thinkingLevel)
         }
@@ -76,6 +77,8 @@ struct ChatView: View {
 private struct ChatContentView: View {
     @Bindable var viewModel: ChatViewModel
     @State private var isAtBottom = true
+    @State private var showCommandPalette = false
+    @State private var showModelPickerFromToolbar = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -112,9 +115,22 @@ private struct ChatContentView: View {
                     pendingImages: $viewModel.pendingImages,
                     isStreaming: viewModel.isStreaming,
                     isDisabled: viewModel.isLoadingHistory,
+                    contextPercent: viewModel.slot.contextPercent,
+                    lastAssistantContent: viewModel.messages.last(where: { $0.role == .assistant })?.content,
+                    onShowPalette: { showCommandPalette = true },
+                    onShowModelPicker: { showModelPickerFromToolbar = true },
+                    onCompact: { Task { await viewModel.sendCommand("compact") } },
                     onSend: { Task { await viewModel.send() } },
                     onStop: { Task { await viewModel.stop() } }
                 )
+                .sheet(isPresented: $showCommandPalette) {
+                    CommandPaletteSheet(commands: viewModel.slashCommands) { cmd in
+                        Task { await viewModel.sendCommand(cmd.name) }
+                    }
+                }
+                .sheet(isPresented: $showModelPickerFromToolbar) {
+                    ModelPickerSheet(viewModel: viewModel)
+                }
             }
 
             // Jump-to-bottom FAB
@@ -273,7 +289,7 @@ private struct ChatSettingsMenu: View {
 
 // MARK: - Model Picker Sheet
 
-private struct ModelPickerSheet: View {
+struct ModelPickerSheet: View {
     @Bindable var viewModel: ChatViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""

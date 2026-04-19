@@ -51,6 +51,11 @@ final class ChatViewModel {
             self.error = "\(type(of: error)): \(error.localizedDescription)"
         }
         isLoadingHistory = false
+        // If a skill command was queued for this slot (e.g. from the skills rail), send it now.
+        if let cmd = appState?.consumePendingCommand(forSlot: slotKey) {
+            inputText = cmd
+            await send()
+        }
     }
 
     // MARK: - Send message
@@ -129,6 +134,14 @@ final class ChatViewModel {
             }
         } catch {
             print("[ChatVM] Failed to load models: \(error)")
+        }
+    }
+
+    func loadSlashCommands() async {
+        do {
+            slashCommands = try await apiClient.fetchSlashCommands()
+        } catch {
+            print("[ChatVM] Failed to load slash commands: \(error)")
         }
     }
 

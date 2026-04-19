@@ -23,6 +23,19 @@ final class AppState {
     // Navigation
     var selectedSlotKey: String?
 
+    // Pending first-message commands for newly created slots (e.g. from skills rail)
+    var pendingCommands: [String: String] = [String: String]()
+
+    func setPendingCommand(_ command: String, forSlot key: String) {
+        pendingCommands[key] = command
+    }
+
+    func consumePendingCommand(forSlot key: String) -> String? {
+        guard let cmd = pendingCommands[key] else { return nil }
+        pendingCommands.removeValue(forKey: key)
+        return cmd
+    }
+
     // Dependencies
     let apiClient: APIClient
     let wsManager: WebSocketManager

@@ -44,6 +44,7 @@ private struct SlotListContent: View {
                     .searchable(text: $viewModel.searchText, prompt: "Search chats")
                     .navigationTitle("PiDash")
                     .toolbar { toolbarItems }
+                    .task { await viewModel.loadSlashCommands() }
                     .sheet(isPresented: $showSettings) { SettingsView() }
                     .sheet(isPresented: $showSessionHistory) {
                         SessionHistoryView { newSlotKey in
@@ -84,7 +85,21 @@ private struct SlotListContent: View {
                 message: "Start a new conversation with the + button."
             )
         } else {
-            List {
+            VStack(spacing: 0) {
+                let skills = viewModel.slashCommands.filter { $0.source == .skill }
+                if !skills.isEmpty {
+                    SkillsRailView(skills: skills) { newSlot in
+                        navigateToSlotKey = newSlot.key
+                    }
+                    Divider()
+                }
+                chatList
+            }
+        }
+    }
+
+    private var chatList: some View {
+        List {
                 ForEach(viewModel.groupedSlots, id: \.group) { section in
                     Section(section.group.label) {
                         ForEach(section.slots) { slot in
@@ -134,7 +149,6 @@ private struct SlotListContent: View {
             } message: {
                 Text("Enter a new name for this chat.")
             }
-        }
     }
 
     @ToolbarContentBuilder
