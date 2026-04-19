@@ -3,6 +3,13 @@ import MarkdownUI
 import Highlightr
 import UIKit
 
+// MARK: - ViewerTab
+
+enum ViewerTab: String, CaseIterable {
+    case content = "Content"
+    case versions = "Versions"
+}
+
 // MARK: - FileViewerViewModel
 
 @Observable
@@ -10,6 +17,13 @@ final class FileViewerViewModel {
     var content: String = ""
     var isLoading: Bool = false
     var error: String? = nil
+
+    // Version history
+    var versions: [FileVersion] = [FileVersion]()
+    var versionsLoading: Bool = false
+    var versionContent: String? = nil
+    var versionError: String? = nil
+    var selectedVersion: FileVersion? = nil
 
     let path: String
     private let apiClient: APIClient
@@ -30,6 +44,30 @@ final class FileViewerViewModel {
         }
         isLoading = false
     }
+
+    func loadVersions() async {
+        guard versions.isEmpty && !versionsLoading else { return }
+        versionsLoading = true
+        versionError = nil
+        do {
+            versions = try await apiClient.getFileVersions(path: path)
+        } catch {
+            versionError = error.localizedDescription
+        }
+        versionsLoading = false
+    }
+
+    func loadVersion(_ v: FileVersion) async {
+        versionsLoading = true
+        versionError = nil
+        selectedVersion = v
+        do {
+            versionContent = try await apiClient.getFileVersion(path: path, version: v.version)
+        } catch {
+            versionError = error.localizedDescription
+        }
+        versionsLoading = false
+    }
 }
 
 // MARK: - FileViewerSheet
@@ -41,6 +79,7 @@ struct FileViewerSheet: View {
     @Environment(AppState.self) private var appState
 
     @State private var viewModel: FileViewerViewModel
+    @State private var selectedTab: ViewerTab = .content
     @State private var isSharePresented = false
     @State private var shareURL: URL? = nil
     @State private var showCopiedFeedback = false
@@ -60,10 +99,29 @@ struct FileViewerSheet: View {
 
     var body: some View {
         NavigationStack {
-            FileViewerContent(viewModel: viewModel)
-                .navigationTitle((path as NSString).lastPathComponent)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
+            VStack(spacing: 0) {
+                Picker("View", selection: $selectedTab) {
+                    ForEach(ViewerTab.allCases, id: \.self) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color(.systemGroupedBackground))
+
+                Divider()
+
+                switch selectedTab {
+                case .content:
+                    FileViewerContent(viewModel: viewModel)
+                case .versions:
+                    FileVersionsView(viewModel: viewModel)
+                }
+            }
+            .navigationTitle((path as NSString).lastPathComponent)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
                     ToolbarItemGroup(placement: .topBarLeading) {
                         Button {
                             copyContent()
@@ -293,7 +351,101 @@ struct HighlightedCodeView: View {
     }
 }
 
-// MARK: - ShareSheet
+// MARK: - FileVersionsView
+
+struct FileVersionsView: View {
+    let viewModel: FileViewerViewModel
+
+    @State private var showDiff: Bool = false
+
+    var body: some View {
+        Group {
+            if viewModel.versionsLoading && viewModel.versions.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let err = viewModel.versionError, viewModel.versions.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if viewModel.versions.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "clock.badge.xmark")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.secondary)
+                    Text("No version history")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(viewModel.versions) { version in
+                    Button {
+                        Task { await viewModel.loadVersion(version) }
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Version \(version.version)")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.primary)
+                                Text(version.formattedDate)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("\(version.size) bytes")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            Spacer()
+                            if viewModel.versionsLoading && viewModel.selectedVersion?.version == version.version {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "doc.text.magnifyingglass")
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+            }
+        }
+        .task {
+            await viewModel.loadVersions()
+        }
+        .onChange(of: viewModel.versionContent) { _, newValue in
+            showDiff = newValue != nil
+        }
+        .sheet(isPresented: $showDiff, onDismiss: {
+            viewModel.versionContent = nil
+            viewModel.selectedVersion = nil
+        }) {
+            NavigationStack {
+                if let vc = viewModel.versionContent {
+                    LineDiffView(old: viewModel.content, new: vc)
+                        .navigationTitle("v\(viewModel.selectedVersion?.version ?? 0) diff")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { showDiff = false }
+                            }
+                        }
+                } else {
+                    ProgressView()
+                }
+            }
+        }
+    }
+}
 
 struct ShareSheet: UIViewControllerRepresentable {
     let activityItems: [Any]

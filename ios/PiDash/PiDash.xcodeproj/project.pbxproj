@@ -40,6 +40,7 @@
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
 		C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
+		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
 		D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */; };
 /* End PBXBuildFile section */
 
@@ -48,6 +49,7 @@
 		1DEF0C100C668F368D19E82F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		22694B85988C36300067EA53 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		238BF8BF39C77ED440301D70 /* ToolCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallView.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiffView.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
 		25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTheme.swift; sourceTree = "<group>"; };
 		39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListViewModel.swift; sourceTree = "<group>"; };
@@ -149,7 +151,8 @@
 				A6C0956DDB33362A723DD498 /* MessageBubble.swift */,
 				85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */,
 				238BF8BF39C77ED440301D70 /* ToolCallView.swift */,
-				D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */,
+				D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */,
+			D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -311,6 +314,7 @@
 				31B85B2F0C4A784FB94F430C /* ChatViewModel.swift in Sources */,
 				8334FFC35DF87DCA245E0381 /* ConnectionBanner.swift in Sources */,
 				FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */,
+				D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */,
 				D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */,
 				4293E98BC576FAD343780971 /* HapticManager.swift in Sources */,
 				BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */,
