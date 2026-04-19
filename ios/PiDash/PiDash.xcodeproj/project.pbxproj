@@ -7,176 +7,120 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01B9A33466EA64DFE5877B91 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74447C6661E1A619B03D4C18 /* SearchViewModel.swift */; };
+		01D817C461007EBCF52C5787 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DAA311D4727DE3B15770F1 /* LineDiffView.swift */; };
+		11503C4F14838E3B211E4B4A /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5F0C47E4102AE435A1B98D /* HealthKitService.swift */; };
+		1238378409A980AA1988538F /* AssistantMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4D7D6C4DB561619D00CAD4 /* AssistantMessageContent.swift */; };
 		1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238BF8BF39C77ED440301D70 /* ToolCallView.swift */; };
+		24806DB610F98A80FC3BE0E9 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F28C3416B9C8AAD81CB7E8DB /* SearchResultsView.swift */; };
+		24E8F6F70F26BC3FBE4A8BDF /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E132D16CAF28DCB3B174F28 /* CalendarService.swift */; };
+		2573911977348401137DDA96 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AAA3212B4C4B2DC1AD5C559 /* LocalNotificationService.swift */; };
 		2A3742F5813615FECE00AF38 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0205208DE628A032B7FC03A5 /* MarkdownUI */; };
+		2C41F770CE1E133AB8AD6A64 /* CheckPiStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48CCCC9CC08E1D08A1A7B8E2 /* CheckPiStatusIntent.swift */; };
 		31B85B2F0C4A784FB94F430C /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836EB2F569568AD01EBB6732 /* ChatViewModel.swift */; };
-		AA01BB12CC23DD34EE45AAAC /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01BB12CC23DD34EE45AAAB /* RootView.swift */; };
-		AA01BB12CC23DD34EE45AAAE /* ChatEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01BB12CC23DD34EE45AAAD /* ChatEmptyStateView.swift */; };
 		3568E9A59A2673F94DA7A9F2 /* PiDashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */; };
 		3A35FD7E7F0A99B1AA2C7B67 /* ChatInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */; };
-		B97AC20C5C1C40D0A42AE2A3 /* CommandPaletteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */; };
 		406290EEA5DD8454C4308998 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 789BC0FED50B9B63A997FAA7 /* APIClient.swift */; };
+		417BD07A39C6DAB57AB3CA84 /* BackgroundRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28946A6701DF563BB721914B /* BackgroundRefreshService.swift */; };
 		4293E98BC576FAD343780971 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */; };
+		42988D7BC2211B3BC2486CAF /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A36737BF7D4BC57735B57ABC /* LocationService.swift */; };
+		4A8B6035102CCFCB3305C1A9 /* RemindersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E118465ADB43D4E6A8AF59CD /* RemindersService.swift */; };
+		50B4B2A3FD1DDAC9974865D0 /* GetActiveChatsIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53726014E532D9828D3B63CC /* GetActiveChatsIntent.swift */; };
 		63904453439371641F247790 /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E15861A2217BBE79B79972 /* WebSocketManager.swift */; };
+		78F84E31957C3BF31BB704F1 /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C452C0FBBC4BDEF545341A8 /* SpeechService.swift */; };
 		795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D62D76D4F4395254F5CFF5 /* SettingsView.swift */; };
 		7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBA38927A210B8A6BFB78498 /* ServerConfig.swift */; };
 		81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C0956DDB33362A723DD498 /* MessageBubble.swift */; };
 		8334FFC35DF87DCA245E0381 /* ConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64FD511FAE1D25366BE99B3F /* ConnectionBanner.swift */; };
 		87A3EE96219338AAF7ED07A1 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = 6245B73A834A08D1F18FD06B /* Highlightr */; };
+		8D18BEE0EF69AAF695284EF9 /* IntentNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 183B70777D23D1466B829FCA /* IntentNetworking.swift */; };
+		907A65175822658595EA7FC5 /* SlashCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C60FEE296873E7810A2906C /* SlashCommand.swift */; };
+		977AFC59317D367DEBA3C618 /* ChatEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFF6A7E542A794B25A57526 /* ChatEmptyStateView.swift */; };
 		9E826C343BEDE35DB8DA9F78 /* ChatSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F447C462AA02BA23363BA71B /* ChatSlot.swift */; };
 		A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */; };
+		B57D3F87E7A2499E2402965E /* SkillsRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45E6C0B725F939996B74A27 /* SkillsRailView.swift */; };
 		B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39DCB7941AD46363E454E0DA /* SlotListView.swift */; };
-		C2B1F7031E3F4E76B260CDE4 /* SkillsRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */; };
 		BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */; };
 		C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */; };
-		AA11BB22CC33DD44EE550002 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */; };
-		BB22CC33DD44EE55FF660002 /* BackgroundRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22CC33DD44EE55FF660001 /* BackgroundRefreshService.swift */; };
 		C3E702B869BB720E486311CD /* NetworkImage in Frameworks */ = {isa = PBXBuildFile; productRef = 100E491F5272A14398DEED4C /* NetworkImage */; };
 		C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD49B269C69BABE939F77B86 /* AppState.swift */; };
 		C756272D812BC761C179B47D /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0887298D39E179DD0FD5986 /* ChatMessage.swift */; };
+		CB06ACC75F082DED10461A0F /* ContactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F9E3B2F4874A24498C3E33B /* ContactsService.swift */; };
+		D62AD4D2B5DA12A9F9282A12 /* CommandPaletteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5F8753F4F8718234465265 /* CommandPaletteSheet.swift */; };
+		D74D00F31D2FD729A5CD6BC8 /* InlineImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519D23A51D27EBEE4AE7B00D /* InlineImageView.swift */; };
+		D8C70ECB5E47484F6BB4F9B1 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B5595BF9CE7B191C4011B9 /* SessionHistoryView.swift */; };
 		DA50A60429D0606D519F4751 /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7329591BD291B8D5E93094E6 /* APIModels.swift */; };
-		30D48ACCE21E42F0AF82DF01 /* SlashCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDB095C49F34C4DAB621761 /* SlashCommand.swift */; };
+		DAAB7240BE42A656B4E5CE3F /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D017AEDBCFD52CCD5A499FF /* RootView.swift */; };
 		E19B2E1E1AFCBACB52B59417 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DEF0C100C668F368D19E82F /* ChatView.swift */; };
 		E35A5E968F9C09FFED05BDC6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0EBD7361EF456B5F0436A74A /* Assets.xcassets */; };
+		EA4B3C5C02D14B25B795B0DF /* AskPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C952B932891A69081772B14 /* AskPiIntent.swift */; };
+		EF746E0917E1EEC44B891544 /* SendToPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9163021794CFFBDC993AB76 /* SendToPiIntent.swift */; };
+		F18845C9A0BC1F7E8B4D3F6D /* PiDashShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9E46D8D71AA73AA46BF218 /* PiDashShortcuts.swift */; };
 		F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */; };
+		F690BABD60E87BA2D6B2D82F /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */; };
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
-		C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */; };
-		D2B3C4D5E6F7089012345702 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B3C4D5E6F7089012345701 /* SearchViewModel.swift */; };
-		D2B3C4D5E6F7089012345704 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B3C4D5E6F7089012345703 /* SearchResultsView.swift */; };
+		FAB50CB7FFBE6724BAAE8EC2 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF277B8CC99355686B1C6F /* ProjectPickerSheet.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
-		A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234561 /* HealthKitService.swift */; };
-		A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234571 /* CalendarService.swift */; };
-		A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234581 /* RemindersService.swift */; };
-		A1B2C3D4E5F6078901234592 /* ContactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234591 /* ContactsService.swift */; };
-		A1B2C3D4E5F60789012345A2 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60789012345A1 /* LocationService.swift */; };
-		A1B2C3D4E5F60789012345B2 /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60789012345B1 /* SpeechService.swift */; };
-		A1B2C3D4E5F60789012345B4 /* Speech.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60789012345B3 /* Speech.framework */; };
-		A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234563 /* HealthKit.framework */; };
-		A1B2C3D4E5F6078901234594 /* Contacts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234593 /* Contacts.framework */; };
-		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
-		D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */; };
-		BB11CC22DD33EE440055AA02 /* InlineImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11CC22DD33EE440055AA01 /* InlineImageView.swift */; };
-		BB11CC22DD33EE440055AA04 /* AssistantMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11CC22DD33EE440055AA03 /* AssistantMessageContent.swift */; };
-		SE000011 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000010 /* ShareViewController.swift */; };
-		SE000013 /* ShareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000012 /* ShareViewModel.swift */; };
-		SE000015 /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000014 /* ShareView.swift */; };
-		SE000030 /* PiDashShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = SE000001 /* PiDashShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		AA00BB11CC22DD330011AAAA /* IntentNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330010AAAA /* IntentNetworking.swift */; };
-		AA00BB11CC22DD330021AAAA /* AskPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330020AAAA /* AskPiIntent.swift */; };
-		AA00BB11CC22DD330031AAAA /* SendToPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330030AAAA /* SendToPiIntent.swift */; };
-		AA00BB11CC22DD330041AAAA /* GetActiveChatsIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330040AAAA /* GetActiveChatsIntent.swift */; };
-		AA00BB11CC22DD330051AAAA /* CheckPiStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330050AAAA /* CheckPiStatusIntent.swift */; };
-		AA00BB11CC22DD330061AAAA /* PiDashShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD330060AAAA /* PiDashShortcuts.swift */; };
-		WD000007 /* PiDashWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = WD000002 /* PiDashWidgetBundle.swift */; };
-		WD000008 /* PiDashWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = WD000003 /* PiDashWidget.swift */; };
-		WD000009 /* WidgetNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = WD000004 /* WidgetNetworking.swift */; };
-		WD000010 /* PiDashWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = WD000001 /* PiDashWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		WD000012 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = WD000011 /* WidgetKit.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0E132D16CAF28DCB3B174F28 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
 		0EBD7361EF456B5F0436A74A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		183B70777D23D1466B829FCA /* IntentNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentNetworking.swift; sourceTree = "<group>"; };
 		1DEF0C100C668F368D19E82F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		22694B85988C36300067EA53 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		238BF8BF39C77ED440301D70 /* ToolCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallView.swift; sourceTree = "<group>"; };
-		D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiffView.swift; sourceTree = "<group>"; };
-		D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
-		BB11CC22DD33EE440055AA01 /* InlineImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineImageView.swift; sourceTree = "<group>"; };
-		BB11CC22DD33EE440055AA03 /* AssistantMessageContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantMessageContent.swift; sourceTree = "<group>"; };
 		25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTheme.swift; sourceTree = "<group>"; };
+		28946A6701DF563BB721914B /* BackgroundRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshService.swift; sourceTree = "<group>"; };
+		2C952B932891A69081772B14 /* AskPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPiIntent.swift; sourceTree = "<group>"; };
+		2D5F8753F4F8718234465265 /* CommandPaletteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSheet.swift; sourceTree = "<group>"; };
+		35DAA311D4727DE3B15770F1 /* LineDiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiffView.swift; sourceTree = "<group>"; };
 		39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListViewModel.swift; sourceTree = "<group>"; };
 		39DCB7941AD46363E454E0DA /* SlotListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListView.swift; sourceTree = "<group>"; };
-		EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsRailView.swift; sourceTree = "<group>"; };
+		3C452C0FBBC4BDEF545341A8 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
+		3D017AEDBCFD52CCD5A499FF /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		48CCCC9CC08E1D08A1A7B8E2 /* CheckPiStatusIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckPiStatusIntent.swift; sourceTree = "<group>"; };
+		4AAA3212B4C4B2DC1AD5C559 /* LocalNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotificationService.swift; sourceTree = "<group>"; };
+		519D23A51D27EBEE4AE7B00D /* InlineImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineImageView.swift; sourceTree = "<group>"; };
+		53726014E532D9828D3B63CC /* GetActiveChatsIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetActiveChatsIntent.swift; sourceTree = "<group>"; };
+		5A9E46D8D71AA73AA46BF218 /* PiDashShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashShortcuts.swift; sourceTree = "<group>"; };
+		5D4D7D6C4DB561619D00CAD4 /* AssistantMessageContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantMessageContent.swift; sourceTree = "<group>"; };
 		64FD511FAE1D25366BE99B3F /* ConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionBanner.swift; sourceTree = "<group>"; };
 		69E15861A2217BBE79B79972 /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
+		6F9E3B2F4874A24498C3E33B /* ContactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsService.swift; sourceTree = "<group>"; };
 		7329591BD291B8D5E93094E6 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
+		74447C6661E1A619B03D4C18 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
 		789BC0FED50B9B63A997FAA7 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		7FFF6A7E542A794B25A57526 /* ChatEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEmptyStateView.swift; sourceTree = "<group>"; };
+		81FF74731BB0FCBF5DD979F6 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
 		836EB2F569568AD01EBB6732 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingView.swift; sourceTree = "<group>"; };
-		AA01BB12CC23DD34EE45AAAB /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		AA01BB12CC23DD34EE45AAAD /* ChatEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEmptyStateView.swift; sourceTree = "<group>"; };
+		9C60FEE296873E7810A2906C /* SlashCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommand.swift; sourceTree = "<group>"; };
 		A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashApp.swift; sourceTree = "<group>"; };
+		A36737BF7D4BC57735B57ABC /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A55A63DAAA5085318A112FC9 /* SlotRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotRow.swift; sourceTree = "<group>"; };
-		C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
-		D2B3C4D5E6F7089012345701 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
-		D2B3C4D5E6F7089012345703 /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
 		B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
-		2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteSheet.swift; sourceTree = "<group>"; };
-		BBFF5D72F491675D639A0E31 /* PiDash.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PiDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BBFF5D72F491675D639A0E31 /* PiDash.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PiDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD49B269C69BABE939F77B86 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		BEC4BB88795149637EA1305F /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		C0887298D39E179DD0FD5986 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
-		AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotificationService.swift; sourceTree = "<group>"; };
-		BB22CC33DD44EE55FF660001 /* BackgroundRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshService.swift; sourceTree = "<group>"; };
+		CE5F0C47E4102AE435A1B98D /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
+		D45E6C0B725F939996B74A27 /* SkillsRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsRailView.swift; sourceTree = "<group>"; };
+		DACF277B8CC99355686B1C6F /* ProjectPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerSheet.swift; sourceTree = "<group>"; };
 		DBA38927A210B8A6BFB78498 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
+		E118465ADB43D4E6A8AF59CD /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
 		E6D62D76D4F4395254F5CFF5 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		E9163021794CFFBDC993AB76 /* SendToPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendToPiIntent.swift; sourceTree = "<group>"; };
 		EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
+		F0B5595BF9CE7B191C4011B9 /* SessionHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionHistoryView.swift; sourceTree = "<group>"; };
+		F28C3416B9C8AAD81CB7E8DB /* SearchResultsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultsView.swift; sourceTree = "<group>"; };
 		F447C462AA02BA23363BA71B /* ChatSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSlot.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6078901234561 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6078901234571 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6078901234581 /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6078901234591 /* ContactsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactsService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60789012345A1 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60789012345B1 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F60789012345B3 /* Speech.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Speech.framework; path = System/Library/Frameworks/Speech.framework; sourceTree = SDKROOT; };
-		A1B2C3D4E5F6078901234563 /* HealthKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HealthKit.framework; path = System/Library/Frameworks/HealthKit.framework; sourceTree = SDKROOT; };
-		A1B2C3D4E5F6078901234593 /* Contacts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Contacts.framework; path = System/Library/Frameworks/Contacts.framework; sourceTree = SDKROOT; };
-		A1B2C3D4E5F6078901234565 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
-		5FDB095C49F34C4DAB621761 /* SlashCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommand.swift; sourceTree = "<group>"; };
-		SE000001 /* PiDashShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PiDashShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		SE000010 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
-		SE000012 /* ShareViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewModel.swift; sourceTree = "<group>"; };
-		SE000014 /* ShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareView.swift; sourceTree = "<group>"; };
-		SE000016 /* Info.plist (Share) */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		SE000017 /* PiDashShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashShare.entitlements; sourceTree = "<group>"; };
-		AA00BB11CC22DD330010AAAA /* IntentNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentNetworking.swift; sourceTree = "<group>"; };
-		AA00BB11CC22DD330020AAAA /* AskPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPiIntent.swift; sourceTree = "<group>"; };
-		AA00BB11CC22DD330030AAAA /* SendToPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendToPiIntent.swift; sourceTree = "<group>"; };
-		AA00BB11CC22DD330040AAAA /* GetActiveChatsIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetActiveChatsIntent.swift; sourceTree = "<group>"; };
-		AA00BB11CC22DD330050AAAA /* CheckPiStatusIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckPiStatusIntent.swift; sourceTree = "<group>"; };
-		AA00BB11CC22DD330060AAAA /* PiDashShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashShortcuts.swift; sourceTree = "<group>"; };
-		WD000001 /* PiDashWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PiDashWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		WD000002 /* PiDashWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashWidgetBundle.swift; sourceTree = "<group>"; };
-		WD000003 /* PiDashWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashWidget.swift; sourceTree = "<group>"; };
-		WD000004 /* WidgetNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetNetworking.swift; sourceTree = "<group>"; };
-		WD000005 /* PiDashWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashWidget.entitlements; sourceTree = "<group>"; };
-		WD000006 /* Info.plist (Widget) */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		WD000011 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		SE000029 /* Embed App Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				SE000030 /* PiDashShare.appex in Embed App Extensions */,
-				WD000010 /* PiDashWidget.appex in Embed App Extensions */,
-			);
-			name = "Embed App Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		WD000022 /* Frameworks (PiDashWidget) */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				WD000012 /* WidgetKit.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		SE000022 /* Frameworks (PiDashShare) */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		5D7C591675B45D41B1FB4A53 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -184,65 +128,21 @@
 				2A3742F5813615FECE00AF38 /* MarkdownUI in Frameworks */,
 				C3E702B869BB720E486311CD /* NetworkImage in Frameworks */,
 				87A3EE96219338AAF7ED07A1 /* Highlightr in Frameworks */,
-				A1B2C3D4E5F6078901234564 /* HealthKit.framework in Frameworks */,
-				A1B2C3D4E5F6078901234594 /* Contacts.framework in Frameworks */,
-				A1B2C3D4E5F60789012345B4 /* Speech.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXContainerItemProxy section */
-		WD000028 /* PBXContainerItemProxy (PiDashWidget) */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 8F3C83F3BACDF2B76FCEDC61 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = WD000023;
-			remoteInfo = PiDashWidget;
-		};
-		SE000028 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 8F3C83F3BACDF2B76FCEDC61 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = SE000023;
-			remoteInfo = PiDashShare;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXGroup section */
-		WD000029 /* PiDashWidget */ = {
+		05889173E299BAFD980030AF /* Intents */ = {
 			isa = PBXGroup;
 			children = (
-				WD000002 /* PiDashWidgetBundle.swift */,
-				WD000003 /* PiDashWidget.swift */,
-				WD000004 /* WidgetNetworking.swift */,
-				WD000006 /* Info.plist */,
-				WD000005 /* PiDashWidget.entitlements */,
-			);
-			path = PiDashWidget;
-			sourceTree = "<group>";
-		};
-		SE000018 /* PiDashShare */ = {
-			isa = PBXGroup;
-			children = (
-				SE000010 /* ShareViewController.swift */,
-				SE000012 /* ShareViewModel.swift */,
-				SE000014 /* ShareView.swift */,
-				SE000016 /* Info.plist */,
-				SE000017 /* PiDashShare.entitlements */,
-			);
-			path = PiDashShare;
-			sourceTree = "<group>";
-		};
-		AA00BB11CC22DD330001AAAA /* Intents */ = {
-			isa = PBXGroup;
-			children = (
-				AA00BB11CC22DD330010AAAA /* IntentNetworking.swift */,
-				AA00BB11CC22DD330020AAAA /* AskPiIntent.swift */,
-				AA00BB11CC22DD330030AAAA /* SendToPiIntent.swift */,
-				AA00BB11CC22DD330040AAAA /* GetActiveChatsIntent.swift */,
-				AA00BB11CC22DD330050AAAA /* CheckPiStatusIntent.swift */,
-				AA00BB11CC22DD330060AAAA /* PiDashShortcuts.swift */,
+				2C952B932891A69081772B14 /* AskPiIntent.swift */,
+				48CCCC9CC08E1D08A1A7B8E2 /* CheckPiStatusIntent.swift */,
+				53726014E532D9828D3B63CC /* GetActiveChatsIntent.swift */,
+				183B70777D23D1466B829FCA /* IntentNetworking.swift */,
+				5A9E46D8D71AA73AA46BF218 /* PiDashShortcuts.swift */,
+				E9163021794CFFBDC993AB76 /* SendToPiIntent.swift */,
 			);
 			path = Intents;
 			sourceTree = "<group>";
@@ -252,15 +152,15 @@
 			children = (
 				0EBD7361EF456B5F0436A74A /* Assets.xcassets */,
 				22694B85988C36300067EA53 /* Info.plist */,
-				A1B2C3D4E5F6078901234565 /* PiDash.entitlements */,
+				81FF74731BB0FCBF5DD979F6 /* PiDash.entitlements */,
 				A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */,
-				AA01BB12CC23DD34EE45AAAB /* RootView.swift */,
+				3D017AEDBCFD52CCD5A499FF /* RootView.swift */,
+				05889173E299BAFD980030AF /* Intents */,
 				362CDBE2489801C680958006 /* Models */,
 				5FAC22AC1835E9B04C4250FC /* Networking */,
 				25E5C00413035A07F3532567 /* Utilities */,
 				B39D49DFEBC40793A4CB4F84 /* ViewModels */,
 				C472670A2535C475EDB9E9D1 /* Views */,
-				AA00BB11CC22DD330001AAAA /* Intents */,
 			);
 			path = PiDash;
 			sourceTree = "<group>";
@@ -268,9 +168,9 @@
 		1F92B2AE1A9EB6F145FEC65A /* Common */ = {
 			isa = PBXGroup;
 			children = (
+				7FFF6A7E542A794B25A57526 /* ChatEmptyStateView.swift */,
 				64FD511FAE1D25366BE99B3F /* ConnectionBanner.swift */,
 				BEC4BB88795149637EA1305F /* EmptyStateView.swift */,
-				AA01BB12CC23DD34EE45AAAD /* ChatEmptyStateView.swift */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -278,17 +178,17 @@
 		25E5C00413035A07F3532567 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				28946A6701DF563BB721914B /* BackgroundRefreshService.swift */,
+				0E132D16CAF28DCB3B174F28 /* CalendarService.swift */,
+				6F9E3B2F4874A24498C3E33B /* ContactsService.swift */,
 				EB09BF8BAA71D8901C82E9B7 /* HapticManager.swift */,
+				CE5F0C47E4102AE435A1B98D /* HealthKitService.swift */,
+				4AAA3212B4C4B2DC1AD5C559 /* LocalNotificationService.swift */,
+				A36737BF7D4BC57735B57ABC /* LocationService.swift */,
 				25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */,
 				CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */,
-				AA11BB22CC33DD44EE550001 /* LocalNotificationService.swift */,
-				BB22CC33DD44EE55FF660001 /* BackgroundRefreshService.swift */,
-				A1B2C3D4E5F6078901234561 /* HealthKitService.swift */,
-				A1B2C3D4E5F6078901234571 /* CalendarService.swift */,
-				A1B2C3D4E5F6078901234581 /* RemindersService.swift */,
-				A1B2C3D4E5F6078901234591 /* ContactsService.swift */,
-				A1B2C3D4E5F60789012345A1 /* LocationService.swift */,
-				A1B2C3D4E5F60789012345B1 /* SpeechService.swift */,
+				E118465ADB43D4E6A8AF59CD /* RemindersService.swift */,
+				3C452C0FBBC4BDEF545341A8 /* SpeechService.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -299,7 +199,7 @@
 				7329591BD291B8D5E93094E6 /* APIModels.swift */,
 				C0887298D39E179DD0FD5986 /* ChatMessage.swift */,
 				F447C462AA02BA23363BA71B /* ChatSlot.swift */,
-				5FDB095C49F34C4DAB621761 /* SlashCommand.swift */,
+				9C60FEE296873E7810A2906C /* SlashCommand.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -307,16 +207,16 @@
 		5280E3E8819BCFFD2393577C /* Chat */ = {
 			isa = PBXGroup;
 			children = (
+				5D4D7D6C4DB561619D00CAD4 /* AssistantMessageContent.swift */,
 				B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */,
-				2DD4F25BB4B04A02A89103BE /* CommandPaletteSheet.swift */,
 				1DEF0C100C668F368D19E82F /* ChatView.swift */,
+				2D5F8753F4F8718234465265 /* CommandPaletteSheet.swift */,
+				ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */,
+				519D23A51D27EBEE4AE7B00D /* InlineImageView.swift */,
+				35DAA311D4727DE3B15770F1 /* LineDiffView.swift */,
 				A6C0956DDB33362A723DD498 /* MessageBubble.swift */,
 				85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */,
 				238BF8BF39C77ED440301D70 /* ToolCallView.swift */,
-				D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */,
-			D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */,
-				BB11CC22DD33EE440055AA01 /* InlineImageView.swift */,
-				BB11CC22DD33EE440055AA03 /* AssistantMessageContent.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -335,8 +235,6 @@
 			isa = PBXGroup;
 			children = (
 				BBFF5D72F491675D639A0E31 /* PiDash.app */,
-				SE000001 /* PiDashShare.appex */,
-				WD000001 /* PiDashWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -346,8 +244,8 @@
 			children = (
 				BD49B269C69BABE939F77B86 /* AppState.swift */,
 				836EB2F569568AD01EBB6732 /* ChatViewModel.swift */,
+				74447C6661E1A619B03D4C18 /* SearchViewModel.swift */,
 				39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */,
-				D2B3C4D5E6F7089012345701 /* SearchViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -375,23 +273,19 @@
 			isa = PBXGroup;
 			children = (
 				0FBD0B08711010CA9B546724 /* PiDash */,
-				SE000018 /* PiDashShare */,
-				WD000029 /* PiDashWidget */,
 				8050E845E70EDEAD920DD7C3 /* Products */,
-				A1B2C3D4E5F6078901234563 /* HealthKit.framework */,
-				A1B2C3D4E5F6078901234593 /* Contacts.framework */,
-				A1B2C3D4E5F60789012345B3 /* Speech.framework */,
 			);
 			sourceTree = "<group>";
 		};
 		FD59A8BC66A77C7D4C0065F1 /* SlotList */ = {
 			isa = PBXGroup;
 			children = (
+				DACF277B8CC99355686B1C6F /* ProjectPickerSheet.swift */,
+				F28C3416B9C8AAD81CB7E8DB /* SearchResultsView.swift */,
+				F0B5595BF9CE7B191C4011B9 /* SessionHistoryView.swift */,
+				D45E6C0B725F939996B74A27 /* SkillsRailView.swift */,
 				39DCB7941AD46363E454E0DA /* SlotListView.swift */,
-				EA14B0A64B9A47C58A0E7E2B /* SkillsRailView.swift */,
 				A55A63DAAA5085318A112FC9 /* SlotRow.swift */,
-				C3A1B2D4E5F607890AB1C2D4 /* SessionHistoryView.swift */,
-				D2B3C4D5E6F7089012345703 /* SearchResultsView.swift */,
 			);
 			path = SlotList;
 			sourceTree = "<group>";
@@ -399,40 +293,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		WD000023 /* PiDashWidget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = WD000026 /* Build configuration list for PBXNativeTarget "PiDashWidget" */;
-			buildPhases = (
-				WD000020 /* Sources */,
-				WD000021 /* Resources */,
-				WD000022 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = PiDashWidget;
-			productName = PiDashWidget;
-			productReference = WD000001 /* PiDashWidget.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
-		SE000023 /* PiDashShare */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = SE000026 /* Build configuration list for PBXNativeTarget "PiDashShare" */;
-			buildPhases = (
-				SE000020 /* Sources */,
-				SE000021 /* Resources */,
-				SE000022 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = PiDashShare;
-			productName = PiDashShare;
-			productReference = SE000001 /* PiDashShare.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		777CC3B5B79BBAA6C06F1A7A /* PiDash */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2D636B26E99C23D723AA8C8A /* Build configuration list for PBXNativeTarget "PiDash" */;
@@ -440,13 +300,10 @@
 				6D6F3F15225EAAC233D3AF45 /* Sources */,
 				5D383E056272AB421E5DE30D /* Resources */,
 				5D7C591675B45D41B1FB4A53 /* Frameworks */,
-				SE000029 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				SE000027 /* PBXTargetDependency */,
-				WD000027 /* PBXTargetDependency (PiDashWidget) */,
 			);
 			name = PiDash;
 			packageProductDependencies = (
@@ -468,12 +325,7 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					777CC3B5B79BBAA6C06F1A7A = {
-						ProvisioningStyle = Automatic;
-					};
-					SE000023 = {
-						ProvisioningStyle = Automatic;
-					};
-					WD000023 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -498,27 +350,11 @@
 			projectRoot = "";
 			targets = (
 				777CC3B5B79BBAA6C06F1A7A /* PiDash */,
-				SE000023 /* PiDashShare */,
-				WD000023 /* PiDashWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		WD000021 /* Resources (PiDashWidget) */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		SE000021 /* Resources (PiDashShare) */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		5D383E056272AB421E5DE30D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -530,186 +366,66 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		WD000020 /* Sources (PiDashWidget) */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				WD000007 /* PiDashWidgetBundle.swift in Sources */,
-				WD000008 /* PiDashWidget.swift in Sources */,
-				WD000009 /* WidgetNetworking.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		SE000020 /* Sources (PiDashShare) */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				SE000011 /* ShareViewController.swift in Sources */,
-				SE000013 /* ShareViewModel.swift in Sources */,
-				SE000015 /* ShareView.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		6D6F3F15225EAAC233D3AF45 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				406290EEA5DD8454C4308998 /* APIClient.swift in Sources */,
 				DA50A60429D0606D519F4751 /* APIModels.swift in Sources */,
-				30D48ACCE21E42F0AF82DF01 /* SlashCommand.swift in Sources */,
 				C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */,
+				EA4B3C5C02D14B25B795B0DF /* AskPiIntent.swift in Sources */,
+				1238378409A980AA1988538F /* AssistantMessageContent.swift in Sources */,
+				417BD07A39C6DAB57AB3CA84 /* BackgroundRefreshService.swift in Sources */,
+				24E8F6F70F26BC3FBE4A8BDF /* CalendarService.swift in Sources */,
+				977AFC59317D367DEBA3C618 /* ChatEmptyStateView.swift in Sources */,
 				3A35FD7E7F0A99B1AA2C7B67 /* ChatInputBar.swift in Sources */,
-				B97AC20C5C1C40D0A42AE2A3 /* CommandPaletteSheet.swift in Sources */,
 				C756272D812BC761C179B47D /* ChatMessage.swift in Sources */,
 				9E826C343BEDE35DB8DA9F78 /* ChatSlot.swift in Sources */,
 				E19B2E1E1AFCBACB52B59417 /* ChatView.swift in Sources */,
 				31B85B2F0C4A784FB94F430C /* ChatViewModel.swift in Sources */,
+				2C41F770CE1E133AB8AD6A64 /* CheckPiStatusIntent.swift in Sources */,
+				D62AD4D2B5DA12A9F9282A12 /* CommandPaletteSheet.swift in Sources */,
 				8334FFC35DF87DCA245E0381 /* ConnectionBanner.swift in Sources */,
+				CB06ACC75F082DED10461A0F /* ContactsService.swift in Sources */,
 				FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */,
-				D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */,
-				D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */,
-				BB11CC22DD33EE440055AA02 /* InlineImageView.swift in Sources */,
-				BB11CC22DD33EE440055AA04 /* AssistantMessageContent.swift in Sources */,
+				F690BABD60E87BA2D6B2D82F /* FileViewerSheet.swift in Sources */,
+				50B4B2A3FD1DDAC9974865D0 /* GetActiveChatsIntent.swift in Sources */,
 				4293E98BC576FAD343780971 /* HapticManager.swift in Sources */,
+				11503C4F14838E3B211E4B4A /* HealthKitService.swift in Sources */,
+				D74D00F31D2FD729A5CD6BC8 /* InlineImageView.swift in Sources */,
+				8D18BEE0EF69AAF695284EF9 /* IntentNetworking.swift in Sources */,
+				01D817C461007EBCF52C5787 /* LineDiffView.swift in Sources */,
+				2573911977348401137DDA96 /* LocalNotificationService.swift in Sources */,
+				42988D7BC2211B3BC2486CAF /* LocationService.swift in Sources */,
 				BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */,
 				81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */,
 				3568E9A59A2673F94DA7A9F2 /* PiDashApp.swift in Sources */,
-				AA01BB12CC23DD34EE45AAAC /* RootView.swift in Sources */,
-				AA01BB12CC23DD34EE45AAAE /* ChatEmptyStateView.swift in Sources */,
+				F18845C9A0BC1F7E8B4D3F6D /* PiDashShortcuts.swift in Sources */,
+				FAB50CB7FFBE6724BAAE8EC2 /* ProjectPickerSheet.swift in Sources */,
 				C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */,
-				AA11BB22CC33DD44EE550002 /* LocalNotificationService.swift in Sources */,
-				BB22CC33DD44EE55FF660002 /* BackgroundRefreshService.swift in Sources */,
-				A1B2C3D4E5F6078901234562 /* HealthKitService.swift in Sources */,
-				A1B2C3D4E5F6078901234572 /* CalendarService.swift in Sources */,
-				A1B2C3D4E5F6078901234582 /* RemindersService.swift in Sources */,
-				A1B2C3D4E5F6078901234592 /* ContactsService.swift in Sources */,
-				A1B2C3D4E5F60789012345A2 /* LocationService.swift in Sources */,
-				A1B2C3D4E5F60789012345B2 /* SpeechService.swift in Sources */,
+				4A8B6035102CCFCB3305C1A9 /* RemindersService.swift in Sources */,
+				DAAB7240BE42A656B4E5CE3F /* RootView.swift in Sources */,
+				24806DB610F98A80FC3BE0E9 /* SearchResultsView.swift in Sources */,
+				01B9A33466EA64DFE5877B91 /* SearchViewModel.swift in Sources */,
+				EF746E0917E1EEC44B891544 /* SendToPiIntent.swift in Sources */,
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
+				D8C70ECB5E47484F6BB4F9B1 /* SessionHistoryView.swift in Sources */,
 				795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */,
+				B57D3F87E7A2499E2402965E /* SkillsRailView.swift in Sources */,
+				907A65175822658595EA7FC5 /* SlashCommand.swift in Sources */,
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,
-				C2B1F7031E3F4E76B260CDE4 /* SkillsRailView.swift in Sources */,
 				A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */,
 				F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */,
-				C3A1B2D4E5F607890AB1C2D3 /* SessionHistoryView.swift in Sources */,
-				D2B3C4D5E6F7089012345702 /* SearchViewModel.swift in Sources */,
-				D2B3C4D5E6F7089012345704 /* SearchResultsView.swift in Sources */,
+				78F84E31957C3BF31BB704F1 /* SpeechService.swift in Sources */,
 				F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */,
 				1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */,
 				63904453439371641F247790 /* WebSocketManager.swift in Sources */,
-				AA00BB11CC22DD330011AAAA /* IntentNetworking.swift in Sources */,
-				AA00BB11CC22DD330021AAAA /* AskPiIntent.swift in Sources */,
-				AA00BB11CC22DD330031AAAA /* SendToPiIntent.swift in Sources */,
-				AA00BB11CC22DD330041AAAA /* GetActiveChatsIntent.swift in Sources */,
-				AA00BB11CC22DD330051AAAA /* CheckPiStatusIntent.swift in Sources */,
-				AA00BB11CC22DD330061AAAA /* PiDashShortcuts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		WD000027 /* PBXTargetDependency (PiDashWidget) */ = {
-			isa = PBXTargetDependency;
-			target = WD000023 /* PiDashWidget */;
-			targetProxy = WD000028 /* PBXContainerItemProxy (PiDashWidget) */;
-		};
-		SE000027 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = SE000023 /* PiDashShare */;
-			targetProxy = SE000028 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
-		WD000024 /* Debug (PiDashWidget) */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PiDashWidget/PiDashWidget.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = ZBL5RZ37FG;
-				INFOPLIST_FILE = PiDashWidget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.sam.pidash.Widget";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		WD000025 /* Release (PiDashWidget) */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PiDashWidget/PiDashWidget.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = ZBL5RZ37FG;
-				INFOPLIST_FILE = PiDashWidget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.sam.pidash.Widget";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		SE000024 /* Debug (PiDashShare) */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PiDashShare/PiDashShare.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = ZBL5RZ37FG;
-				INFOPLIST_FILE = PiDashShare/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.sam.pidash.ShareExtension";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		SE000025 /* Release (PiDashShare) */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = PiDashShare/PiDashShare.entitlements;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = ZBL5RZ37FG;
-				INFOPLIST_FILE = PiDashShare/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.sam.pidash.ShareExtension";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 		34F62811FD185594390F4777 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -747,7 +463,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZBL5RZ37FG;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -785,7 +501,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = PiDash/PiDash.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZBL5RZ37FG;
@@ -805,7 +520,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = PiDash/PiDash.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = ZBL5RZ37FG;
@@ -858,7 +572,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZBL5RZ37FG;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -888,24 +602,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		WD000026 /* Build configuration list for PBXNativeTarget "PiDashWidget" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				WD000024 /* Debug */,
-				WD000025 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		SE000026 /* Build configuration list for PBXNativeTarget "PiDashShare" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				SE000024 /* Debug */,
-				SE000025 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 		2D636B26E99C23D723AA8C8A /* Build configuration list for PBXNativeTarget "PiDash" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

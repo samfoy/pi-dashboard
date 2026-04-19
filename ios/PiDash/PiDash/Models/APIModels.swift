@@ -74,7 +74,8 @@ struct SlotDTO: Decodable {
             messageCount: messages ?? 0,
             lastMessage: nil,
             isStreaming: running ?? false,
-            model: model
+            model: model,
+            cwd: cwd
         )
     }
 }
@@ -359,6 +360,29 @@ struct SessionsResponse: Decodable {
 struct ResumeResponse: Decodable {
     let ok: Bool
     let key: String
+}
+
+// MARK: - Browse
+
+/// One directory entry returned by `GET /api/browse`.
+struct BrowseEntry: Decodable, Identifiable {
+    let name: String
+    let path: String
+    let isDir: Bool
+
+    var id: String { path }
+}
+
+/// Response from `GET /api/browse?path=...`
+struct BrowseResponse: Decodable {
+    let path: String
+    let parent: String?
+    let entries: [BrowseEntry]
+}
+
+/// Body for `POST /api/chat/slots/:key/cwd`
+struct SetCwdRequest: Encodable {
+    let cwd: String
 }
 
 struct AckNotificationRequest: Encodable {

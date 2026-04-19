@@ -94,10 +94,15 @@ final class AppState {
         isLoadingSlots = false
     }
 
-    func createSlot(title: String? = nil) async -> ChatSlot? {
-        let cwd = serverConfig.defaultCwd.isEmpty ? nil : serverConfig.defaultCwd
+    func createSlot(title: String? = nil, cwd cwdOverride: String? = nil) async -> ChatSlot? {
+        let resolved: String?
+        if let cwdOverride {
+            resolved = cwdOverride
+        } else {
+            resolved = serverConfig.defaultCwd.isEmpty ? nil : serverConfig.defaultCwd
+        }
         do {
-            let slot = try await apiClient.createSlot(title: title, cwd: cwd)
+            let slot = try await apiClient.createSlot(title: title, cwd: resolved)
             // Only insert if WS hasn't already added it
             if !slots.contains(where: { $0.key == slot.key }) {
                 slots.insert(slot, at: 0)

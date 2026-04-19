@@ -74,8 +74,8 @@ final class SlotListViewModel {
         }
     }
 
-    func createNewSlot() async -> ChatSlot? {
-        await appState.createSlot()
+    func createNewSlot(cwd: String? = nil) async -> ChatSlot? {
+        await appState.createSlot(cwd: cwd)
     }
 
     func delete(slotKey: String) async {

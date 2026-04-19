@@ -38,6 +38,7 @@ private struct SlotListContent: View {
     @State private var renamingSlot: ChatSlot?
     @State private var renameTitle: String = ""
     @State private var showSessionHistory = false
+    @State private var showProjectPicker = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -59,6 +60,19 @@ private struct SlotListContent: View {
                         appState.selectedSlotKey = newSlotKey
                     }
                     .environment(appState)
+                }
+                .sheet(isPresented: $showProjectPicker) {
+                    ProjectPickerSheet(
+                        slots: viewModel.slots,
+                        apiClient: appState.apiClient
+                    ) { cwd in
+                        Task {
+                            if let newSlot = await viewModel.createNewSlot(cwd: cwd) {
+                                appState.selectedScrollTarget = nil
+                                appState.selectedSlotKey = newSlot.key
+                            }
+                        }
+                    }
                 }
                 .overlay(alignment: .top) {
                     ConnectionBanner(state: appState.connectionState) {
@@ -155,6 +169,8 @@ private struct SlotListContent: View {
     @ToolbarContentBuilder
     private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
+            // Tap: quick new chat with default cwd
+            // Long-press: project picker → new chat with chosen cwd
             Button {
                 Task {
                     if let newSlot = await viewModel.createNewSlot() {
@@ -165,6 +181,11 @@ private struct SlotListContent: View {
             } label: {
                 Image(systemName: "square.and.pencil")
             }
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+                    showProjectPicker = true
+                }
+            )
         }
         ToolbarItem(placement: .topBarLeading) {
             HStack(spacing: 16) {

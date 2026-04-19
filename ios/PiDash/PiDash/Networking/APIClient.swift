@@ -256,6 +256,32 @@ actor APIClient {
         }
     }
 
+    // MARK: - Browse
+
+    /// `GET /api/browse?path=` → directory listing
+    func fetchBrowse(path: String? = nil) async throws -> BrowseResponse {
+        guard var components = URLComponents(url: try requireURL(path: "/browse"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        if let path {
+            components.queryItems = [URLQueryItem(name: "path", value: path)]
+        }
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        do {
+            return try decoder.decode(BrowseResponse.self, from: data)
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
+    /// `POST /api/chat/slots/:key/cwd` — update the working directory for a slot
+    func setCwd(slotKey: String, cwd: String) async throws {
+        let url = try requireURL(path: "/chat/slots/\(slotKey)/cwd")
+        let body = SetCwdRequest(cwd: cwd)
+        _ = try await post(url: url, body: body)
+    }
+
     // MARK: - Private HTTP helpers
 
     /// Public raw GET for ad-hoc API calls

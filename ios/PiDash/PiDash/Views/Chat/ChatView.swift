@@ -9,6 +9,7 @@ struct ChatView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: ChatViewModel?
+    @State private var showCwdPicker = false
 
     var body: some View {
         Group {
@@ -53,13 +54,44 @@ struct ChatView: View {
         }
         .navigationTitle(viewModel?.slot.title ?? slot.title)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCwdPicker) {
+            if let vm = viewModel {
+                ProjectPickerSheet(
+                    slots: appState.slots,
+                    apiClient: appState.apiClient
+                ) { newCwd in
+                    Task {
+                        try? await appState.apiClient.setCwd(slotKey: vm.slot.key, cwd: newCwd)
+                        // Update local slot cwd
+                        if let i = appState.slots.firstIndex(where: { $0.key == vm.slot.key }) {
+                            appState.slots[i].cwd = newCwd
+                        }
+                        vm.slot.cwd = newCwd
+                    }
+                }
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 1) {
                     Text(viewModel?.slot.title ?? slot.title)
                         .font(.headline)
                         .lineLimit(1)
-                    if let modelName = viewModel?.currentModel?.name ?? viewModel?.slot.model {
+                    if let cwd = viewModel?.slot.cwd ?? slot.cwd {
+                        Button {
+                            showCwdPicker = true
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "folder.fill")
+                                    .font(.caption2)
+                                Text((cwd as NSString).lastPathComponent.isEmpty ? cwd : (cwd as NSString).lastPathComponent)
+                                    .font(.caption2)
+                                    .lineLimit(1)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else if let modelName = viewModel?.currentModel?.name ?? viewModel?.slot.model {
                         Text(modelName)
                             .font(.caption2)
                             .foregroundStyle(.secondary)

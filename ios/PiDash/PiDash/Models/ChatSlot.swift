@@ -14,6 +14,7 @@ struct ChatSlot: Identifiable, Codable, Equatable {
     var model: String?
     var contextPercent: Double?
     var inputNeeded: Bool
+    var cwd: String?
 
     var id: String { key }
 
@@ -27,7 +28,8 @@ struct ChatSlot: Identifiable, Codable, Equatable {
         isStreaming: Bool = false,
         model: String? = nil,
         contextPercent: Double? = nil,
-        inputNeeded: Bool = false
+        inputNeeded: Bool = false,
+        cwd: String? = nil
     ) {
         self.key = key
         self.title = title
@@ -39,6 +41,7 @@ struct ChatSlot: Identifiable, Codable, Equatable {
         self.model = model
         self.contextPercent = contextPercent
         self.inputNeeded = inputNeeded
+        self.cwd = cwd
     }
 }
 
