@@ -39,6 +39,8 @@
 			</dict>
 		</dict>
 	</dict>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>PiDash reads your calendar events so the AI can answer questions about your schedule.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>PiDash reads your health data (steps, sleep, heart rate, calories, workouts) so the AI can answer questions about your activity.</string>
 	<key>NSCameraUsageDescription</key>

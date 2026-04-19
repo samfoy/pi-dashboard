@@ -81,6 +81,7 @@ private struct ChatContentView: View {
     @State private var showModelPickerFromToolbar = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let healthService = HealthKitService.shared
+    private let calendarService = CalendarService.shared
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -127,6 +128,15 @@ private struct ChatContentView: View {
                             let summary = await healthService.fetchTodaySummary()
                             await MainActor.run {
                                 viewModel.inputText = summary + viewModel.inputText
+                            }
+                        }
+                    },
+                    onCalendarSummary: {
+                        Task {
+                            try? await calendarService.requestAuthorization()
+                            let summary = await calendarService.fetchUpcomingEvents()
+                            await MainActor.run {
+                                viewModel.inputText = summary + "\n" + viewModel.inputText
                             }
                         }
                     },
