@@ -26,6 +26,38 @@ enum SharedContent {
     case file(name: String, data: Data)
 }
 
+// MARK: - ShareAction
+
+enum ShareAction: Equatable {
+    case chat
+    case summarizeAndSave
+    case extractKeyInfo
+    case saveToVault
+    case research
+
+    static let allCases: [ShareAction] = [.chat, .summarizeAndSave, .extractKeyInfo, .saveToVault, .research]
+
+    var label: String {
+        switch self {
+        case .chat:             return "💬 Chat"
+        case .summarizeAndSave: return "📝 Summarize & Save"
+        case .extractKeyInfo:   return "🔍 Extract Key Info"
+        case .saveToVault:      return "📋 Save to Vault"
+        case .research:         return "🔗 Research"
+        }
+    }
+
+    var prefix: String? {
+        switch self {
+        case .chat:             return nil
+        case .summarizeAndSave: return "Summarize this and save a note to my vault:\n\n"
+        case .extractKeyInfo:   return "Extract the key information, action items, and anything relevant to me from this:\n\n"
+        case .saveToVault:      return "Save this to my Obsidian vault as a note. Pick an appropriate title and location:\n\n"
+        case .research:         return "Research this link and give me a summary of what's useful:\n\n"
+        }
+    }
+}
+
 // MARK: - ShareViewModel
 
 @Observable
@@ -34,6 +66,7 @@ final class ShareViewModel {
     // MARK: Inputs
     var additionalMessage: String = ""
     var selectedSlotID: String? = nil   // nil = create new chat
+    var selectedAction: ShareAction = .chat
 
     // MARK: State
     var state: ShareState = .loadingContent
@@ -139,6 +172,12 @@ final class ShareViewModel {
             return
         }
 
+        // Set default action based on content type
+        switch sharedContent {
+        case .url: selectedAction = .research
+        default:   selectedAction = .chat
+        }
+
         // Content loaded — now fetch slots
         await fetchSlots()
     }
@@ -222,16 +261,17 @@ final class ShareViewModel {
         }
 
         var body: [String: Any] = ["slot": slotKey]
+        let actionPrefix = selectedAction.prefix ?? ""
 
         switch sharedContent {
         case .text(let text):
-            let msg = additionalMessage.isEmpty ? text : "\(additionalMessage)\n\n\(text)"
+            let content = actionPrefix + text
+            let msg = additionalMessage.isEmpty ? content : "\(additionalMessage)\n\n\(content)"
             body["message"] = msg
 
         case .url(let shareURL):
-            let msg = additionalMessage.isEmpty
-                ? shareURL.absoluteString
-                : "\(additionalMessage)\n\n\(shareURL.absoluteString)"
+            let content = actionPrefix + shareURL.absoluteString
+            let msg = additionalMessage.isEmpty ? content : "\(additionalMessage)\n\n\(content)"
             body["message"] = msg
 
         case .image(let image):
@@ -241,18 +281,23 @@ final class ShareViewModel {
             }
             let b64 = jpeg.base64EncodedString()
             body["images"] = [b64]
-            if !additionalMessage.isEmpty {
-                body["message"] = additionalMessage
-            }
+            var msgParts: [String] = []
+            if !actionPrefix.isEmpty { msgParts.append(actionPrefix.trimmingCharacters(in: .newlines)) }
+            if !additionalMessage.isEmpty { msgParts.append(additionalMessage) }
+            if !msgParts.isEmpty { body["message"] = msgParts.joined(separator: "\n\n") }
 
         case .file(let name, let data):
             if let img = UIImage(data: data), let jpeg = img.jpegData(compressionQuality: 0.8) {
                 let b64 = jpeg.base64EncodedString()
                 body["images"] = [b64]
-                if !additionalMessage.isEmpty { body["message"] = additionalMessage }
+                var msgParts: [String] = []
+                if !actionPrefix.isEmpty { msgParts.append(actionPrefix.trimmingCharacters(in: .newlines)) }
+                if !additionalMessage.isEmpty { msgParts.append(additionalMessage) }
+                if !msgParts.isEmpty { body["message"] = msgParts.joined(separator: "\n\n") }
             } else {
                 let note = "Attached file: \(name) (\(data.count) bytes)"
-                let msg = additionalMessage.isEmpty ? note : "\(additionalMessage)\n\n\(note)"
+                let content = actionPrefix + note
+                let msg = additionalMessage.isEmpty ? content : "\(additionalMessage)\n\n\(content)"
                 body["message"] = msg
             }
 

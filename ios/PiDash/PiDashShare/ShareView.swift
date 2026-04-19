@@ -41,6 +41,12 @@ struct ShareView: View {
 
     private var mainContent: some View {
         Form {
+            // Quick action chips
+            Section {
+                ActionChipRow(selectedAction: $viewModel.selectedAction)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                    .listRowBackground(Color.clear)
+            }
             // Content preview
             if let content = viewModel.sharedContent {
                 Section("Shared Content") {
@@ -109,7 +115,28 @@ struct ShareView: View {
         }
     }
 
-    // MARK: - States
+// MARK: - Action chip row
+
+private struct ActionChipRow: View {
+    @Binding var selectedAction: ShareAction
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(ShareAction.allCases, id: \.label) { action in
+                    Button(action.label) {
+                        selectedAction = action
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(selectedAction == action ? .accentColor : nil)
+                    .fontWeight(selectedAction == action ? .semibold : .regular)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+}
 
     private func loadingView(label: String) -> some View {
         VStack(spacing: 16) {
