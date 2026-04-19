@@ -1,6 +1,7 @@
 import SwiftUI
 import MarkdownUI
 import Highlightr
+import UIKit
 
 // MARK: - FileViewerViewModel
 
@@ -40,6 +41,9 @@ struct FileViewerSheet: View {
     @Environment(AppState.self) private var appState
 
     @State private var viewModel: FileViewerViewModel
+    @State private var isSharePresented = false
+    @State private var shareURL: URL? = nil
+    @State private var showCopiedFeedback = false
 
     init(path: String) {
         self.path = path
@@ -60,6 +64,22 @@ struct FileViewerSheet: View {
                 .navigationTitle((path as NSString).lastPathComponent)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItemGroup(placement: .topBarLeading) {
+                        Button {
+                            copyContent()
+                        } label: {
+                            Image(systemName: showCopiedFeedback ? "checkmark" : "doc.on.doc")
+                        }
+                        .disabled(viewModel.content.isEmpty)
+                        .animation(.easeInOut(duration: 0.2), value: showCopiedFeedback)
+
+                        Button {
+                            prepareShare()
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                        .disabled(viewModel.content.isEmpty)
+                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
                     }
@@ -70,6 +90,40 @@ struct FileViewerSheet: View {
             let realVM = FileViewerViewModel(path: path, apiClient: appState.apiClient)
             viewModel = realVM
             await realVM.load()
+        }
+        .sheet(isPresented: $isSharePresented) {
+            if let url = shareURL {
+                ShareSheet(activityItems: [url])
+            }
+        }
+    }
+
+    // MARK: - Share helpers
+
+    private func copyContent() {
+        UIPasteboard.general.string = viewModel.content
+        showCopiedFeedback = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            showCopiedFeedback = false
+        }
+    }
+
+    private func prepareShare() {
+        let filename = (path as NSString).lastPathComponent
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        do {
+            try viewModel.content.write(to: tempURL, atomically: true, encoding: .utf8)
+            shareURL = tempURL
+            isSharePresented = true
+        } catch {
+            // Fallback: share plain text string directly via a separate UIActivityViewController
+            shareURL = nil
+            let av = UIActivityViewController(activityItems: [viewModel.content], applicationActivities: nil)
+            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let root = scene.windows.first?.rootViewController {
+                root.present(av, animated: true)
+            }
         }
     }
 }
@@ -237,4 +291,16 @@ struct HighlightedCodeView: View {
             return try? AttributedString(nsAttr, including: \.uiKit)
         }.value
     }
+}
+
+// MARK: - ShareSheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
