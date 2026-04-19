@@ -10,7 +10,8 @@ struct ConnectionBanner: View {
 
     var shouldShow: Bool {
         switch state {
-        case .connected: return false
+        case .connected, .connecting: return false
+        case .reconnecting(let n) where n <= 1: return false  // Hide during first quick retry
         default: return true
         }
     }

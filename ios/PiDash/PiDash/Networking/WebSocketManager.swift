@@ -44,7 +44,7 @@ enum ServerEvent {
 @MainActor
 final class WebSocketManager: ObservableObject {
     // Published state
-    @Published var connectionState: ConnectionState = .disconnected
+    @Published var connectionState: ConnectionState = .connecting
 
     // Event stream continuation
     private var eventContinuation: AsyncStream<ServerEvent>.Continuation?
@@ -124,7 +124,7 @@ final class WebSocketManager: ObservableObject {
         connectionState = .connected
         reconnectAttempts = 0
         await receiveLoop(task: task)
-        connectionState = .disconnected
+        // Don't set .disconnected here — connectLoop will set .reconnecting
     }
 
     private func receiveLoop(task: URLSessionWebSocketTask) async {
