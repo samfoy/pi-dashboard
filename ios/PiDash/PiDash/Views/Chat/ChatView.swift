@@ -28,8 +28,11 @@ struct ChatView: View {
             viewModel = vm
             appState.registerChatViewModel(vm, for: slot.key)
             await vm.loadHistory()
+            guard !Task.isCancelled else { return }
             await vm.loadModels()
+            guard !Task.isCancelled else { return }
             await vm.loadSlashCommands()
+            guard !Task.isCancelled else { return }
             // Set default thinking level on the server
             await vm.setThinking(vm.thinkingLevel)
         }

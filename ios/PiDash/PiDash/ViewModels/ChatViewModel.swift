@@ -45,8 +45,14 @@ final class ChatViewModel {
             if let last = msgs.last, last.role == .assistant, last.isStreaming {
                 isStreaming = true
             }
+        } catch is CancellationError {
+            // SwiftUI task cancelled (view disappeared) — not a real error
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            // Network request cancelled during navigation — ignore
         } catch let error as APIError {
             self.error = error.errorDescription ?? error.localizedDescription
+        } catch where isCancellation(error) {
+            // Catch-all cancellation guard
         } catch {
             self.error = "\(type(of: error)): \(error.localizedDescription)"
         }
@@ -117,6 +123,8 @@ final class ChatViewModel {
     func stop() async {
         do {
             try await apiClient.stopGeneration(slot: slotKey)
+        } catch where isCancellation(error) {
+            // ignore
         } catch {
             self.error = error.localizedDescription
         }
@@ -150,6 +158,8 @@ final class ChatViewModel {
             try await apiClient.setModel(slot: slotKey, provider: model.provider, modelId: model.modelId)
             currentModel = model
             HapticManager.messageSent()
+        } catch where isCancellation(error) {
+            // ignore
         } catch {
             self.error = error.localizedDescription
         }
@@ -160,6 +170,8 @@ final class ChatViewModel {
             try await apiClient.setThinking(slot: slotKey, level: level)
             thinkingLevel = level
             HapticManager.messageSent()
+        } catch where isCancellation(error) {
+            // ignore
         } catch {
             self.error = error.localizedDescription
         }
@@ -170,6 +182,8 @@ final class ChatViewModel {
             try await apiClient.renameSlot(key: slotKey, title: title)
             slot.title = title
             HapticManager.messageSent()
+        } catch where isCancellation(error) {
+            // ignore
         } catch {
             self.error = error.localizedDescription
         }
@@ -302,6 +316,10 @@ final class ChatViewModel {
 }
 
 // MARK: - Helpers
+
+private func isCancellation(_ error: Error) -> Bool {
+    error is CancellationError || (error as? URLError)?.code == .cancelled
+}
 
 private func isoDate(from string: String) -> Date? {
     let fmt = ISO8601DateFormatter()
