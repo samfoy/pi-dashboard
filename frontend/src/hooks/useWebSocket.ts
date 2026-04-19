@@ -22,6 +22,7 @@ export function useWebSocket() {
   const lastMessageRef = useRef<number>(Date.now())
   const healthCheckRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelledRef = useRef(false)
 
   const connect = useCallback(() => {
     // Cancel any pending reconnect timer to prevent parallel connections
@@ -60,6 +61,7 @@ export function useWebSocket() {
     }
 
     ws.onmessage = (e) => {
+      if (cancelledRef.current) return
       lastMessageRef.current = Date.now()
       try {
         const msg = JSON.parse(e.data)
@@ -187,12 +189,14 @@ export function useWebSocket() {
   }, [dispatch])
 
   useEffect(() => {
+    cancelledRef.current = false
     connect()
 
     // Health check: server sends dashboard status every 5s.
     // If we haven't received ANY message in 15s, the connection is dead.
     // This catches silent TCP drops on mobile (sleep, network switch).
     healthCheckRef.current = setInterval(() => {
+      if (cancelledRef.current) return
       const ws = wsRef.current
       if (!ws || ws.readyState !== WebSocket.OPEN) return
       const silentMs = Date.now() - lastMessageRef.current
@@ -236,6 +240,7 @@ export function useWebSocket() {
     window.addEventListener('online', onOnline)
 
     return () => {
+      cancelledRef.current = true
       wsRef.current?.close(); wsRef.current = null
       if (healthCheckRef.current) clearInterval(healthCheckRef.current)
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)

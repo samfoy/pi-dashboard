@@ -4,6 +4,7 @@ import { addSlotOptimistic, removeSlotOptimistic, markSlotRead, fetchSlots } fro
 import type { ChatMessage, SessionInfo } from '../types'
 
 const SKIP_ROLES = new Set(['chunk', 'done'])
+const MAX_MESSAGES_PER_SESSION = 500
 
 const filterMessages = (msgs: ChatMessage[]) => msgs.filter(m => !SKIP_ROLES.has(m.role))
 
@@ -141,7 +142,12 @@ const chatSlice = createSlice({
     setPendingInput(state, action: PayloadAction<string | null>) { state.pendingInput = action.payload },
     clearResendQueued(state) { state._resendQueued = null },
     promoteQueued(state) { for (const m of state.messages) { if (m.role === 'queued') m.role = 'user' } },
-    appendMessage(state, action: PayloadAction<ChatMessage>) { state.messages.push(action.payload) },
+    appendMessage(state, action: PayloadAction<ChatMessage>) {
+      state.messages.push(action.payload)
+      if (state.messages.length > MAX_MESSAGES_PER_SESSION) {
+        state.messages = state.messages.slice(state.messages.length - MAX_MESSAGES_PER_SESSION)
+      }
+    },
     updateStreamingMessage(state, action: PayloadAction<string>) {
       const last = state.messages[state.messages.length - 1]
       if (last?.role === 'streaming') { last.content = action.payload }
@@ -264,6 +270,10 @@ const chatSlice = createSlice({
         state.messages.splice(state.messages.length - 1, 0, newMsg)
       } else {
         state.messages.push(newMsg)
+      }
+      // Trim to prevent unbounded memory growth
+      if (state.messages.length > MAX_MESSAGES_PER_SESSION) {
+        state.messages = state.messages.slice(state.messages.length - MAX_MESSAGES_PER_SESSION)
       }
     },
   },

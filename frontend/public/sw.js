@@ -23,8 +23,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   const url = new URL(e.request.url)
-  // Skip API/WebSocket requests
+  // Skip API, WebSocket, and dynamic requests from caching
   if (url.pathname.startsWith('/api')) return
+  if (url.pathname.startsWith('/ws')) return
   // Skip Vite hashed assets — they have unique filenames already
   if (url.pathname.startsWith('/assets/')) return
 
