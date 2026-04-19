@@ -308,6 +308,27 @@ export class PiProcess extends EventEmitter {
     this._pendingRequests.clear()
   }
 
+  /**
+   * Check if the child process is still alive. If it's dead but we still
+   * think we're running/stopping, reset state and emit agent_end so the
+   * UI can recover.
+   * @returns {boolean} true if a stale state was detected and fixed
+   */
+  checkHealth() {
+    if (!this.proc) return false
+    const dead = this.proc.killed || this.proc.exitCode !== null
+    if (dead && (this.running || this._stopping)) {
+      this.running = false
+      this._stopping = false
+      this._pendingApproval = false
+      if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
+      this.emit('agent_end', { messages: [] })
+      this.emit('log', { level: 'warn', msg: `Slot ${this.slotKey}: health check found dead process, reset state` })
+      return true
+    }
+    return false
+  }
+
   _handleEvent(event) {
     const { type } = event
 
@@ -487,6 +508,8 @@ export class PiManager {
     this._onStateChange = null
     this._modelCache = null
     this._modelCacheTime = 0
+    // Health check every 5s — detect dead processes with stale running/stopping state
+    this._healthInterval = setInterval(() => this._healthCheck(), 5000)
   }
 
   createSlot(name, agent, opts = {}) {
@@ -632,7 +655,17 @@ export class PiManager {
     if (this._onStateChange) this._onStateChange()
   }
 
+  _healthCheck() {
+    for (const pi of this.slots.values()) {
+      pi.checkHealth()
+    }
+  }
+
   shutdown() {
+    if (this._healthInterval) {
+      clearInterval(this._healthInterval)
+      this._healthInterval = null
+    }
     for (const pi of this.slots.values()) {
       pi.kill()
     }

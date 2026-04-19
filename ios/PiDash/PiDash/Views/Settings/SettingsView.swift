@@ -5,6 +5,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
+    @Environment(ThemeManager.self) private var themeManager
     @State private var urlText: String = ""
     @State private var cwdText: String = ""
     @State private var testResult: String?
@@ -14,6 +16,50 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Theme") {
+                    ForEach(AppTheme.allPresets, id: \.name) { preset in
+                        Button {
+                            themeManager.select(preset)
+                        } label: {
+                            HStack(spacing: 12) {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(preset.accent)
+                                        .frame(width: 14, height: 14)
+                                    Circle()
+                                        .fill(preset.cardBg)
+                                        .overlay(Circle().stroke(preset.border, lineWidth: 0.5))
+                                        .frame(width: 14, height: 14)
+                                    Circle()
+                                        .fill(preset.text)
+                                        .frame(width: 14, height: 14)
+                                }
+                                Text(preset.name)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if theme.name == preset.name {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(theme.accent)
+                                        .font(.caption.bold())
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Section("Appearance") {
+                    Picker("Color Scheme", selection: Binding(
+                        get: { appearanceMode },
+                        set: { setAppearanceMode($0) }
+                    )) {
+                        Text("System").tag(0)
+                        Text("Light").tag(1)
+                        Text("Dark").tag(2)
+                    }
+                    .pickerStyle(.segmented)
+                }
+
                 Section("Server") {
                     TextField("Server URL", text: $urlText)
                         .keyboardType(.URL)
@@ -45,7 +91,7 @@ struct SettingsView: View {
                                     Spacer()
                                     if path == appState.serverConfig.defaultCwd {
                                         Image(systemName: "checkmark")
-                                            .foregroundStyle(Color.accentColor)
+                                            .foregroundStyle(theme.accent)
                                             .font(.caption)
                                     }
                                 }
@@ -81,7 +127,7 @@ struct SettingsView: View {
                     if let result = testResult {
                         Text(result)
                             .font(.caption)
-                            .foregroundStyle(result.hasPrefix("✓") ? Color.green : Color.red)
+                            .foregroundStyle(result.hasPrefix("✓") ? theme.success : theme.error)
                     }
 
                     Button("Reconnect WebSocket") {
