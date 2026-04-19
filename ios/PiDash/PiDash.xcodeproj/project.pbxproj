@@ -53,6 +53,8 @@
 		A1B2C3D4E5F6078901234594 /* Contacts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6078901234593 /* Contacts.framework */; };
 		D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */; };
 		D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */; };
+		BB11CC22DD33EE440055AA02 /* InlineImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11CC22DD33EE440055AA01 /* InlineImageView.swift */; };
+		BB11CC22DD33EE440055AA04 /* AssistantMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11CC22DD33EE440055AA03 /* AssistantMessageContent.swift */; };
 		SE000011 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000010 /* ShareViewController.swift */; };
 		SE000013 /* ShareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000012 /* ShareViewModel.swift */; };
 		SE000015 /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = SE000014 /* ShareView.swift */; };
@@ -77,6 +79,8 @@
 		238BF8BF39C77ED440301D70 /* ToolCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallView.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineDiffView.swift; sourceTree = "<group>"; };
 		D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
+		BB11CC22DD33EE440055AA01 /* InlineImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineImageView.swift; sourceTree = "<group>"; };
+		BB11CC22DD33EE440055AA03 /* AssistantMessageContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantMessageContent.swift; sourceTree = "<group>"; };
 		25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTheme.swift; sourceTree = "<group>"; };
 		39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListViewModel.swift; sourceTree = "<group>"; };
 		39DCB7941AD46363E454E0DA /* SlotListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotListView.swift; sourceTree = "<group>"; };
@@ -305,6 +309,8 @@
 				238BF8BF39C77ED440301D70 /* ToolCallView.swift */,
 				D1A2B3C4D5E6F70812345610 /* LineDiffView.swift */,
 			D1A2B3C4D5E6F70812345600 /* FileViewerSheet.swift */,
+				BB11CC22DD33EE440055AA01 /* InlineImageView.swift */,
+				BB11CC22DD33EE440055AA03 /* AssistantMessageContent.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -556,6 +562,8 @@
 				FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */,
 				D1A2B3C4D5E6F70812345611 /* LineDiffView.swift in Sources */,
 				D1A2B3C4D5E6F70812345601 /* FileViewerSheet.swift in Sources */,
+				BB11CC22DD33EE440055AA02 /* InlineImageView.swift in Sources */,
+				BB11CC22DD33EE440055AA04 /* AssistantMessageContent.swift in Sources */,
 				4293E98BC576FAD343780971 /* HapticManager.swift in Sources */,
 				BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */,
 				81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */,

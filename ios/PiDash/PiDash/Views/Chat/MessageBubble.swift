@@ -122,10 +122,7 @@ struct MessageBubble: View {
             }
 
         case .assistant:
-            Markdown(message.content)
-                .markdownTheme(.piDash)
-                .padding(.horizontal, 4)
-                .padding(.vertical, 2)
+            AssistantMessageContent(content: message.content)
                 .contextMenu {
                     Button {
                         UIPasteboard.general.string = message.content
