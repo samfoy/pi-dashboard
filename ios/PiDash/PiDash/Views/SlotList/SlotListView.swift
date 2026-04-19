@@ -52,7 +52,9 @@ private struct SlotListContent: View {
                         .environment(appState)
                     }
                     .overlay(alignment: .top) {
-                        ConnectionBanner(state: appState.connectionState)
+                        ConnectionBanner(state: appState.connectionState) {
+                            appState.wsManager.connect()
+                        }
                             .padding(.top, 8)
                             .animation(.spring(duration: 0.4), value: appState.connectionState.isConnected)
                     }
