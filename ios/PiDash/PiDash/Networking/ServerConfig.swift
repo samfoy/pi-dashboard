@@ -6,8 +6,10 @@ import Foundation
 struct ServerConfig {
     static let defaultBaseURL = "http://samuels-macbook-air-1.taile86245.ts.net:7777"
     static let userDefaultsKey = "serverBaseURL"
+    static let cwdDefaultsKey = "defaultCwd"
 
     private(set) var baseURL: String
+    private(set) var defaultCwd: String
 
     init(baseURL: String? = nil) {
         let stored = UserDefaults.standard.string(forKey: Self.userDefaultsKey)
@@ -19,11 +21,21 @@ struct ServerConfig {
         } else {
             self.baseURL = resolved
         }
+        self.defaultCwd = UserDefaults.standard.string(forKey: Self.cwdDefaultsKey) ?? ""
     }
 
     mutating func update(baseURL: String) {
         self.baseURL = baseURL
         UserDefaults.standard.set(baseURL, forKey: Self.userDefaultsKey)
+    }
+
+    mutating func update(cwd: String) {
+        self.defaultCwd = cwd
+        if cwd.isEmpty {
+            UserDefaults.standard.removeObject(forKey: Self.cwdDefaultsKey)
+        } else {
+            UserDefaults.standard.set(cwd, forKey: Self.cwdDefaultsKey)
+        }
     }
 
     var apiBase: String { "\(baseURL)/api" }

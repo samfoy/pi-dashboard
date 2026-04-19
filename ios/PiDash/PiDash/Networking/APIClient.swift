@@ -75,9 +75,9 @@ actor APIClient {
         }
     }
 
-    func createSlot(title: String? = nil) async throws -> ChatSlot {
+    func createSlot(title: String? = nil, cwd: String? = nil) async throws -> ChatSlot {
         let url = try requireURL(path: "/chat/slots")
-        let body = CreateSlotRequest(title: title)
+        let body = CreateSlotRequest(title: title, cwd: cwd)
         let data = try await post(url: url, body: body)
         do {
             let dto = try decoder.decode(SlotDTO.self, from: data)
@@ -200,6 +200,12 @@ actor APIClient {
     }
 
     // MARK: - Private HTTP helpers
+
+    /// Public raw GET for ad-hoc API calls
+    func fetchRaw(path: String) async throws -> Data {
+        let url = try requireURL(path: path)
+        return try await get(url: url)
+    }
 
     private func get(url: URL) async throws -> Data {
         var request = URLRequest(url: url)

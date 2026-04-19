@@ -6,8 +6,10 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var urlText: String = ""
+    @State private var cwdText: String = ""
     @State private var testResult: String?
     @State private var isTesting = false
+    @State private var slotCwds: [String] = []
 
     var body: some View {
         NavigationStack {
@@ -18,6 +20,42 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .onSubmit { saveURL() }
+                }
+
+                Section("Working Directory") {
+                    TextField("Default cwd (e.g. ~/Projects/myapp)", text: $cwdText)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.system(.body, design: .monospaced))
+                        .onSubmit { saveCwd() }
+
+                    if !slotCwds.isEmpty {
+                        ForEach(slotCwds, id: \.self) { path in
+                            Button {
+                                cwdText = path
+                                saveCwd()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "folder")
+                                        .foregroundStyle(.secondary)
+                                    Text(path)
+                                        .font(.system(.subheadline, design: .monospaced))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    if path == appState.serverConfig.defaultCwd {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.accentColor)
+                                            .font(.caption)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text("Sets the working directory for new chats. Pi will pick up AGENTS.md and project context from this path.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Connection") {
@@ -61,7 +99,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Save") { saveURL(); dismiss() }
+                    Button("Save") { saveURL(); saveCwd(); dismiss() }
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -74,7 +112,14 @@ struct SettingsView: View {
             }
             .onAppear {
                 urlText = appState.serverConfig.baseURL
+                cwdText = appState.serverConfig.defaultCwd
                 testResult = nil
+                // Collect unique cwds from existing slots
+                slotCwds = Array(Set(appState.slots.compactMap { slot in
+                    // Extract cwd from slot — check the API response
+                    nil as String?  // Populated below from API
+                })).sorted()
+                Task { await loadSlotCwds() }
             }
         }
     }
@@ -83,6 +128,24 @@ struct SettingsView: View {
         let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         appState.updateServerConfig(baseURL: trimmed)
+    }
+
+    private func saveCwd() {
+        let trimmed = cwdText.trimmingCharacters(in: .whitespacesAndNewlines)
+        appState.updateDefaultCwd(trimmed)
+    }
+
+    private func loadSlotCwds() async {
+        // Fetch slot list to get cwds
+        do {
+            let data = try await appState.apiClient.fetchRaw(path: "/chat/slots")
+            struct CwdSlot: Decodable { let cwd: String? }
+            let slots = try JSONDecoder().decode([CwdSlot].self, from: data)
+            let cwds = Set(slots.compactMap { $0.cwd }).filter { !$0.isEmpty }
+            await MainActor.run { slotCwds = cwds.sorted() }
+        } catch {
+            // Silently ignore — not critical
+        }
     }
 
     private func testConnection() async {

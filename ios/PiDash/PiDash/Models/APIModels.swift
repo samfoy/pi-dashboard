@@ -287,9 +287,11 @@ struct ImagePayload: Encodable {
 
 struct CreateSlotRequest: Encodable {
     let name: String?   // API uses "name" not "title"
+    let cwd: String?
 
-    init(title: String? = nil) {
+    init(title: String? = nil, cwd: String? = nil) {
         self.name = title
+        self.cwd = cwd
     }
 }
 

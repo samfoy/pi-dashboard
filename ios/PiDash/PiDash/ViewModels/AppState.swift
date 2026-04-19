@@ -74,8 +74,9 @@ final class AppState {
     }
 
     func createSlot(title: String? = nil) async -> ChatSlot? {
+        let cwd = serverConfig.defaultCwd.isEmpty ? nil : serverConfig.defaultCwd
         do {
-            let slot = try await apiClient.createSlot(title: title)
+            let slot = try await apiClient.createSlot(title: title, cwd: cwd)
             // Only insert if WS hasn't already added it
             if !slots.contains(where: { $0.key == slot.key }) {
                 slots.insert(slot, at: 0)
@@ -139,6 +140,10 @@ final class AppState {
         wsManager.updateConfig(newConfig)
         Task { await apiClient.updateConfig(newConfig) }
         Task { await loadSlots() }
+    }
+
+    func updateDefaultCwd(_ cwd: String) {
+        serverConfig.update(cwd: cwd)
     }
 
     // MARK: - Chat ViewModel Registration
