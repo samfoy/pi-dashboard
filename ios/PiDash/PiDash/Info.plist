@@ -47,6 +47,10 @@
 	<string>PiDash reads your calendar events so the AI can answer questions about your schedule.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>PiDash reads your health data (steps, sleep, heart rate, calories, workouts) so the AI can answer questions about your activity.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>PiDash uses the microphone to transcribe your voice into text for chat messages.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>PiDash uses speech recognition to convert your voice to text for chat messages.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>PiDash reads your current location so the AI can answer questions about where you are.</string>
 	<key>NSCameraUsageDescription</key>

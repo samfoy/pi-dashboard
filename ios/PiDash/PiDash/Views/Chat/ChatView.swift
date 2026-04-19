@@ -85,6 +85,8 @@ private struct ChatContentView: View {
     private let remindersService = RemindersService.shared
     private let contactsService = ContactsService.shared
     private let locationService = LocationService.shared
+    private let speechService = SpeechService.shared
+    @State private var isSpeechRecording = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -170,6 +172,24 @@ private struct ChatContentView: View {
                             }
                         }
                     },
+                    onSpeechTap: {
+                        if isSpeechRecording {
+                            speechService.stopRecording()
+                            isSpeechRecording = false
+                        } else {
+                            Task {
+                                await speechService.requestAuthorization()
+                                speechService.startRecording { text in
+                                    Task { @MainActor in
+                                        viewModel.inputText = text
+                                        isSpeechRecording = false
+                                    }
+                                }
+                                await MainActor.run { isSpeechRecording = true }
+                            }
+                        }
+                    },
+                    isSpeechRecording: isSpeechRecording,
                     onSend: { Task { await viewModel.send() } },
                     onStop: { Task { await viewModel.stop() } }
                 )

@@ -29,6 +29,8 @@ struct ChatInputBar: View {
     var onRemindersSummary: (() -> Void)? = nil
     var onContactsSummary: (() -> Void)? = nil
     var onLocationSummary: (() -> Void)? = nil
+    var onSpeechTap: (() -> Void)? = nil
+    var isSpeechRecording: Bool = false
     let onSend: () -> Void
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
@@ -166,6 +168,15 @@ struct ChatInputBar: View {
                     // Location summary
                     if let onLocation = onLocationSummary {
                         quickButton(icon: "location", label: "Location", tint: .blue) { onLocation() }
+                    }
+
+                    // Mic / speech
+                    if let onSpeech = onSpeechTap {
+                        quickButton(
+                            icon: isSpeechRecording ? "mic.fill" : "mic",
+                            label: isSpeechRecording ? "Stop" : "Mic",
+                            tint: isSpeechRecording ? .red : .blue
+                        ) { onSpeech() }
                     }
 
                     // Copy last assistant message
