@@ -158,10 +158,18 @@ private struct ReadToolDetail: View {
     let args: [String: Any]?
     let result: String?
 
+    @State private var showFileViewer = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let path = args?["path"] as? String {
                 PathLabel(path: path)
+                ArtifactCard(path: path, action: "read") {
+                    showFileViewer = true
+                }
+                .sheet(isPresented: $showFileViewer) {
+                    FileViewerSheet(path: path)
+                }
             }
             if let result, !result.isEmpty {
                 filePreview(result, language: fileLanguage)
@@ -172,12 +180,7 @@ private struct ReadToolDetail: View {
 
     private var fileLanguage: String? {
         guard let path = args?["path"] as? String else { return nil }
-        let ext = (path as NSString).pathExtension.lowercased()
-        let map = ["swift": "swift", "ts": "typescript", "tsx": "typescript",
-                    "js": "javascript", "py": "python", "rs": "rust",
-                    "json": "json", "yml": "yaml", "yaml": "yaml",
-                    "md": "markdown", "sh": "bash", "css": "css", "html": "html"]
-        return map[ext]
+        return path.pathLanguage
     }
 }
 
@@ -187,10 +190,18 @@ private struct EditToolDetail: View {
     let args: [String: Any]?
     let result: String?
 
+    @State private var showFileViewer = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let path = args?["path"] as? String {
                 PathLabel(path: path)
+                ArtifactCard(path: path, action: "edit") {
+                    showFileViewer = true
+                }
+                .sheet(isPresented: $showFileViewer) {
+                    FileViewerSheet(path: path)
+                }
             }
             if let edits = args?["edits"] as? [[String: Any]] {
                 ForEach(Array(edits.prefix(3).enumerated()), id: \.offset) { _, edit in
@@ -223,11 +234,18 @@ private struct WriteToolDetail: View {
     let result: String?
 
     @State private var showContent = false
+    @State private var showFileViewer = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let path = args?["path"] as? String {
                 PathLabel(path: path)
+                ArtifactCard(path: path, action: "write") {
+                    showFileViewer = true
+                }
+                .sheet(isPresented: $showFileViewer) {
+                    FileViewerSheet(path: path)
+                }
             }
             if let content = args?["content"] as? String, !content.isEmpty {
                 Button {
@@ -260,11 +278,7 @@ private struct WriteToolDetail: View {
 
     private var fileLanguage: String? {
         guard let path = args?["path"] as? String else { return nil }
-        let ext = (path as NSString).pathExtension.lowercased()
-        let map = ["swift": "swift", "ts": "typescript", "tsx": "typescript",
-                    "js": "javascript", "py": "python", "json": "json",
-                    "md": "markdown", "sh": "bash"]
-        return map[ext]
+        return path.pathLanguage
     }
 }
 
@@ -389,6 +403,112 @@ private struct DiffView: View {
             return lines.prefix(6).joined(separator: "\n") + "\n… +\(lines.count - 6) more lines"
         }
         return String(text.prefix(500))
+    }
+}
+
+// MARK: - ArtifactCard
+
+private struct ArtifactCard: View {
+    let path: String
+    let action: String
+    let onTap: () -> Void
+
+    private var filename: String {
+        (path as NSString).lastPathComponent
+    }
+
+    private var fileIcon: String {
+        let ext = (path as NSString).pathExtension.lowercased()
+        switch ext {
+        case "md", "markdown": return "doc.richtext"
+        case "png", "jpg", "jpeg", "gif", "webp", "svg": return "photo"
+        case "swift", "ts", "tsx", "js", "py", "rs", "go", "rb",
+             "json", "yml", "yaml", "sh", "bash", "css", "html", "xml": return "doc.text"
+        default: return "doc"
+        }
+    }
+
+    private var actionLabel: String {
+        switch action {
+        case "read": return "Read"
+        case "write": return "Written"
+        case "edit": return "Edited"
+        default: return action.capitalized
+        }
+    }
+
+    private var actionColor: Color {
+        switch action {
+        case "read": return .blue
+        case "write": return .green
+        case "edit": return .orange
+        default: return .secondary
+        }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 10) {
+                Image(systemName: fileIcon)
+                    .font(.system(size: 20))
+                    .foregroundStyle(actionColor)
+                    .frame(width: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(filename)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(actionLabel)
+                        .font(.caption)
+                        .foregroundStyle(actionColor)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color(.separator), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Path Language Helper
+
+extension String {
+    /// Maps a file path's extension to a language identifier for syntax highlighting.
+    var pathLanguage: String? {
+        let ext = (self as NSString).pathExtension.lowercased()
+        let map: [String: String] = [
+            "swift": "swift",
+            "ts": "typescript", "tsx": "typescript",
+            "js": "javascript", "jsx": "javascript",
+            "py": "python",
+            "rs": "rust",
+            "go": "go",
+            "rb": "ruby",
+            "json": "json",
+            "yml": "yaml", "yaml": "yaml",
+            "md": "markdown", "markdown": "markdown",
+            "sh": "bash", "bash": "bash",
+            "css": "css",
+            "html": "html",
+            "xml": "xml",
+            "c": "c", "cpp": "cpp", "h": "c",
+            "kt": "kotlin",
+            "java": "java",
+        ]
+        return map[ext]
     }
 }
 
