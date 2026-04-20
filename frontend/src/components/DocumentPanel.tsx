@@ -33,7 +33,7 @@ interface Props {
   onReviewComments?: () => void
 }
 
-export default memo(function DocumentPanel({ filePath, content, onContentChange, onSave, onClose, dirty, versions, selectedVersion, conflictContent, onSelectVersion, onResolveConflict, diffMode, onToggleDiff, comments, onAddComment, onReviewComments }: Props) {
+export default memo(function DocumentPanel({ filePath, content, onContentChange, onSave, onClose, dirty, versions, selectedVersion, conflictContent, onSelectVersion, onResolveConflict, diffMode, onToggleDiff, comments, onAddComment, onEditComment, onDeleteComment, onReviewComments }: Props) {
   const [mode, setMode] = useState<'preview' | 'edit'>('preview')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -205,14 +205,17 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
             lineNums={lineNums}
             onChange={handleChange}
             readOnly={isOldVersion || isBinary}
+            comments={filteredComments}
+            onEditComment={onEditComment}
+            onDeleteComment={onDeleteComment}
           />
         )}
       </div>
-      {/* Comment bar — visible in any mode when comments exist */}
-      {filteredComments.length > 0 && !diffMode && (
+      {/* Review Comments button — visible when comments exist */}
+      {filteredComments.length > 0 && !diffMode && onReviewComments && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-t border-border bg-chrome text-[11px] text-muted">
           <span>💬 {filteredComments.length} comment{filteredComments.length !== 1 ? 's' : ''}</span>
-          {onReviewComments && <button className="px-2 py-0.5 rounded border border-accent text-accent text-[11px] cursor-pointer hover:bg-accent-subtle ml-auto" onClick={onReviewComments}>Review Comments</button>}
+          <button className="px-2 py-0.5 rounded border border-accent text-accent text-[11px] cursor-pointer hover:bg-accent-subtle ml-auto" onClick={onReviewComments}>Review Comments</button>
         </div>
       )}
       {/* Floating comment input triggered by right-click → Add Comment */}

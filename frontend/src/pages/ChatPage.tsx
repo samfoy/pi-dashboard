@@ -459,6 +459,8 @@ export default function ChatPage() {
         inputRef.current.style.height = 'auto'
         if (saved) inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px'
       }
+      // Restore per-slot panel state
+      panel.switchToSlot(activeSlot)
     }
   }, [activeSlot])
   useEffect(() => { if (inputRef.current && input) { inputRef.current.style.height = 'auto'; inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px' } }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only auto-size
