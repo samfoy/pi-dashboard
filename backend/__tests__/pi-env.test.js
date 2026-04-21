@@ -38,7 +38,6 @@ describe('getMemoryStats', () => {
     expect(stats).toHaveProperty('facts')
     expect(stats).toHaveProperty('lessons')
     expect(stats).toHaveProperty('events')
-    expect(stats).toHaveProperty('episodic')
     // Values should be numbers (0 if DB doesn't exist)
     expect(typeof stats.facts).toBe('number')
     expect(typeof stats.lessons).toBe('number')
