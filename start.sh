@@ -9,4 +9,4 @@ fuser -k 7777/tcp 2>/dev/null && sleep 0.5 || true
 chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper 2>/dev/null || true
 
 echo "[pi-dashboard] Starting server ($(date))"
-exec node backend/server.js
+exec npx tsx backend/server.js

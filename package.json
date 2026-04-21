@@ -9,8 +9,10 @@
     "restart": "./restart.sh",
     "restart:build": "./restart.sh --build",
     "build-frontend": "cd frontend && npm install --no-audit --no-fund && npm run build",
+    "build:backend": "tsc -p backend/tsconfig.json",
+    "typecheck": "tsc -p backend/tsconfig.json --noEmit",
     "setup": "npm install --no-audit --no-fund && npm run build-frontend",
-    "start:tailscale": "PI_DASH_PORT=7777 node backend/server.js",
+    "start:tailscale": "PI_DASH_PORT=7777 npx tsx backend/server.js",
     "test": "vitest run --config vitest.backend.config.js",
     "test:watch": "vitest --config vitest.backend.config.js"
   },
@@ -22,6 +24,11 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.4"
   }
 }

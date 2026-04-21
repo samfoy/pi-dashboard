@@ -1,0 +1,16 @@
+FROM node:20-slim
+
+# node-pty needs build tools
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --no-audit --no-fund
+COPY backend/ backend/
+COPY vitest.backend.config.js ./
+
+# Typecheck
+RUN npx tsc -p backend/tsconfig.json --noEmit
+
+# Run tests
+CMD ["npx", "vitest", "run", "--config", "vitest.backend.config.js"]

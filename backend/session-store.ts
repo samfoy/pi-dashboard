@@ -6,15 +6,65 @@ import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { homedir } from 'os'
 
-const HOME = homedir()
-const SESSIONS_DIR = join(HOME, '.pi', 'agent', 'sessions')
-const STATE_FILE = join(HOME, '.pi', 'agent', 'pi-web-sessions.json')
+const HOME: string = homedir()
+const SESSIONS_DIR: string = join(HOME, '.pi', 'agent', 'sessions')
+const STATE_FILE: string = join(HOME, '.pi', 'agent', 'pi-web-sessions.json')
+
+// ── Types ──
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'thinking' | 'tool' | 'system'
+  content: string
+  ts?: string
+  _partial?: boolean
+  meta?: {
+    toolName?: string
+    toolCallId?: string
+    args?: string
+    result?: string
+    isError?: boolean
+    customType?: string
+  }
+}
+
+export interface SlotState {
+  key: string
+  title: string
+  messages?: ChatMessage[]
+  sessionFile: string | null
+  modelProvider: string | null
+  modelId: string | null
+  cwd: string | null
+}
+
+export interface SessionTreeEntry {
+  id: string | null
+  parentId: string | null
+  type: string
+  timestamp?: string
+  role?: string
+  text?: string
+  fullText?: string
+  tools?: string[]
+}
+
+/** Duck-typed interface for PiProcess slots (avoids circular deps) */
+interface SlotProcess {
+  _title?: string
+  messages: ChatMessage[]
+  sessionFile?: string | null
+  modelProvider?: string | null
+  modelId?: string | null
+  cwd?: string | null
+}
+
+type ContentPart = { type: string; text?: string; thinking?: string }
 
 // ── Parse a pi session JSONL into chat messages ──
 
-export function parseSessionMessages(sessionPath, limit = 200) {
+export function parseSessionMessages(sessionPath: string, limit: number = 200): ChatMessage[] {
   if (!existsSync(sessionPath)) return []
-  const messages = []
+  const messages: ChatMessage[] = []
   try {
     const raw = readFileSync(sessionPath, 'utf-8')
     for (const line of raw.split('\n')) {
@@ -24,8 +74,8 @@ export function parseSessionMessages(sessionPath, limit = 200) {
         if (obj.type !== 'message') continue
         const msg = obj.message
         if (!msg) continue
-        const role = msg.role
-        const ts = msg.timestamp ? new Date(msg.timestamp).toISOString() : undefined
+        const role: string = msg.role
+        const ts: string | undefined = msg.timestamp ? new Date(msg.timestamp).toISOString() : undefined
 
         if (role === 'user') {
           const text = extractText(msg.content)
@@ -62,11 +112,11 @@ export function parseSessionMessages(sessionPath, limit = 200) {
           }
         } else if (role === 'toolResult') {
           // Attach result to the matching tool message
-          const resultText = Array.isArray(msg.content)
-            ? msg.content.filter(c => c.type === 'text').map(c => c.text).join('')
+          const resultText: string = Array.isArray(msg.content)
+            ? msg.content.filter((c: ContentPart) => c.type === 'text').map((c: ContentPart) => c.text).join('')
             : ''
           const toolMsg = [...messages].reverse().find(
-            m => m.role === 'tool' && m.meta?.toolCallId === msg.toolCallId
+            (m: ChatMessage) => m.role === 'tool' && m.meta?.toolCallId === msg.toolCallId
           )
           if (toolMsg) {
             toolMsg.meta = {
@@ -83,20 +133,24 @@ export function parseSessionMessages(sessionPath, limit = 200) {
             })
           }
         }
-      } catch {}
+      } catch {
+        // skip malformed lines
+      }
     }
-  } catch {}
+  } catch {
+    // skip unreadable files
+  }
   // Return last N messages
   return messages.slice(-limit)
 }
 
-export function extractText(content, separator = '') {
+export function extractText(content: string | ContentPart[] | null | undefined, separator: string = ''): string {
   if (!content) return ''
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
     return content
-      .filter(p => p.type === 'text')
-      .map(p => p.text || '')
+      .filter((p: ContentPart) => p.type === 'text')
+      .map((p: ContentPart) => p.text || '')
       .join(separator)
   }
   return ''
@@ -104,29 +158,31 @@ export function extractText(content, separator = '') {
 
 // ── Find session file by key ──
 
-export function findSessionFile(key) {
+export function findSessionFile(key: string): string | null {
   try {
-    const dirs = readdirSync(SESSIONS_DIR).filter(d => d.startsWith('--'))
+    const dirs = readdirSync(SESSIONS_DIR).filter((d: string) => d.startsWith('--'))
     for (const dir of dirs) {
       const full = join(SESSIONS_DIR, dir)
       if (!statSync(full).isDirectory()) continue
-      const files = readdirSync(full).filter(f => f.endsWith('.jsonl'))
+      const files = readdirSync(full).filter((f: string) => f.endsWith('.jsonl'))
       for (const f of files) {
         if (f.replace('.jsonl', '') === key) {
           return join(full, f)
         }
       }
     }
-  } catch {}
+  } catch {
+    // skip
+  }
   return null
 }
 
 // ── Parse session JSONL into a tree structure ──
 
-export function parseSessionTree(sessionPath) {
+export function parseSessionTree(sessionPath: string): { entries: SessionTreeEntry[]; leafId: string | null } {
   if (!existsSync(sessionPath)) return { entries: [], leafId: null }
-  const entries = []
-  let leafId = null
+  const entries: SessionTreeEntry[] = []
+  let leafId: string | null = null
   try {
     const raw = readFileSync(sessionPath, 'utf-8')
     for (const line of raw.split('\n')) {
@@ -134,7 +190,7 @@ export function parseSessionTree(sessionPath) {
       try {
         const obj = JSON.parse(line)
         if (obj.type === 'session') continue
-        const entry = {
+        const entry: SessionTreeEntry = {
           id: obj.id || null,
           parentId: obj.parentId || null,
           type: obj.type,
@@ -147,7 +203,7 @@ export function parseSessionTree(sessionPath) {
           if (obj.message.role === 'user') entry.fullText = rawText
           // For assistant, check for tool calls
           if (obj.message.role === 'assistant' && Array.isArray(obj.message.content)) {
-            const tools = obj.message.content.filter(p => p.type === 'toolCall').map(p => p.name)
+            const tools: string[] = obj.message.content.filter((p: ContentPart) => p.type === 'toolCall').map((p: any) => p.name)
             if (tools.length) entry.tools = tools
           }
         } else if (obj.type === 'branch_summary') {
@@ -170,23 +226,27 @@ export function parseSessionTree(sessionPath) {
           entries.push(entry)
           leafId = entry.id  // last entry is the leaf
         }
-      } catch {}
+      } catch {
+        // skip malformed lines
+      }
     }
-  } catch {}
+  } catch {
+    // skip unreadable files
+  }
   return { entries, leafId }
 }
 
 // ── Persist/restore dashboard slot state ──
 
 // Async persist with write coalescing — avoids blocking the event loop
-let _persistPending = false
-let _persistQueued = null  // latest slots snapshot waiting to write
+let _persistPending: boolean = false
+let _persistQueued: SlotState[] | null = null  // latest slots snapshot waiting to write
 
-export function saveSlotState(slots) {
+export function saveSlotState(slots: Map<string, SlotProcess>): void {
   // Snapshot the data immediately (cheap), write async
-  const data = []
+  const data: SlotState[] = []
   for (const [key, pi] of slots.entries()) {
-    const entry = {
+    const entry: SlotState = {
       key,
       title: pi._title || 'New Chat',
       sessionFile: pi.sessionFile || null,
@@ -208,7 +268,7 @@ export function saveSlotState(slots) {
   }
 }
 
-async function _flushPersist() {
+async function _flushPersist(): Promise<void> {
   while (_persistQueued) {
     const data = _persistQueued
     _persistQueued = null
@@ -216,16 +276,18 @@ async function _flushPersist() {
       // Stringify in chunks won't help much, but at least the write is async
       const json = JSON.stringify(data)
       await writeFile(STATE_FILE, json, 'utf-8')
-    } catch {}
+    } catch {
+      // skip write errors
+    }
   }
   _persistPending = false
 }
 
 /** Synchronous save for shutdown — blocks but ensures data is written */
-export function saveSlotStateSync(slots) {
-  const data = []
+export function saveSlotStateSync(slots: Map<string, SlotProcess>): void {
+  const data: SlotState[] = []
   for (const [key, pi] of slots.entries()) {
-    const entry = {
+    const entry: SlotState = {
       key,
       title: pi._title || 'New Chat',
       sessionFile: pi.sessionFile || null,
@@ -241,10 +303,12 @@ export function saveSlotStateSync(slots) {
   }
   try {
     writeFileSync(STATE_FILE, JSON.stringify(data), 'utf-8')
-  } catch {}
+  } catch {
+    // skip write errors
+  }
 }
 
-export function loadSlotState() {
+export function loadSlotState(): SlotState[] {
   if (!existsSync(STATE_FILE)) return []
   try {
     return JSON.parse(readFileSync(STATE_FILE, 'utf-8'))

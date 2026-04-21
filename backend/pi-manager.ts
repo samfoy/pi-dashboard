@@ -2,12 +2,12 @@
  * Pi RPC Process Manager
  * Spawns and manages `pi --mode rpc` processes, one per chat slot.
  */
-import { spawn, execSync } from 'child_process'
+import { spawn, execSync, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
-import { extractText } from './session-store.js'
+import { extractText, ChatMessage } from './session-store.js'
 
 // Resolve pi binary path at startup (avoids ENOENT in launchd)
 const PI_BIN = (() => {
@@ -23,12 +23,56 @@ const PI_BIN = (() => {
 const IMAGE_DIR = join(os.tmpdir(), 'pi-dashboard-images')
 mkdirSync(IMAGE_DIR, { recursive: true })
 
-function saveImagesToTemp(images) {
+interface ImagePayload {
+  type: string
+  mimeType?: string
+  media_type?: string
+  data?: string
+  source?: { data?: string; type?: string; mediaType?: string }
+}
+
+interface PiProcessOptions {
+  messages?: ChatMessage[]
+  sessionFile?: string | null
+  agent?: string | null
+  cwd?: string | null
+  modelProvider?: string | null
+  modelId?: string | null
+  title?: string | null
+  key?: string
+}
+
+interface SlotInfo {
+  key: string
+  title: string
+  messages: number
+  running: boolean
+  stopping: boolean
+  pending_approval: boolean
+  model: string | null
+  cwd: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface SlotDetail {
+  messages: ChatMessage[]
+  running: boolean
+  stopping: boolean
+  pending_approval: boolean
+  has_more: boolean
+  total: number
+  model: string | null
+  cwd: string | null
+  contextUsage: any | null
+}
+
+function saveImagesToTemp(images: ImagePayload[]): string[] {
   return images.map((img, i) => {
     const ext = (img.mimeType || 'image/png').split('/')[1] || 'png'
     const name = `img-${Date.now()}-${i}.${ext}`
     const filePath = join(IMAGE_DIR, name)
-    writeFileSync(filePath, Buffer.from(img.data, 'base64'))
+    writeFileSync(filePath, Buffer.from(img.data || '', 'base64'))
     return filePath
   })
 }
@@ -38,7 +82,7 @@ function saveImagesToTemp(images) {
  *   { type: "image", mimeType: "image/jpeg", data: "<base64>" }
  * Accepts various input formats from web frontend or iOS app.
  */
-function normalizeImages(images) {
+function normalizeImages(images?: ImagePayload[]): ImagePayload[] | undefined {
   if (!images?.length) return undefined
   return images.map(img => ({
     type: 'image',
@@ -48,7 +92,33 @@ function normalizeImages(images) {
 }
 
 export class PiProcess extends EventEmitter {
-  constructor(slotKey, opts = {}) {
+  slotKey: string
+  proc: ChildProcess | null
+  buffer: string
+  ready: boolean
+  running: boolean
+  messages: ChatMessage[]
+  sessionFile: string | null
+  agent: string | null
+  cwd: string | null
+  modelProvider: string | null
+  modelId: string | null
+  _title: string | null
+  _userRenamed: boolean
+  _startTime: number
+  _lastActivity: number
+  _pendingRequests: Map<string, { resolve: (value: any) => void; timer: ReturnType<typeof setTimeout> }>
+  _stopping: boolean
+  _pendingApproval: boolean
+  _streamIdx: number
+  _stderrLines: string[]
+  _startupTimer: ReturnType<typeof setTimeout> | null
+  _stoppingTimer?: ReturnType<typeof setTimeout> | null
+  _readyPromise?: Promise<void> | null
+  _contextUsage?: any
+  _wired?: boolean
+
+  constructor(slotKey: string, opts: PiProcessOptions = {}) {
     super()
     this.slotKey = slotKey
     this.proc = null
@@ -73,7 +143,7 @@ export class PiProcess extends EventEmitter {
     this._startupTimer = null
   }
 
-  start() {
+  start(): void {
     if (!this.cwd) this.cwd = process.env.HOME || '/tmp'
     const args = ['--mode', 'rpc']
     if (this.sessionFile) {
@@ -86,7 +156,11 @@ export class PiProcess extends EventEmitter {
       args.push('--model', `${this.modelProvider}/${this.modelId}`)
     }
 
-    const spawnOpts = {
+    const spawnOpts: {
+      stdio: ['pipe', 'pipe', 'pipe']
+      env: NodeJS.ProcessEnv
+      cwd?: string
+    } = {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, PI_RUNTIME: 'dashboard', PI_DASH_PORT: String(process.env.PI_DASH_PORT || 7777) },
     }
@@ -95,16 +169,16 @@ export class PiProcess extends EventEmitter {
     this.proc = spawn(PI_BIN, args, spawnOpts)
 
     // Ready promise — resolves when pi responds to get_state (templates loaded)
-    this._readyPromise = this.request({ type: 'get_state' }, 15000).then(resp => {
+    this._readyPromise = this.request({ type: 'get_state' }, 15000).then((resp: any) => {
       if (resp?.data?.sessionFile) {
         this.sessionFile = resp.data.sessionFile
         this.emit('session_file', this.sessionFile)
       }
     }).catch(() => {})
 
-    this.proc.stdout.on('data', (chunk) => {
+    this.proc.stdout!.on('data', (chunk: Buffer) => {
       this.buffer += chunk.toString()
-      let nl
+      let nl: number
       while ((nl = this.buffer.indexOf('\n')) !== -1) {
         let line = this.buffer.slice(0, nl)
         this.buffer = this.buffer.slice(nl + 1)
@@ -119,7 +193,7 @@ export class PiProcess extends EventEmitter {
       }
     })
 
-    this.proc.stderr.on('data', (chunk) => {
+    this.proc.stderr!.on('data', (chunk: Buffer) => {
       const text = chunk.toString().trim()
       if (text) {
         this._stderrLines.push(text)
@@ -128,7 +202,7 @@ export class PiProcess extends EventEmitter {
       }
     })
 
-    this.proc.on('exit', (code) => {
+    this.proc.on('exit', (code: number | null) => {
       this.ready = false
       this.running = false
       this._stopping = false
@@ -143,7 +217,7 @@ export class PiProcess extends EventEmitter {
       this.emit('exit', code)
     })
 
-    this.proc.on('error', (err) => {
+    this.proc.on('error', (err: Error) => {
       this.emit('error', err)
     })
 
@@ -153,8 +227,8 @@ export class PiProcess extends EventEmitter {
     this.ready = true
   }
 
-  send(cmd) {
-    if (!this.proc || this.proc.killed || this.proc.exitCode !== null || !this.proc.stdin.writable) {
+  send(cmd: Record<string, any>): boolean {
+    if (!this.proc || this.proc.killed || this.proc.exitCode !== null || !this.proc.stdin!.writable) {
       // Process is dead — reset state
       if (this.running || this._stopping) {
         this.running = false
@@ -164,12 +238,12 @@ export class PiProcess extends EventEmitter {
       }
       return false
     }
-    this.proc.stdin.write(JSON.stringify(cmd) + '\n')
+    this.proc.stdin!.write(JSON.stringify(cmd) + '\n')
     return true
   }
 
   /** Send a command and wait for the response by id */
-  request(cmd, timeoutMs = 30000) {
+  request(cmd: Record<string, any>, timeoutMs: number = 30000): Promise<any> {
     const id = cmd.id || `req-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
     cmd.id = id
     return new Promise((resolve, reject) => {
@@ -186,7 +260,7 @@ export class PiProcess extends EventEmitter {
     })
   }
 
-  async prompt(message, images) {
+  async prompt(message: string, images?: ImagePayload[]): Promise<boolean | void> {
     this._lastActivity = Date.now()
     // Normalize images to pi's expected format
     const normalizedImages = normalizeImages(images)
@@ -217,7 +291,7 @@ export class PiProcess extends EventEmitter {
         return
       }
 
-      const RPC_MAP = {
+      const RPC_MAP: Record<string, Record<string, any>> = {
         'compact': { type: 'compact' },
         'new': { type: 'new_session' },
         'clear': { type: 'new_session' },
@@ -227,7 +301,7 @@ export class PiProcess extends EventEmitter {
       }
 
       // Commands that return data — use request() and emit result as a message
-      const DATA_CMDS = {
+      const DATA_CMDS: Record<string, Record<string, any>> = {
         'session': { type: 'get_session_stats' },
         'copy': { type: 'get_last_assistant_text' },
         'usage': { type: 'get_session_stats' },
@@ -235,7 +309,7 @@ export class PiProcess extends EventEmitter {
       }
 
       if (DATA_CMDS[cmd]) {
-        this.request(DATA_CMDS[cmd]).then(resp => {
+        this.request(DATA_CMDS[cmd]).then((resp: any) => {
           if (resp?.data) {
             const text = typeof resp.data === 'string' ? resp.data : JSON.stringify(resp.data, null, 2)
             this.messages.push({ role: 'assistant', content: '```\n' + text + '\n```', ts: new Date().toISOString() })
@@ -252,7 +326,7 @@ export class PiProcess extends EventEmitter {
       // Extension and skill commands go through prompt() which handles them
       this.running = true
       this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
-      const promptCmd = { type: 'prompt', message }
+      const promptCmd: Record<string, any> = { type: 'prompt', message }
       if (normalizedImages?.length) {
         const paths = saveImagesToTemp(normalizedImages)
         promptCmd.images = normalizedImages
@@ -263,7 +337,7 @@ export class PiProcess extends EventEmitter {
 
     // Regular message
     let msg = message
-    const cmd = { type: 'prompt' }
+    const cmd: Record<string, any> = { type: 'prompt' }
     if (normalizedImages?.length) {
       const paths = saveImagesToTemp(normalizedImages)
       cmd.images = normalizedImages
@@ -278,7 +352,7 @@ export class PiProcess extends EventEmitter {
     return this.send(cmd)
   }
 
-  abort() {
+  abort(): boolean {
     this._stopping = true
     // If process is already dead, reset state immediately
     if (!this.proc || this.proc.killed || this.proc.exitCode !== null) {
@@ -299,29 +373,29 @@ export class PiProcess extends EventEmitter {
     return this.send({ type: 'abort' })
   }
 
-  async getAvailableModels() {
+  async getAvailableModels(): Promise<any[]> {
     const resp = await this.request({ type: 'get_available_models' })
     return resp?.data?.models || []
   }
 
-  async getCommands() {
+  async getCommands(): Promise<any[]> {
     const resp = await this.request({ type: 'get_commands' })
     return resp?.data?.commands || []
   }
 
-  async setModel(provider, modelId) {
+  async setModel(provider: string, modelId: string): Promise<any> {
     return this.request({ type: 'set_model', provider, modelId })
   }
 
-  async setThinkingLevel(level) {
+  async setThinkingLevel(level: string): Promise<any> {
     return this.request({ type: 'set_thinking_level', level })
   }
 
-  async getState() {
+  async getState(): Promise<any> {
     return this.request({ type: 'get_state' })
   }
 
-  kill() {
+  kill(): void {
     if (this.proc) {
       this.proc.kill('SIGTERM')
       setTimeout(() => {
@@ -340,9 +414,8 @@ export class PiProcess extends EventEmitter {
    * Check if the child process is still alive. If it's dead but we still
    * think we're running/stopping, reset state and emit agent_end so the
    * UI can recover.
-   * @returns {boolean} true if a stale state was detected and fixed
    */
-  checkHealth() {
+  checkHealth(): boolean {
     if (!this.proc) return false
     const dead = this.proc.killed || this.proc.exitCode !== null
     if (dead && (this.running || this._stopping)) {
@@ -357,12 +430,12 @@ export class PiProcess extends EventEmitter {
     return false
   }
 
-  _handleEvent(event) {
+  _handleEvent(event: any): void {
     const { type } = event
 
     // Handle responses to tracked requests
     if (type === 'response' && event.id && this._pendingRequests.has(event.id)) {
-      const { resolve, timer } = this._pendingRequests.get(event.id)
+      const { resolve, timer } = this._pendingRequests.get(event.id)!
       clearTimeout(timer)
       this._pendingRequests.delete(event.id)
       resolve(event)
@@ -434,13 +507,13 @@ export class PiProcess extends EventEmitter {
             } else if (m.role === 'toolResult') {
               // Attach result to the matching tool message
               const toolMsg = [...this.messages].reverse().find(
-                msg => msg.role === 'tool' && msg.meta?.toolCallId === m.toolCallId
+                (msg: ChatMessage) => msg.role === 'tool' && msg.meta?.toolCallId === m.toolCallId
               )
               if (toolMsg) {
                 let resultText = ''
                 if (Array.isArray(m.content)) {
-                  const textParts = m.content.filter(c => c.type === 'text').map(c => c.text)
-                  const imageParts = m.content.filter(c => c.type === 'image' && c.source?.type === 'base64')
+                  const textParts = m.content.filter((c: any) => c.type === 'text').map((c: any) => c.text)
+                  const imageParts = m.content.filter((c: any) => c.type === 'image' && c.source?.type === 'base64')
                   resultText = textParts.join('')
                   if (imageParts.length) {
                     // Save base64 images to temp dir and inject markdown image refs
@@ -529,8 +602,15 @@ export class PiProcess extends EventEmitter {
 }
 
 export class PiManager {
+  slots: Map<string, PiProcess>
+  _slotCounter: number
+  _startTime: number
+  _onStateChange: (() => void) | null
+  _modelCache: any[] | null
+  _modelCacheTime: number
+  _healthInterval: ReturnType<typeof setInterval> | null
+
   constructor() {
-    /** @type {Map<string, PiProcess>} */
     this.slots = new Map()
     this._slotCounter = 0
     this._startTime = Date.now()
@@ -541,7 +621,7 @@ export class PiManager {
     this._healthInterval = setInterval(() => this._healthCheck(), 5000)
   }
 
-  createSlot(name, agent, opts = {}) {
+  createSlot(name: string, agent: string | null, opts: PiProcessOptions = {}): { key: string; title: string; messages: number; running: boolean } {
     const key = opts.key || `chat-${++this._slotCounter}-${Date.now()}`
     const pi = new PiProcess(key, { agent, ...opts })
     // Don't start pi process yet — defer to first message (ensureRunning)
@@ -551,7 +631,7 @@ export class PiManager {
     return { key, title: name || pi._title || 'New Chat', messages: pi.messages.length, running: false }
   }
 
-  restoreSlot(key, title, messages, opts = {}) {
+  restoreSlot(key: string, title: string, messages: ChatMessage[], opts: PiProcessOptions = {}): void {
     const pi = new PiProcess(key, { messages, title, ...opts })
     pi.ready = false
     this.slots.set(key, pi)
@@ -560,7 +640,7 @@ export class PiManager {
     }
   }
 
-  ensureRunning(key) {
+  ensureRunning(key: string): PiProcess | null {
     const pi = this.slots.get(key)
     if (!pi) return null
     // Restart if process is missing or dead
@@ -574,11 +654,11 @@ export class PiManager {
     return pi
   }
 
-  getSlot(key) {
+  getSlot(key: string): PiProcess | undefined {
     return this.slots.get(key)
   }
 
-  deleteSlot(key) {
+  deleteSlot(key: string): void {
     const pi = this.slots.get(key)
     if (pi) {
       pi.kill()
@@ -587,7 +667,7 @@ export class PiManager {
     }
   }
 
-  listSlots() {
+  listSlots(): SlotInfo[] {
     return Array.from(this.slots.entries()).map(([key, pi]) => {
       // Derive timestamps: created from key, updated from last message or last activity
       const keyParts = key.split('-')
@@ -613,7 +693,7 @@ export class PiManager {
     })
   }
 
-  getSlotDetail(key, limit = 200) {
+  getSlotDetail(key: string, limit: number = 200): SlotDetail | null {
     const pi = this.slots.get(key)
     if (!pi) return null
     const msgs = pi.messages.slice(-limit)
@@ -631,13 +711,13 @@ export class PiManager {
   }
 
   /** Get available models (cached, refreshed via any running pi process) */
-  async getModels() {
+  async getModels(): Promise<any[]> {
     // Cache for 5 minutes
     if (this._modelCache && Date.now() - this._modelCacheTime < 300000) {
       return this._modelCache
     }
     // Find a running pi process to query, or start a temp one
-    let pi = null
+    let pi: PiProcess | null = null
     for (const p of this.slots.values()) {
       if (p.proc && p.ready) { pi = p; break }
     }
@@ -646,7 +726,7 @@ export class PiManager {
       pi = new PiProcess('_temp', {})
       pi.start()
       // Wait a bit for startup
-      await new Promise(r => setTimeout(r, 8000))
+      await new Promise<void>(r => setTimeout(r, 8000))
     }
     try {
       const models = await pi.getAvailableModels()
@@ -660,7 +740,7 @@ export class PiManager {
     }
   }
 
-  status() {
+  status(): { version: string; uptime: number; sessions: number; messages: number; tool_calls: number; provider: string } {
     let totalMessages = 0
     let totalToolCalls = 0
     for (const pi of this.slots.values()) {
@@ -677,7 +757,7 @@ export class PiManager {
     }
   }
 
-  async getCommands() {
+  async getCommands(): Promise<any[] | null> {
     // Try to get commands from a running pi process via RPC
     for (const pi of this.slots.values()) {
       if (pi.proc && pi.ready) {
@@ -687,11 +767,11 @@ export class PiManager {
     return null // No running process to query
   }
 
-  _save() {
+  _save(): void {
     if (this._onStateChange) this._onStateChange()
   }
 
-  _healthCheck() {
+  _healthCheck(): void {
     const now = Date.now()
     for (const pi of this.slots.values()) {
       pi.checkHealth()
@@ -707,7 +787,7 @@ export class PiManager {
     }
   }
 
-  shutdown() {
+  shutdown(): void {
     if (this._healthInterval) {
       clearInterval(this._healthInterval)
       this._healthInterval = null

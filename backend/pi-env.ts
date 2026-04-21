@@ -14,9 +14,92 @@ const MEMORY_DB = join(HOME, '.pi', 'memory', 'memory.db')
 const SESSIONS_DIR = join(PI_DIR, 'sessions')
 const DASH_CONFIG_PATH = join(HOME, '.pi', 'dashboard.json')
 
+// ── Interfaces ──
+
+interface VaultDirs {
+  daily: string
+  tasks: string
+  meetings: string
+  people: string
+  recipes: string
+}
+
+interface VaultConfig {
+  path: string
+  dirs: VaultDirs
+}
+
+interface DashConfig {
+  vault: VaultConfig
+  [key: string]: unknown
+}
+
+interface MemoryStats {
+  facts: number
+  lessons: number
+  events: number
+}
+
+interface Lesson {
+  id: string
+  rule: string
+  category: string
+  negative: number
+  created_at: string
+}
+
+interface Fact {
+  key: string
+  value: string
+  confidence: number
+  source: string
+  updated_at: string
+}
+
+interface SessionSummary {
+  key: string
+  title: string
+  project: string
+  created: string
+  modified: string
+  size: number
+}
+
+interface Skill {
+  name: string
+  description: string
+}
+
+interface Extension {
+  name: string
+  file: string
+  description: string
+}
+
+interface CrontabEntry {
+  schedule: string
+  command: string
+  raw: string
+}
+
+interface VaultStats {
+  path: string
+  dailyNotes: number
+  taskNotes: number
+  meetingNotes: number
+  persons: number
+  recipes: number
+  recentDaily: string
+}
+
+interface DailyNoteSummary {
+  date: string
+  size: number
+}
+
 // ── Dashboard config (vault path etc.) ──
 
-const DEFAULT_DASH_CONFIG = {
+const DEFAULT_DASH_CONFIG: DashConfig = {
   vault: {
     path: '',  // empty = disabled
     dirs: {
@@ -29,13 +112,13 @@ const DEFAULT_DASH_CONFIG = {
   },
 }
 
-let _dashConfig = null
+let _dashConfig: DashConfig | null = null
 
-export function getDashConfig() {
+export function getDashConfig(): DashConfig {
   if (_dashConfig) return _dashConfig
   try {
     if (existsSync(DASH_CONFIG_PATH)) {
-      const raw = JSON.parse(readFileSync(DASH_CONFIG_PATH, 'utf-8'))
+      const raw = JSON.parse(readFileSync(DASH_CONFIG_PATH, 'utf-8')) as Partial<DashConfig> & { vault?: Partial<VaultConfig> & { dirs?: Partial<VaultDirs> } }
       _dashConfig = { ...DEFAULT_DASH_CONFIG, ...raw, vault: { ...DEFAULT_DASH_CONFIG.vault, ...raw.vault, dirs: { ...DEFAULT_DASH_CONFIG.vault.dirs, ...(raw.vault?.dirs || {}) } } }
     } else {
       _dashConfig = DEFAULT_DASH_CONFIG
@@ -43,10 +126,10 @@ export function getDashConfig() {
   } catch {
     _dashConfig = DEFAULT_DASH_CONFIG
   }
-  return _dashConfig
+  return _dashConfig!
 }
 
-export function saveDashConfig(config) {
+export function saveDashConfig(config: Partial<DashConfig> & { vault?: Partial<VaultConfig> & { dirs?: Partial<VaultDirs> } }): DashConfig {
   _dashConfig = { ...DEFAULT_DASH_CONFIG, ...config, vault: { ...DEFAULT_DASH_CONFIG.vault, ...config.vault, dirs: { ...DEFAULT_DASH_CONFIG.vault.dirs, ...(config.vault?.dirs || {}) } } }
   const dir = join(HOME, '.pi')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
@@ -54,45 +137,45 @@ export function saveDashConfig(config) {
   return _dashConfig
 }
 
-function getVaultDir() {
+function getVaultDir(): string {
   const cfg = getDashConfig()
   return cfg.vault?.path || ''
 }
 
-function getVaultSubdir(key) {
+function getVaultSubdir(key: keyof VaultDirs): string {
   const cfg = getDashConfig()
   return cfg.vault?.dirs?.[key] || DEFAULT_DASH_CONFIG.vault.dirs[key]
 }
 
 // ── SQLite helper (via CLI) ──
 
-function sqliteQuery(sql) {
+function sqliteQuery(sql: string): unknown[] {
   if (!existsSync(MEMORY_DB)) return []
   try {
-    const raw = execSync(
+    const raw: string = execSync(
       `sqlite3 -json "${MEMORY_DB}" ${JSON.stringify(sql)}`,
       { encoding: 'utf-8', timeout: 5000 }
     )
-    return JSON.parse(raw)
+    return JSON.parse(raw) as unknown[]
   } catch { return [] }
 }
 
 // ── Memory ──
 
-export function getLessons(limit = 100) {
+export function getLessons(limit: number = 100): Lesson[] {
   return sqliteQuery(
     `SELECT id, rule, category, negative, created_at FROM lessons WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT ${limit}`
-  )
+  ) as Lesson[]
 }
 
-export function getFacts() {
+export function getFacts(): Fact[] {
   return sqliteQuery(
     'SELECT key, value, confidence, source, updated_at FROM semantic ORDER BY updated_at DESC'
-  )
+  ) as Fact[]
 }
 
-export function getMemoryStats() {
-  const r = (sql) => { try { const rows = sqliteQuery(sql); return rows[0]?.c || 0 } catch { return 0 } }
+export function getMemoryStats(): MemoryStats {
+  const r = (sql: string): number => { try { const rows = sqliteQuery(sql) as Array<{ c: number }>; return rows[0]?.c || 0 } catch { return 0 } }
   return {
     facts: r('SELECT count(*) as c FROM semantic'),
     lessons: r('SELECT count(*) as c FROM lessons WHERE is_deleted = 0'),
@@ -102,8 +185,8 @@ export function getMemoryStats() {
 
 // ── Sessions ──
 
-export function getRecentSessions(limit = 30) {
-  const sessions = []
+export function getRecentSessions(limit: number = 30): SessionSummary[] {
+  const sessions: SessionSummary[] = []
   try {
     const dirs = readdirSync(SESSIONS_DIR).filter(d => d.startsWith('--'))
     for (const dir of dirs) {
@@ -116,21 +199,21 @@ export function getRecentSessions(limit = 30) {
       for (const f of files.slice(0, 5)) {
         const filePath = join(full, f)
         const stat = statSync(filePath)
-        let title = f.replace('.jsonl', '')
+        let title: string = f.replace('.jsonl', '')
         try {
           const head = readFileSync(filePath, 'utf-8').slice(0, 8000)
           const lines = head.split('\n').filter(Boolean)
           for (const line of lines) {
             try {
-              const obj = JSON.parse(line)
+              const obj = JSON.parse(line) as { sessionName?: string; type?: string; message?: { role?: string; content?: unknown } }
               if (obj.sessionName) { title = obj.sessionName; break }
               if (obj.type === 'message' && obj.message?.role === 'user') {
-                const text = extractText(obj.message.content, ' ')
+                const text = extractText(obj.message.content as string | null, ' ')
                 if (text) { title = text.slice(0, 100).replace(/\n/g, ' '); break }
               }
-            } catch {}
+            } catch { /* skip malformed lines */ }
           }
-        } catch {}
+        } catch { /* skip unreadable files */ }
         sessions.push({
           key: f.replace('.jsonl', ''),
           title,
@@ -141,9 +224,9 @@ export function getRecentSessions(limit = 30) {
         })
       }
     }
-  } catch {}
+  } catch { /* skip if sessions dir missing */ }
   // Exclude hook-generated sessions (e.g. memory extraction on session close)
-  const EXCLUDED_PREFIXES = ['You are a memory extraction system']
+  const EXCLUDED_PREFIXES: string[] = ['You are a memory extraction system']
 
   return sessions
     .filter(s => !EXCLUDED_PREFIXES.some(p => s.title.startsWith(p)))
@@ -153,10 +236,10 @@ export function getRecentSessions(limit = 30) {
 
 // ── Skills ──
 
-export function getSkills() {
+export function getSkills(): Skill[] {
   const skillsDir = join(PI_DIR, 'skills')
   if (!existsSync(skillsDir)) return []
-  const skills = []
+  const skills: Skill[] = []
   try {
     for (const name of readdirSync(skillsDir)) {
       const skillFile = join(skillsDir, name, 'SKILL.md')
@@ -170,13 +253,13 @@ export function getSkills() {
       }
       skills.push({ name, description })
     }
-  } catch {}
+  } catch { /* skip on error */ }
   return skills
 }
 
 // ── Extensions ──
 
-export function getExtensions() {
+export function getExtensions(): Extension[] {
   const extDir = join(PI_DIR, 'extensions')
   if (!existsSync(extDir)) return []
   try {
@@ -196,9 +279,9 @@ export function getExtensions() {
 
 // ── Crontab ──
 
-export function getCrontab() {
+export function getCrontab(): CrontabEntry[] {
   try {
-    const raw = execSync('crontab -l 2>/dev/null', { encoding: 'utf-8' })
+    const raw: string = execSync('crontab -l 2>/dev/null', { encoding: 'utf-8' })
     return raw.split('\n')
       .filter(l => l.trim() && !l.startsWith('#'))
       .map(line => {
@@ -211,9 +294,9 @@ export function getCrontab() {
 
 // ── Vault ──
 
-export function getVaultStats() {
+export function getVaultStats(): VaultStats {
   const VAULT_DIR = getVaultDir()
-  const stats = { path: VAULT_DIR, dailyNotes: 0, taskNotes: 0, meetingNotes: 0, persons: 0, recipes: 0, recentDaily: '' }
+  const stats: VaultStats = { path: VAULT_DIR, dailyNotes: 0, taskNotes: 0, meetingNotes: 0, persons: 0, recipes: 0, recentDaily: '' }
   if (!VAULT_DIR || !existsSync(VAULT_DIR)) return stats
   try {
     const dn = join(VAULT_DIR, getVaultSubdir('daily'))
@@ -230,11 +313,11 @@ export function getVaultStats() {
     if (existsSync(pn)) stats.persons = readdirSync(pn).filter(f => f.endsWith('.md')).length
     const rn = join(VAULT_DIR, getVaultSubdir('recipes'))
     if (existsSync(rn)) stats.recipes = readdirSync(rn).filter(f => f.endsWith('.md')).length
-  } catch {}
+  } catch { /* skip on error */ }
   return stats
 }
 
-export function getDailyNote(date) {
+export function getDailyNote(date: string): string | null {
   const VAULT_DIR = getVaultDir()
   if (!VAULT_DIR) return null
   const file = join(VAULT_DIR, getVaultSubdir('daily'), `${date}.md`)
@@ -242,7 +325,7 @@ export function getDailyNote(date) {
   return readFileSync(file, 'utf-8')
 }
 
-export function getRecentDailyNotes(limit = 7) {
+export function getRecentDailyNotes(limit: number = 7): DailyNoteSummary[] {
   const VAULT_DIR = getVaultDir()
   if (!VAULT_DIR) return []
   const dn = join(VAULT_DIR, getVaultSubdir('daily'))

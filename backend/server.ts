@@ -2,32 +2,41 @@
  * Pi Dashboard — Express server with WebSocket
  * Bridges the React frontend to pi via RPC mode.
  */
-import express from 'express'
-import { WebSocketServer } from 'ws'
-import { createServer } from 'http'
+import express, { Request, Response } from 'express'
+import WebSocket, { WebSocketServer } from 'ws'
+import { createServer, IncomingMessage } from 'http'
 import { fileURLToPath } from 'url'
 import { dirname, join, basename } from 'path'
-import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, watch as fsWatch } from 'fs'
+import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, watch as fsWatch, FSWatcher } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import os from 'os'
 import { execSync } from 'child_process'
-import { PiManager } from './pi-manager.js'
+import { Duplex } from 'stream'
+import { PiManager, PiProcess } from './pi-manager.js'
 import { handlePtyConnection, shutdownAll as shutdownPty } from './pty-manager.js'
 import * as piEnv from './pi-env.js'
-import { saveSlotState, saveSlotStateSync, loadSlotState, findSessionFile, parseSessionMessages, parseSessionTree } from './session-store.js'
+import { saveSlotState, saveSlotStateSync, loadSlotState, findSessionFile, parseSessionMessages, parseSessionTree, ChatMessage } from './session-store.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = parseInt(process.env.PI_DASH_PORT || '7777', 10)
 const DIST_DIR = join(__dirname, '..', 'frontend', 'dist')
 
 // ── Notifications ──
-/** @type {{ kind: string; title: string; body: string; ts: string; acked: boolean; slot?: string }[]} */
-const notifications = []
+interface Notification {
+  kind: string
+  title: string
+  body: string
+  ts: string
+  acked: boolean
+  slot?: string
+}
+
+const notifications: Notification[] = []
 const NOTIF_MAX = 200
 const LONG_TOOL_THRESHOLD_MS = 60_000 // 60 seconds
 
-function addNotification(notif) {
-  const entry = { ...notif, ts: new Date().toISOString(), acked: false }
+function addNotification(notif: Omit<Notification, 'ts' | 'acked'>): Notification {
+  const entry: Notification = { ...notif, ts: new Date().toISOString(), acked: false }
   notifications.push(entry)
   if (notifications.length > NOTIF_MAX) notifications.splice(0, notifications.length - NOTIF_MAX)
   broadcast('notification', entry)
@@ -43,7 +52,7 @@ const manager = new PiManager()
 const savedSlots = loadSlotState()
 for (const s of savedSlots) {
   // Load messages from session file if available, otherwise use persisted messages
-  let messages = s.messages || []
+  let messages: ChatMessage[] = s.messages || []
   if (s.sessionFile && !messages.length) {
     try {
       messages = parseSessionMessages(s.sessionFile, 200)
@@ -61,36 +70,35 @@ for (const s of savedSlots) {
 if (savedSlots.length > 0) console.log(`   Restored ${savedSlots.length} chat slot(s)`)
 
 // ── Auto-save slot state on changes ──
-function persistSlots() { saveSlotState(manager.slots) }
+function persistSlots(): void { saveSlotState(manager.slots as any) }
 manager._onStateChange = persistSlots
 
-/** @type {Set<import('ws').WebSocket>} */
-const wsClients = new Set()
+const wsClients: Set<WebSocket> = new Set()
 
 // ── Middleware ──
 app.use(express.json({ limit: '50mb' }))
 
 // ── Broadcast to all WS clients ──
-function broadcast(type, data) {
+function broadcast(type: string, data: any): void {
   try {
     const msg = JSON.stringify({ type, data })
     for (const ws of wsClients) {
       try { if (ws.readyState === 1) ws.send(msg) } catch {}
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('broadcast error:', e.message)
   }
 }
 
-function broadcastSlots() {
+function broadcastSlots(): void {
   broadcast('slots', manager.listSlots())
 }
 
 // ── Version Store + Recent Writes (Doc Collaboration) ──
-const versionStore = new Map() // Map<path, {version,content,timestamp}[]>
-const recentWrites = new Map() // Map<path, timestamp> for self-write suppression
+const versionStore: Map<string, { version: number; content: string; timestamp: string }[]> = new Map()
+const recentWrites: Map<string, number> = new Map() // Map<path, timestamp> for self-write suppression
 
-function createVersion(filePath, content) {
+function createVersion(filePath: string, content: string): number {
   let versions = versionStore.get(filePath)
   if (!versions) { versions = []; versionStore.set(filePath, versions) }
   const version = versions.length ? versions[versions.length - 1].version + 1 : 1
@@ -100,17 +108,16 @@ function createVersion(filePath, content) {
 }
 
 // ── File Watcher (Doc Collaboration) ──
-// Map<path, { watcher: FSWatcher, debounceTimer: Timeout|null, clients: Set<ws> }>
-const fileWatchers = new Map()
+const fileWatchers: Map<string, { watcher: FSWatcher; debounceTimer: ReturnType<typeof setTimeout> | null; clients: Set<WebSocket> }> = new Map()
 
-function startWatching(filePath, ws) {
+function startWatching(filePath: string, ws: WebSocket): void {
   let entry = fileWatchers.get(filePath)
   if (entry) {
     entry.clients.add(ws)
     return
   }
-  const clients = new Set([ws])
-  let debounceTimer = null
+  const clients: Set<WebSocket> = new Set([ws])
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
   const watcher = fsWatch(filePath, (eventType) => {
     if (eventType === 'rename') {
       // File deleted or renamed
@@ -147,7 +154,7 @@ function startWatching(filePath, ws) {
   fileWatchers.set(filePath, { watcher, debounceTimer, clients })
 }
 
-function stopWatching(filePath, ws) {
+function stopWatching(filePath: string, ws: WebSocket): void {
   const entry = fileWatchers.get(filePath)
   if (!entry) return
   entry.clients.delete(ws)
@@ -158,7 +165,7 @@ function stopWatching(filePath, ws) {
   }
 }
 
-function stopWatchingAll(filePath) {
+function stopWatchingAll(filePath: string): void {
   const entry = fileWatchers.get(filePath)
   if (!entry) return
   if (entry.debounceTimer) clearTimeout(entry.debounceTimer)
@@ -166,7 +173,7 @@ function stopWatchingAll(filePath) {
   fileWatchers.delete(filePath)
 }
 
-function cleanupClientWatchers(ws) {
+function cleanupClientWatchers(ws: WebSocket): void {
   for (const filePath of [...fileWatchers.keys()]) {
     stopWatching(filePath, ws)
   }
@@ -177,18 +184,18 @@ if (!process.env.VITEST) setInterval(() => broadcast('dashboard', manager.status
 
 // ── REST API ──
 
-app.get('/api/status', (_req, res) => res.json(manager.status()))
+app.get('/api/status', (_req: Request, res: Response) => res.json(manager.status()))
 
-app.get('/api/system', (_req, res) => {
+app.get('/api/system', (_req: Request, res: Response) => {
   const mem = os.totalmem()
   const free = os.freemem()
   const used = mem - free
-  const toGB = (b) => (b / 1073741824).toFixed(1)
+  const toGB = (b: number): string => (b / 1073741824).toFixed(1)
   const cpus = os.cpus()
   const load = os.loadavg()
 
   // Disk usage
-  let diskTotal = '', diskFree = ''
+  let diskTotal: string | number = '', diskFree: string | number = ''
   try {
     const dfCmd = process.platform === 'darwin' ? "df -g / | tail -1" : "df -BG / | tail -1"
     const df = execSync(dfCmd, { encoding: 'utf-8', timeout: 2000 }).trim().split(/\s+/)
@@ -209,7 +216,7 @@ app.get('/api/system', (_req, res) => {
   } catch {}
 
   // Process info
-  let procMem = '', procCpu = '', childProcs = '', threads = ''
+  let procMem: string = '', procCpu: string = '', childProcs: string = '', threads: string = ''
   try {
     procMem = (process.memoryUsage.rss() / 1048576).toFixed(1)
   } catch {}
@@ -264,11 +271,11 @@ app.get('/api/system', (_req, res) => {
 })
 
 // Chat slots
-app.get('/api/chat/slots', (_req, res) => res.json(manager.listSlots()))
+app.get('/api/chat/slots', (_req: Request, res: Response) => res.json(manager.listSlots()))
 
-app.post('/api/chat/slots', (req, res) => {
+app.post('/api/chat/slots', (req: Request, res: Response) => {
   const { name, agent, model, cwd } = req.body || {}
-  let modelProvider = null, modelId = null
+  let modelProvider: string | null = null, modelId: string | null = null
   if (model && model.includes('/')) {
     const idx = model.indexOf('/')
     modelProvider = model.slice(0, idx)
@@ -279,7 +286,7 @@ app.post('/api/chat/slots', (req, res) => {
     ? (rawCwd === '~' ? os.homedir() : rawCwd.startsWith('~/') ? join(os.homedir(), rawCwd.slice(2)) : rawCwd)
     : null
   const slot = manager.createSlot(name, agent, { modelProvider, modelId, cwd: resolvedCwd })
-  const pi = manager.getSlot(slot.key)
+  const pi = manager.getSlot(slot.key)!
   _wireSlotEvents(pi, slot.key)
   pi._wired = true
   broadcastSlots()
@@ -288,8 +295,8 @@ app.post('/api/chat/slots', (req, res) => {
 
 
 // Session tree for a slot
-app.get('/api/chat/slots/:key/tree', (req, res) => {
-  const pi = manager.getSlot(req.params.key)
+app.get('/api/chat/slots/:key/tree', (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   const sessionPath = pi.sessionFile
   if (!sessionPath) return res.json({ entries: [], leafId: null })
@@ -297,12 +304,12 @@ app.get('/api/chat/slots/:key/tree', (req, res) => {
 })
 
 // Fork from a user message — creates a NEW slot with a forked session
-app.post('/api/chat/slots/:key/fork', async (req, res) => {
+app.post('/api/chat/slots/:key/fork', async (req: Request, res: Response) => {
   const { entryId } = req.body
   if (!entryId) return res.status(400).json({ error: 'entryId required' })
-  const pi = manager.ensureRunning(req.params.key)
+  const pi = manager.ensureRunning(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
-  if (!pi._wired) { _wireSlotEvents(pi, req.params.key); pi._wired = true }
+  if (!pi._wired) { _wireSlotEvents(pi, req.params.key as string); pi._wired = true }
   try {
     const result = await pi.request({ type: 'fork', entryId })
     if (result.data?.cancelled) return res.json({ ok: false, cancelled: true })
@@ -323,7 +330,7 @@ app.post('/api/chat/slots/:key/fork', async (req, res) => {
       modelId: pi.modelId,
       cwd: pi.cwd,
     })
-    const forkPi = manager.getSlot(forkSlot.key)
+    const forkPi = manager.getSlot(forkSlot.key)!
     _wireSlotEvents(forkPi, forkSlot.key)
     forkPi._wired = true
     // Kill and restart original slot so it goes back to its original session
@@ -331,68 +338,68 @@ app.post('/api/chat/slots/:key/fork', async (req, res) => {
     persistSlots()
     broadcastSlots()
     res.json({ ok: true, text, newSlotKey: forkSlot.key })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
 // Get fork-able messages for a slot
-app.get('/api/chat/slots/:key/fork-messages', async (req, res) => {
-  const pi = manager.getSlot(req.params.key)
+app.get('/api/chat/slots/:key/fork-messages', async (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   try {
     const result = await pi.request({ type: 'get_fork_messages' })
     res.json(result)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-app.get('/api/chat/slots/:key', (req, res) => {
-  const limit = parseInt(req.query.limit || '200', 10)
-  const detail = manager.getSlotDetail(req.params.key, limit)
+app.get('/api/chat/slots/:key', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string || '200', 10)
+  const detail = manager.getSlotDetail(req.params.key as string, limit)
   if (!detail) return res.status(404).json({ error: 'slot not found' })
   res.json(detail)
 })
 
-app.delete('/api/chat/slots/:key', (req, res) => {
-  manager.deleteSlot(req.params.key)
+app.delete('/api/chat/slots/:key', (req: Request, res: Response) => {
+  manager.deleteSlot(req.params.key as string)
   broadcastSlots()
   res.json({ ok: true })
 })
 
-app.post('/api/chat/slots/:key/stop', (req, res) => {
-  const pi = manager.getSlot(req.params.key)
+app.post('/api/chat/slots/:key/stop', (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   pi.abort()
   res.json({ ok: true })
 })
 
-app.patch('/api/chat/slots/:key/title', (req, res) => {
-  const pi = manager.getSlot(req.params.key)
+app.patch('/api/chat/slots/:key/title', (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   pi._title = req.body.title || 'New Chat'
   pi._userRenamed = true  // Don't let auto-naming overwrite this
   broadcastSlots()
-  broadcast('slot_title', { key: req.params.key, title: pi._title })
+  broadcast('slot_title', { key: req.params.key as string, title: pi._title })
   persistSlots()
   res.json({ ok: true })
 })
 
-app.post('/api/chat/slots/:key/generate-title', (req, res) => {
-  const pi = manager.getSlot(req.params.key)
+app.post('/api/chat/slots/:key/generate-title', (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
-  const firstUser = pi.messages.find(m => m.role === 'user')
+  const firstUser = pi.messages.find((m: ChatMessage) => m.role === 'user')
   const title = firstUser ? firstUser.content.slice(0, 60).replace(/\n/g, ' ') : 'New Chat'
   pi._title = title
-  broadcast('slot_title', { key: req.params.key, title })
+  broadcast('slot_title', { key: req.params.key as string, title })
   broadcastSlots()
   persistSlots()
   res.json({ ok: true, title })
 })
 
-app.post('/api/chat/slots/:key/resume', (req, res) => {
+app.post('/api/chat/slots/:key/resume', (req: Request, res: Response) => {
   const { name, key: reqKey, title } = req.body || {}
-  const sessionKey = req.params.key
+  const sessionKey = req.params.key as string
   // Find the actual session JSONL file
   const sessionPath = findSessionFile(sessionKey)
-  let messages = []
+  let messages: ChatMessage[] = []
   if (sessionPath) {
     messages = parseSessionMessages(sessionPath, 200)
   }
@@ -402,7 +409,7 @@ app.post('/api/chat/slots/:key/resume', (req, res) => {
     sessionFile: sessionPath,
     title: title || name || sessionKey,
   })
-  const pi = manager.getSlot(slot.key)
+  const pi = manager.getSlot(slot.key)!
   _wireSlotEvents(pi, slot.key)
   pi._wired = true
   broadcastSlots()
@@ -411,7 +418,7 @@ app.post('/api/chat/slots/:key/resume', (req, res) => {
 })
 
 // Send chat message
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', async (req: Request, res: Response) => {
   const { message, slot, images } = req.body
   if (!slot) return res.status(400).json({ error: 'slot required' })
   // Lazy-start pi process if needed
@@ -429,14 +436,14 @@ app.post('/api/chat', async (req, res) => {
 })
 
 // Approval mode (stub)
-app.post('/api/chat/mode', (_req, res) => res.json({ ok: true }))
+app.post('/api/chat/mode', (_req: Request, res: Response) => res.json({ ok: true }))
 
 // Notifications (stubs)
-app.get('/api/notifications', (_req, res) => res.json({ notifications }))
+app.get('/api/notifications', (_req: Request, res: Response) => res.json({ notifications }))
 
 // Lightweight poll endpoint for iOS background refresh
-app.get('/api/poll', (_req, res) => {
-  const slots = manager.listSlots().map(s => ({
+app.get('/api/poll', (_req: Request, res: Response) => {
+  const slots = manager.listSlots().map((s: any) => ({
     key: s.key,
     title: s.title,
     running: s.running,
@@ -445,41 +452,41 @@ app.get('/api/poll', (_req, res) => {
   const unacked = notifications.filter(n => !n.acked)
   res.json({ slots, notifications: unacked })
 })
-app.post('/api/notifications/clear', (_req, res) => { notifications.length = 0; res.json({ ok: true }) })
-app.post('/api/notifications/ack', (req, res) => {
+app.post('/api/notifications/clear', (_req: Request, res: Response) => { notifications.length = 0; res.json({ ok: true }) })
+app.post('/api/notifications/ack', (req: Request, res: Response) => {
   const n = notifications.find(n => n.ts === req.body.ts)
   if (n) n.acked = true
   res.json({ ok: true })
 })
-app.post('/api/notifications/unack', (req, res) => {
+app.post('/api/notifications/unack', (req: Request, res: Response) => {
   const n = notifications.find(n => n.ts === req.body.ts)
   if (n) n.acked = false
   res.json({ ok: true })
 })
-app.post('/api/notifications/ack-all', (_req, res) => {
+app.post('/api/notifications/ack-all', (_req: Request, res: Response) => {
   for (const n of notifications) n.acked = true
   res.json({ ok: true })
 })
-app.delete('/api/notifications', (_req, res) => { notifications.length = 0; res.json({ ok: true }) })
+app.delete('/api/notifications', (_req: Request, res: Response) => { notifications.length = 0; res.json({ ok: true }) })
 
 // Sessions history
-app.get('/api/sessions', (req, res) => {
-  const limit = parseInt(req.query.limit || '30', 10)
+app.get('/api/sessions', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string || '30', 10)
   const sessions = piEnv.getRecentSessions(limit)
   res.json({ sessions, has_more: false })
 })
-app.delete('/api/sessions/:key', (_req, res) => res.json({ ok: true }))
-app.delete('/api/sessions', (_req, res) => res.json({ ok: true }))
+app.delete('/api/sessions/:key', (_req: Request, res: Response) => res.json({ ok: true }))
+app.delete('/api/sessions', (_req: Request, res: Response) => res.json({ ok: true }))
 
 // Skills
-app.get('/api/skills', (_req, res) => res.json(piEnv.getSkills()))
+app.get('/api/skills', (_req: Request, res: Response) => res.json(piEnv.getSkills()))
 
 // Skill files: list all files in a skill directory
-app.get('/api/skills/:name/files', (req, res) => {
-  const skillDir = join(os.homedir(), '.pi', 'agent', 'skills', req.params.name)
+app.get('/api/skills/:name/files', (req: Request, res: Response) => {
+  const skillDir = join(os.homedir(), '.pi', 'agent', 'skills', req.params.name as string)
   try {
-    const files = []
-    const walk = (dir, prefix) => {
+    const files: string[] = []
+    const walk = (dir: string, prefix: string): void => {
       for (const e of readdirSync(dir, { withFileTypes: true })) {
         const rel = prefix ? prefix + '/' + e.name : e.name
         if (e.isDirectory()) walk(join(dir, e.name), rel)
@@ -487,47 +494,47 @@ app.get('/api/skills/:name/files', (req, res) => {
       }
     }
     walk(skillDir, '')
-    res.json({ name: req.params.name, files })
-  } catch (e) {
+    res.json({ name: req.params.name as string, files })
+  } catch (e: any) {
     res.status(e.code === 'ENOENT' ? 404 : 500).json({ error: e.message })
   }
 })
 
 // Read a specific file within a skill
-app.get('/api/skills/:name/file', (req, res) => {
-  const filePath = req.query.path
+app.get('/api/skills/:name/file', (req: Request, res: Response) => {
+  const filePath = req.query.path as string
   if (!filePath) return res.status(400).json({ error: 'path query param required' })
   // Prevent path traversal
   if (filePath.includes('..')) return res.status(400).json({ error: 'invalid path' })
-  const full = join(os.homedir(), '.pi', 'agent', 'skills', req.params.name, filePath)
+  const full = join(os.homedir(), '.pi', 'agent', 'skills', req.params.name as string, filePath)
   try {
     res.json({ content: readFileSync(full, 'utf-8') })
-  } catch (e) {
+  } catch (e: any) {
     res.status(e.code === 'ENOENT' ? 404 : 500).json({ error: e.message })
   }
 })
 
 // Write a specific file within a skill
-app.put('/api/skills/:name/file', (req, res) => {
+app.put('/api/skills/:name/file', (req: Request, res: Response) => {
   const { path: filePath, content } = req.body
   if (!filePath || content == null) return res.status(400).json({ error: 'path and content required' })
   if (filePath.includes('..')) return res.status(400).json({ error: 'invalid path' })
-  const full = join(os.homedir(), '.pi', 'agent', 'skills', req.params.name, filePath)
+  const full = join(os.homedir(), '.pi', 'agent', 'skills', req.params.name as string, filePath)
   try {
     mkdirSync(dirname(full), { recursive: true })
     writeFileSync(full, content, 'utf-8')
     res.json({ ok: true })
-  } catch (e) {
+  } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
 })
 
 // Pi agent file browser — covers skills, extensions, prompts, AGENTS.md, settings.json
 const PI_AGENT_DIR = join(os.homedir(), '.pi', 'agent')
-const expandHome = (p) => p && p.startsWith('~/') ? join(os.homedir(), p.slice(2)) : p
+const expandHome = (p: string | undefined): string | undefined => p && p.startsWith('~/') ? join(os.homedir(), p.slice(2)) : p
 
-app.get('/api/pi/files', (req, res) => {
-  const sub = req.query.dir || ''
+app.get('/api/pi/files', (req: Request, res: Response) => {
+  const sub = (req.query.dir as string) || ''
   if (sub.includes('..')) return res.status(400).json({ error: 'invalid path' })
   const target = sub ? join(PI_AGENT_DIR, sub) : PI_AGENT_DIR
   try {
@@ -536,22 +543,22 @@ app.get('/api/pi/files', (req, res) => {
       .map(e => ({ name: e.name, isDir: e.isDirectory() }))
       .sort((a, b) => a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1)
     res.json({ dir: sub || '.', entries })
-  } catch (e) {
+  } catch (e: any) {
     res.status(e.code === 'ENOENT' ? 404 : 500).json({ error: e.message })
   }
 })
 
-app.get('/api/pi/file', (req, res) => {
-  const filePath = req.query.path
+app.get('/api/pi/file', (req: Request, res: Response) => {
+  const filePath = req.query.path as string
   if (!filePath || filePath.includes('..')) return res.status(400).json({ error: 'invalid path' })
   try {
     res.json({ content: readFileSync(join(PI_AGENT_DIR, filePath), 'utf-8') })
-  } catch (e) {
+  } catch (e: any) {
     res.status(e.code === 'ENOENT' ? 404 : 500).json({ error: e.message })
   }
 })
 
-app.put('/api/pi/file', (req, res) => {
+app.put('/api/pi/file', (req: Request, res: Response) => {
   const { path: filePath, content } = req.body
   if (!filePath || content == null || filePath.includes('..')) return res.status(400).json({ error: 'invalid path or content' })
   const full = join(PI_AGENT_DIR, filePath)
@@ -559,66 +566,66 @@ app.put('/api/pi/file', (req, res) => {
     mkdirSync(dirname(full), { recursive: true })
     writeFileSync(full, content, 'utf-8')
     res.json({ ok: true })
-  } catch (e) {
+  } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
 })
 
 // Crons
-app.get('/api/crons', (_req, res) => res.json(piEnv.getCrontab()))
+app.get('/api/crons', (_req: Request, res: Response) => res.json(piEnv.getCrontab()))
 
 // Lessons
-app.get('/api/lessons', (_req, res) => res.json(piEnv.getLessons()))
-app.get('/api/hooks', (_req, res) => res.json([]))
+app.get('/api/lessons', (_req: Request, res: Response) => res.json(piEnv.getLessons()))
+app.get('/api/hooks', (_req: Request, res: Response) => res.json([]))
 
 // MCP (stubs)
-app.get('/api/mcp', (_req, res) => res.json([]))
-app.get('/api/mcp/active', (_req, res) => res.json([]))
-app.get('/api/mcp/probe', (_req, res) => res.json({ results: {} }))
-app.post('/api/mcp/probe', (_req, res) => res.json({ results: {} }))
+app.get('/api/mcp', (_req: Request, res: Response) => res.json([]))
+app.get('/api/mcp/active', (_req: Request, res: Response) => res.json([]))
+app.get('/api/mcp/probe', (_req: Request, res: Response) => res.json({ results: {} }))
+app.post('/api/mcp/probe', (_req: Request, res: Response) => res.json({ results: {} }))
 
 // Memory
-app.get('/api/memory/preferences', (_req, res) => res.json({ content: JSON.stringify(piEnv.getFacts(), null, 2) }))
-app.get('/api/memory/projects', (_req, res) => res.json({ content: '' }))
-app.get('/api/memory/history', (_req, res) => res.json({ content: '' }))
-app.get('/api/memory/settings', (_req, res) => res.json({}))
-app.get('/api/memory/stats', (_req, res) => res.json(piEnv.getMemoryStats()))
-app.get('/api/memory/embedding-status', (_req, res) => res.json({ enabled: false }))
-app.put('/api/memory/preferences', (_req, res) => res.json({ ok: true }))
-app.put('/api/memory/projects', (_req, res) => res.json({ ok: true }))
-app.put('/api/memory/history', (_req, res) => res.json({ ok: true }))
+app.get('/api/memory/preferences', (_req: Request, res: Response) => res.json({ content: JSON.stringify(piEnv.getFacts(), null, 2) }))
+app.get('/api/memory/projects', (_req: Request, res: Response) => res.json({ content: '' }))
+app.get('/api/memory/history', (_req: Request, res: Response) => res.json({ content: '' }))
+app.get('/api/memory/settings', (_req: Request, res: Response) => res.json({}))
+app.get('/api/memory/stats', (_req: Request, res: Response) => res.json(piEnv.getMemoryStats()))
+app.get('/api/memory/embedding-status', (_req: Request, res: Response) => res.json({ enabled: false }))
+app.put('/api/memory/preferences', (_req: Request, res: Response) => res.json({ ok: true }))
+app.put('/api/memory/projects', (_req: Request, res: Response) => res.json({ ok: true }))
+app.put('/api/memory/history', (_req: Request, res: Response) => res.json({ ok: true }))
 
 // Agent config (stubs)
-app.get('/api/agent/config', (_req, res) => res.json({}))
-app.put('/api/agent/config', (_req, res) => res.json({ ok: true }))
-app.get('/api/config/default-agent', (_req, res) => res.json({ agent: 'default' }))
-app.put('/api/config/default-agent', (_req, res) => res.json({ ok: true }))
-app.get('/api/agents/installed', (_req, res) => res.json([]))
+app.get('/api/agent/config', (_req: Request, res: Response) => res.json({}))
+app.put('/api/agent/config', (_req: Request, res: Response) => res.json({ ok: true }))
+app.get('/api/config/default-agent', (_req: Request, res: Response) => res.json({ agent: 'default' }))
+app.put('/api/config/default-agent', (_req: Request, res: Response) => res.json({ ok: true }))
+app.get('/api/agents/installed', (_req: Request, res: Response) => res.json([]))
 
 // Pi environment APIs
-app.get('/api/pi/extensions', (_req, res) => res.json(piEnv.getExtensions()))
+app.get('/api/pi/extensions', (_req: Request, res: Response) => res.json(piEnv.getExtensions()))
 
 // Dashboard config
-app.get('/api/dash/config', (_req, res) => res.json(piEnv.getDashConfig()))
-app.put('/api/dash/config', (req, res) => {
+app.get('/api/dash/config', (_req: Request, res: Response) => res.json(piEnv.getDashConfig()))
+app.put('/api/dash/config', (req: Request, res: Response) => {
   try {
     const saved = piEnv.saveDashConfig(req.body)
     res.json(saved)
-  } catch (e) { res.status(500).json({ error: e.message }) }
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
-app.get('/api/pi/vault', (_req, res) => res.json(piEnv.getVaultStats()))
-app.get('/api/pi/vault/daily', (req, res) => {
-  const limit = parseInt(req.query.limit || '7', 10)
+app.get('/api/pi/vault', (_req: Request, res: Response) => res.json(piEnv.getVaultStats()))
+app.get('/api/pi/vault/daily', (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string || '7', 10)
   res.json(piEnv.getRecentDailyNotes(limit))
 })
-app.get('/api/pi/vault/daily/:date', (req, res) => {
-  const content = piEnv.getDailyNote(req.params.date)
+app.get('/api/pi/vault/daily/:date', (req: Request, res: Response) => {
+  const content = piEnv.getDailyNote(req.params.date as string)
   if (!content) return res.status(404).json({ error: 'not found' })
-  res.json({ date: req.params.date, content })
+  res.json({ date: req.params.date as string, content })
 })
-app.get('/api/pi/crontab', (_req, res) => res.json(piEnv.getCrontab()))
-app.get('/api/pi/memory', (_req, res) => {
+app.get('/api/pi/crontab', (_req: Request, res: Response) => res.json(piEnv.getCrontab()))
+app.get('/api/pi/memory', (_req: Request, res: Response) => {
   res.json({
     stats: piEnv.getMemoryStats(),
     facts: piEnv.getFacts(),
@@ -627,20 +634,20 @@ app.get('/api/pi/memory', (_req, res) => {
 })
 
 // Task runner (stubs)
-app.get('/api/taskrunner', (_req, res) => res.json({ tasks: [] }))
+app.get('/api/taskrunner', (_req: Request, res: Response) => res.json({ tasks: [] }))
 
 // Logs (stubs)
-app.get('/api/logs/level', (_req, res) => res.json({ level: 'info' }))
-app.post('/api/logs/level', (_req, res) => res.json({ ok: true }))
+app.get('/api/logs/level', (_req: Request, res: Response) => res.json({ level: 'info' }))
+app.post('/api/logs/level', (_req: Request, res: Response) => res.json({ ok: true }))
 
 // Update (stubs)
-app.get('/api/update/check', (_req, res) => res.json({ available: false }))
-app.get('/api/changelog', (_req, res) => res.json({ content: '' }))
+app.get('/api/update/check', (_req: Request, res: Response) => res.json({ available: false }))
+app.get('/api/changelog', (_req: Request, res: Response) => res.json({ content: '' }))
 
 // Sessions context/usage (stubs)
-app.get('/api/sessions/context', (_req, res) => res.json({}))
-app.get('/api/sessions/usage', (_req, res) => res.json({}))
-app.post('/api/sessions/restart', (_req, res) => {
+app.get('/api/sessions/context', (_req: Request, res: Response) => res.json({}))
+app.get('/api/sessions/usage', (_req: Request, res: Response) => res.json({}))
+app.post('/api/sessions/restart', (_req: Request, res: Response) => {
   res.json({ ok: true })
   console.log('🔄 Restart requested via API — persisting state and exiting...')
   // Give the response time to flush, then gracefully exit
@@ -653,8 +660,8 @@ app.post('/api/sessions/restart', (_req, res) => {
 })
 
 // Browse directory contents (for file tree picker)
-app.get('/api/browse', (req, res) => {
-  const target = req.query.path || os.homedir()
+app.get('/api/browse', (req: Request, res: Response) => {
+  const target = (req.query.path as string) || os.homedir()
   try {
     const showHidden = req.query.hidden === 'true'
     const showFiles = req.query.files === 'true'
@@ -669,16 +676,16 @@ app.get('/api/browse', (req, res) => {
       .sort((a, b) => (a.isDir === b.isDir ? a.name.localeCompare(b.name) : a.isDir ? -1 : 1))
       .filter(e => showFiles ? true : e.isDir) // files=true shows all, default dirs-only for CWD picking
     res.json({ path: target, parent: dirname(target), entries })
-  } catch (e) {
+  } catch (e: any) {
     res.status(400).json({ error: e.message, path: target, parent: dirname(target), entries: [] })
   }
 })
 
 // Path completion — given a partial path, return matching entries
-app.get('/api/path-complete', (req, res) => {
-  const input = req.query.input || ''
+app.get('/api/path-complete', (req: Request, res: Response) => {
+  const input = (req.query.input as string) || ''
   try {
-    let dir, prefix
+    let dir: string, prefix: string
     const expanded = input.startsWith('~') ? input.replace(/^~/, os.homedir()) : input
     // If input ends with /, list that directory
     if (expanded.endsWith('/')) {
@@ -705,8 +712,8 @@ app.get('/api/path-complete', (req, res) => {
 })
 
 // Workspaces (scan for real project dirs)
-app.get('/api/workspaces', (_req, res) => {
-  const dirs = []
+app.get('/api/workspaces', (_req: Request, res: Response) => {
+  const dirs: { name: string; path: string }[] = []
   // Workspaces from WORKSPACE_DIR env var
   const wsDir = process.env.WORKSPACE_DIR
   if (wsDir) {
@@ -724,19 +731,19 @@ app.get('/api/workspaces', (_req, res) => {
 })
 
 // Models
-app.get('/api/models', async (_req, res) => {
+app.get('/api/models', async (_req: Request, res: Response) => {
   try {
     const models = await manager.getModels()
     res.json({ models })
-  } catch (e) {
+  } catch (e: any) {
     res.json({ models: [], error: e.message })
   }
 })
 
 // Set model for a slot
-app.post('/api/chat/slots/:key/model', async (req, res) => {
+app.post('/api/chat/slots/:key/model', async (req: Request, res: Response) => {
   const { provider, modelId } = req.body
-  const pi = manager.getSlot(req.params.key)
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   pi.modelProvider = provider
   pi.modelId = modelId
@@ -752,9 +759,9 @@ app.post('/api/chat/slots/:key/model', async (req, res) => {
 })
 
 // Set thinking level for a slot
-app.post('/api/chat/slots/:key/thinking', async (req, res) => {
+app.post('/api/chat/slots/:key/thinking', async (req: Request, res: Response) => {
   const { level } = req.body
-  const pi = manager.getSlot(req.params.key)
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   if (pi.proc && pi.ready) {
     try { await pi.setThinkingLevel(level) } catch {}
@@ -763,9 +770,9 @@ app.post('/api/chat/slots/:key/thinking', async (req, res) => {
 })
 
 // Set CWD for a slot (before process starts)
-app.post('/api/chat/slots/:key/cwd', (req, res) => {
+app.post('/api/chat/slots/:key/cwd', (req: Request, res: Response) => {
   const { cwd } = req.body
-  const pi = manager.getSlot(req.params.key)
+  const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
   pi.cwd = cwd === '~' ? os.homedir() : cwd.startsWith('~/') ? join(os.homedir(), cwd.slice(2)) : cwd
   // If process already running with wrong CWD, restart it
@@ -773,7 +780,7 @@ app.post('/api/chat/slots/:key/cwd', (req, res) => {
     pi.kill()
     pi.start()
     if (!pi._wired) {
-      _wireSlotEvents(pi, req.params.key)
+      _wireSlotEvents(pi, req.params.key as string)
       pi._wired = true
     }
   }
@@ -783,18 +790,18 @@ app.post('/api/chat/slots/:key/cwd', (req, res) => {
 })
 
 // Spawn, Approvals (stubs)
-app.get('/api/spawn', (_req, res) => res.json([]))
-app.get('/api/approvals', (_req, res) => res.json([]))
+app.get('/api/spawn', (_req: Request, res: Response) => res.json([]))
+app.get('/api/approvals', (_req: Request, res: Response) => res.json([]))
 
 // AIM (stubs)
-app.get('/api/aim/mcp', (_req, res) => res.json([]))
-app.get('/api/aim/skills', (_req, res) => res.json([]))
-app.get('/api/aim/agents', (_req, res) => res.json([]))
-app.get('/api/aim/mcp/registry', (_req, res) => res.json([]))
+app.get('/api/aim/mcp', (_req: Request, res: Response) => res.json([]))
+app.get('/api/aim/skills', (_req: Request, res: Response) => res.json([]))
+app.get('/api/aim/agents', (_req: Request, res: Response) => res.json([]))
+app.get('/api/aim/mcp/registry', (_req: Request, res: Response) => res.json([]))
 
 
 // Slash commands (dynamic — RPC from running pi, fallback to file scan)
-const SLASH_BUILTINS = [
+const SLASH_BUILTINS: { name: string; description: string; source: string }[] = [
   { name: '/clear', description: 'Clear conversation history', source: 'builtin' },
   { name: '/compact', description: 'Compact conversation to free context', source: 'builtin' },
   { name: '/model', description: 'Select model', source: 'builtin' },
@@ -810,9 +817,9 @@ const SLASH_BUILTINS = [
   { name: '/usage', description: 'Show billing and usage information', source: 'builtin' },
 ]
 
-app.get('/api/slash-commands', async (_req, res) => {
-  const dedup = (cmds) => {
-    const seen = new Map()
+app.get('/api/slash-commands', async (_req: Request, res: Response) => {
+  const dedup = (cmds: { name: string; description: string; source: string }[]) => {
+    const seen = new Map<string, { name: string; description: string; source: string }>()
     for (const c of cmds) {
       if (!seen.has(c.name)) seen.set(c.name, c)
     }
@@ -820,9 +827,9 @@ app.get('/api/slash-commands', async (_req, res) => {
   }
 
   // Scan prompt templates (~/.pi/agent/prompts/*.md)
-  const scanPromptTemplates = () => {
+  const scanPromptTemplates = (): { name: string; description: string; source: string }[] => {
     const promptDir = join(os.homedir(), '.pi', 'agent', 'prompts')
-    const results = []
+    const results: { name: string; description: string; source: string }[] = []
     try {
       for (const entry of readdirSync(promptDir, { withFileTypes: true })) {
         if (!entry.isFile() || !entry.name.endsWith('.md')) continue
@@ -842,7 +849,7 @@ app.get('/api/slash-commands', async (_req, res) => {
   try {
     const rpcCommands = await manager.getCommands()
     if (rpcCommands && rpcCommands.length > 0) {
-      const merged = [...SLASH_BUILTINS]
+      const merged: { name: string; description: string; source: string }[] = [...SLASH_BUILTINS]
       for (const c of rpcCommands) {
         merged.push({ name: '/' + c.name, description: c.description || '', source: c.source || 'extension' })
       }
@@ -852,7 +859,7 @@ app.get('/api/slash-commands', async (_req, res) => {
   } catch {}
 
   // Fallback: scan files
-  const commands = []
+  const commands: { name: string; description: string; source: string }[] = []
 
   // Builtin pi commands (includes /import which is only available offline)
   commands.push(...SLASH_BUILTINS, { name: '/import', description: 'Import and resume a session', source: 'builtin' })
@@ -863,7 +870,7 @@ app.get('/api/slash-commands', async (_req, res) => {
   // Extension-registered commands (scan .ts files for registerCommand)
   const extDir = join(os.homedir(), '.pi', 'agent', 'extensions')
   try {
-    const scan = (dir) => {
+    const scan = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (entry.name === 'node_modules') continue
         const full = join(dir, entry.name)
@@ -872,7 +879,7 @@ app.get('/api/slash-commands', async (_req, res) => {
         try {
           const src = readFileSync(full, 'utf-8')
           const re = /registerCommand\("([^"]+)"[^}]*description:\s*"([^"]+)"/g
-          let m
+          let m: RegExpExecArray | null
           while ((m = re.exec(src)) !== null) {
             commands.push({ name: '/' + m[1], description: m[2], source: 'extension' })
           }
@@ -902,48 +909,49 @@ app.get('/api/slash-commands', async (_req, res) => {
 })
 
 // Pi settings
-app.get('/api/pi/settings', (_req, res) => {
+app.get('/api/pi/settings', (_req: Request, res: Response) => {
   try {
     const settingsPath = join(os.homedir(), '.pi', 'agent', 'settings.json')
     const content = readFileSync(settingsPath, 'utf-8')
     res.json(JSON.parse(content))
-  } catch (e) { res.json({}) }
+  } catch (e: any) { res.json({}) }
 })
 
-app.put('/api/pi/settings', (req, res) => {
+app.put('/api/pi/settings', (req: Request, res: Response) => {
   try {
     const settingsPath = join(os.homedir(), '.pi', 'agent', 'settings.json')
     writeFileSync(settingsPath, JSON.stringify(req.body, null, 2) + '\n')
     res.json({ ok: true })
-  } catch (e) { res.status(500).json({ error: e.message }) }
+  } catch (e: any) { res.status(500).json({ error: e.message }) }
 })
 
 // Package management
-app.post('/api/pi/packages/install', (req, res) => {
+app.post('/api/pi/packages/install', (req: Request, res: Response) => {
   const { source } = req.body
   if (!source) return res.status(400).json({ error: 'source required' })
   try {
+    // @ts-ignore — require('child_process') used for execFileSync in handler
     const { execFileSync } = require('child_process')
     const out = execFileSync('pi', ['install', source], { encoding: 'utf-8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] })
     res.json({ ok: true, output: out })
-  } catch (e) { res.status(500).json({ error: e.stderr || e.message }) }
+  } catch (e: any) { res.status(500).json({ error: e.stderr || e.message }) }
 })
 
-app.post('/api/pi/packages/remove', (req, res) => {
+app.post('/api/pi/packages/remove', (req: Request, res: Response) => {
   const { source } = req.body
   if (!source) return res.status(400).json({ error: 'source required' })
   try {
     const out = execSync(`pi remove ${JSON.stringify(source)} 2>&1`, { encoding: 'utf-8', timeout: 30000 })
     res.json({ ok: true, output: out })
-  } catch (e) { res.status(500).json({ error: e.stderr || e.message }) }
+  } catch (e: any) { res.status(500).json({ error: e.stderr || e.message }) }
 })
 
 // Package gallery (npm search)
-app.get('/api/pi/gallery', async (_req, res) => {
+app.get('/api/pi/gallery', async (_req: Request, res: Response) => {
   try {
     const resp = await fetch('https://registry.npmjs.org/-/v1/search?text=keywords:pi-package&size=50')
-    const data = await resp.json()
-    const packages = (data.objects || []).map(o => ({
+    const data = await resp.json() as any
+    const packages = (data.objects || []).map((o: any) => ({
       name: o.package.name,
       description: o.package.description || '',
       version: o.package.version,
@@ -952,15 +960,15 @@ app.get('/api/pi/gallery', async (_req, res) => {
       links: o.package.links || {},
     }))
     res.json({ packages })
-  } catch (e) { res.json({ packages: [], error: e.message }) }
+  } catch (e: any) { res.json({ packages: [], error: e.message }) }
 })
 
 // Host pi sessions (tmux scan)
-app.get('/api/host-sessions', (_req, res) => {
+app.get('/api/host-sessions', (_req: Request, res: Response) => {
   try {
-    const sessions = []
+    const sessions: any[] = []
     // Scan all tmux panes at once for pi processes
-    let panes
+    let panes: string[]
     try {
       panes = execSync("tmux list-panes -a -F '#{session_name}|#{window_index}|#{pane_index}|#{pane_pid}|#{pane_current_command}|#{pane_current_path}|#{window_name}|#{pane_width}x#{pane_height}' 2>/dev/null", { encoding: 'utf-8' }).trim().split('\n').filter(Boolean)
     } catch { return res.json({ sessions: [] }) }
@@ -975,7 +983,7 @@ app.get('/api/host-sessions', (_req, res) => {
         let model = '', contextPct = '', uptime = ''
         try {
           const captured = execSync(`tmux capture-pane -t ${JSON.stringify(sname + ':' + widx + '.' + pidx)} -p -S -10 2>/dev/null`, { encoding: 'utf-8', timeout: 2000 })
-          const lines = captured.split('\n').filter(l => l.trim())
+          const lines = captured.split('\n').filter((l: string) => l.trim())
           // Parse all lines for status info
           for (const line of lines) {
             // Model: first word after a single non-ASCII char at line start (e.g. ◆ claude-opus-4-6-1m | ...)
@@ -1024,24 +1032,24 @@ app.get('/api/host-sessions', (_req, res) => {
         })
     }
     res.json({ sessions })
-  } catch (e) {
+  } catch (e: any) {
     res.json({ sessions: [], error: e.message })
   }
 })
 
 // ── File I/O + Version Routes (Doc Collaboration) ──
-app.get('/api/file-read', async (req, res) => {
-  const filePath = expandHome(req.query.path)
+app.get('/api/file-read', async (req: Request, res: Response) => {
+  const filePath = expandHome(req.query.path as string)
   if (!filePath) return res.status(400).json({ error: 'path required' })
   try {
     const content = await readFile(filePath, 'utf-8')
     res.type('text/plain').send(content)
-  } catch (e) {
+  } catch (e: any) {
     res.status(e.code === 'ENOENT' ? 404 : 500).json({ error: e.message })
   }
 })
 
-app.post('/api/save-image', async (req, res) => {
+app.post('/api/save-image', async (req: Request, res: Response) => {
   const { data, mimeType, path: rawPath } = req.body
   if (!data || !rawPath) return res.status(400).json({ error: 'data and path required' })
   const filePath = rawPath.startsWith('~') ? join(os.homedir(), rawPath.slice(1)) : rawPath.startsWith('/') ? rawPath : join(process.cwd(), rawPath)
@@ -1049,12 +1057,12 @@ app.post('/api/save-image', async (req, res) => {
     await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, Buffer.from(data, 'base64'))
     res.json({ ok: true, path: filePath })
-  } catch (e) {
+  } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
 })
 
-app.post('/api/file-write', async (req, res) => {
+app.post('/api/file-write', async (req: Request, res: Response) => {
   const filePath = expandHome(req.body.path)
   const content = req.body.content
   if (!filePath || content == null) return res.status(400).json({ error: 'path and content required' })
@@ -1064,13 +1072,13 @@ app.post('/api/file-write', async (req, res) => {
     await writeFile(filePath, content, 'utf-8')
     const version = createVersion(filePath, content)
     res.json({ ok: true, version })
-  } catch (e) {
+  } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
 })
 
-app.get('/api/file-versions', (req, res) => {
-  const filePath = expandHome(req.query.path)
+app.get('/api/file-versions', (req: Request, res: Response) => {
+  const filePath = expandHome(req.query.path as string)
   if (!filePath) return res.status(400).json({ error: 'path required' })
   const versions = (versionStore.get(filePath) || []).map(v => ({
     version: v.version, timestamp: v.timestamp, size: v.content.length
@@ -1078,9 +1086,9 @@ app.get('/api/file-versions', (req, res) => {
   res.json({ versions })
 })
 
-app.get('/api/file-version', (req, res) => {
-  const filePath = expandHome(req.query.path)
-  const ver = parseInt(req.query.version)
+app.get('/api/file-version', (req: Request, res: Response) => {
+  const filePath = expandHome(req.query.path as string)
+  const ver = parseInt(req.query.version as string)
   if (!filePath || isNaN(ver)) return res.status(400).json({ error: 'path and version required' })
   const versions = versionStore.get(filePath)
   const entry = versions?.find(v => v.version === ver)
@@ -1089,21 +1097,21 @@ app.get('/api/file-version', (req, res) => {
 })
 
 // ── Comment Sidecar Routes (Doc Collaboration) ──
-app.get('/api/file-comments', async (req, res) => {
-  const filePath = expandHome(req.query.path)
+app.get('/api/file-comments', async (req: Request, res: Response) => {
+  const filePath = expandHome(req.query.path as string)
   if (!filePath) return res.status(400).json({ error: 'path required' })
   const dir = dirname(filePath)
   const sidecar = join(dir, '.' + basename(filePath) + '.comments.json')
   try {
     const raw = await readFile(sidecar, 'utf-8')
     res.json({ comments: JSON.parse(raw) })
-  } catch (e) {
+  } catch (e: any) {
     if (e.code === 'ENOENT') return res.json({ comments: [] })
     res.status(500).json({ error: e.message })
   }
 })
 
-app.post('/api/file-comments', async (req, res) => {
+app.post('/api/file-comments', async (req: Request, res: Response) => {
   const filePath = expandHome(req.body.path)
   const comments = req.body.comments
   if (!filePath || !Array.isArray(comments)) return res.status(400).json({ error: 'path and comments array required' })
@@ -1112,14 +1120,14 @@ app.post('/api/file-comments', async (req, res) => {
   try {
     await writeFile(sidecar, JSON.stringify(comments, null, 2), 'utf-8')
     res.json({ ok: true })
-  } catch (e) {
+  } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
 })
 
 // ── Serve local files (images from tool results, etc.) ──
-app.get('/api/local-file', (req, res) => {
-  const filePath = req.query.path
+app.get('/api/local-file', (req: Request, res: Response) => {
+  const filePath = req.query.path as string
   if (!filePath || typeof filePath !== 'string') return res.status(400).json({ error: 'path required' })
   let resolved = filePath.startsWith('~') ? join(os.homedir(), filePath.slice(1)) : filePath
   // Resolve relative paths against process cwd
@@ -1129,14 +1137,14 @@ app.get('/api/local-file', (req, res) => {
 
 // ── Static files ──
 app.use(express.static(DIST_DIR))
-app.get('*', (_req, res) => {
+app.get('*', (_req: Request, res: Response) => {
   res.sendFile(join(DIST_DIR, 'index.html'))
 })
 
 // ── WebSocket ──
 const ptyWss = new WebSocketServer({ noServer: true })
 
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
   console.log('  WS upgrade:', req.url)
   if (req.url === '/api/ws') {
     wss.handleUpgrade(req, socket, head, (ws) => {
@@ -1153,25 +1161,25 @@ server.on('upgrade', (req, socket, head) => {
 })
 
 let _wsIdCounter = 0
-wss.on('connection', (ws) => {
-  ws._id = ++_wsIdCounter
+wss.on('connection', (ws: WebSocket) => {
+  (ws as any)._id = ++_wsIdCounter
   wsClients.add(ws)
-  console.log(`[ws] Client #${ws._id} connected (total: ${wsClients.size})`)
+  console.log(`[ws] Client #${(ws as any)._id} connected (total: ${wsClients.size})`)
   ws.send(JSON.stringify({ type: 'dashboard', data: manager.status() }))
   ws.send(JSON.stringify({ type: 'slots', data: manager.listSlots() }))
 
   ws.on('message', (raw) => {
     try {
-      const msg = JSON.parse(raw)
-      if (msg.type === 'subscribe_logs') ws._subscribedLogs = true
-      if (msg.type === 'unsubscribe_logs') ws._subscribedLogs = false
+      const msg = JSON.parse(raw.toString())
+      if (msg.type === 'subscribe_logs') (ws as any)._subscribedLogs = true
+      if (msg.type === 'unsubscribe_logs') (ws as any)._subscribedLogs = false
       if (msg.type === 'watch_file' && msg.path) startWatching(msg.path, ws)
       if (msg.type === 'unwatch_file' && msg.path) stopWatching(msg.path, ws)
     } catch { /* ignore */ }
   })
 
   ws.on('close', () => {
-    console.log(`[ws] Client #${ws._id} disconnected (remaining: ${wsClients.size - 1})`)
+    console.log(`[ws] Client #${(ws as any)._id} disconnected (remaining: ${wsClients.size - 1})`)
     cleanupClientWatchers(ws)
     wsClients.delete(ws)
   })
@@ -1180,24 +1188,24 @@ wss.on('connection', (ws) => {
 // ── Wire pi slot events to WS ──
 let _chunkSeq = 0
 
-function _wireSlotEvents(pi, slotKey) {
+function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   let streamBuf = ''
   let midTurn = false  // true between agent_start and agent_end
-  const toolStartTimes = new Map() // toolCallId → { startTime, toolName }
+  const toolStartTimes: Map<string, { startTime: number; toolName: string }> = new Map()
 
   // Track partial streaming content and persist incrementally
-  let _partialTextMsg = null
-  let _partialThinkMsg = null
-  let _persistTimer = null
-  const _throttledPersist = () => { if (!_persistTimer) _persistTimer = setTimeout(() => { _persistTimer = null; persistSlots() }, 5000) }
+  let _partialTextMsg: any = null
+  let _partialThinkMsg: any = null
+  let _persistTimer: ReturnType<typeof setTimeout> | null = null
+  const _throttledPersist = (): void => { if (!_persistTimer) _persistTimer = setTimeout(() => { _persistTimer = null; persistSlots() }, 5000) }
 
   // Stall detector: if running but no events from pi for 90s, check health
   let _lastEventTime = 0
-  let _stallTimer = null
+  let _stallTimer: ReturnType<typeof setInterval> | null = null
   const STALL_CHECK_INTERVAL = 30_000  // check every 30s
   const STALL_THRESHOLD = 90_000       // 90s without events = stall
 
-  function _startStallDetector() {
+  function _startStallDetector(): void {
     _lastEventTime = Date.now()
     if (_stallTimer) return
     _stallTimer = setInterval(() => {
@@ -1216,20 +1224,20 @@ function _wireSlotEvents(pi, slotKey) {
     }, STALL_CHECK_INTERVAL)
   }
 
-  function _stopStallDetector() {
+  function _stopStallDetector(): void {
     if (_stallTimer) { clearInterval(_stallTimer); _stallTimer = null }
   }
 
   // Update last event time on any pi event
   if (typeof pi.emit === 'function') {
     const origEmit = pi.emit.bind(pi)
-    pi.emit = function(event, ...args) {
+    pi.emit = function(event: string | symbol, ...args: any[]): boolean {
       if (midTurn) _lastEventTime = Date.now()
       return origEmit(event, ...args)
     }
   }
 
-  pi.on('message_update', ({ event, delta }) => {
+  pi.on('message_update', ({ event, delta }: any) => {
     if (delta.type === 'text_delta') {
       streamBuf += delta.delta
       // Accumulate into a partial message in pi.messages
@@ -1249,7 +1257,7 @@ function _wireSlotEvents(pi, slotKey) {
   })
 
   let thinkingBuf = ''
-  pi.on('thinking_update', ({ delta }) => {
+  pi.on('thinking_update', ({ delta }: any) => {
     thinkingBuf += delta
     // Accumulate into a partial thinking message
     if (!_partialThinkMsg) {
@@ -1260,7 +1268,7 @@ function _wireSlotEvents(pi, slotKey) {
     }
   })
 
-  pi.on('message_update', ({ event, delta: _d }) => {
+  pi.on('message_update', ({ event, delta: _d }: any) => {
     if (event?.assistantMessageEvent?.type === 'thinking_end' && thinkingBuf) {
       // Finalize the partial thinking msg
       if (_partialThinkMsg) _partialThinkMsg._partial = false
@@ -1294,7 +1302,7 @@ function _wireSlotEvents(pi, slotKey) {
     persistSlots()
 
     // Fetch context usage and session name from pi process
-    pi.request({ type: 'get_session_stats' }, 5000).then(resp => {
+    pi.request({ type: 'get_session_stats' }, 5000).then((resp: any) => {
       const cu = resp?.data?.contextUsage
       if (cu) {
         pi._contextUsage = { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
@@ -1303,7 +1311,7 @@ function _wireSlotEvents(pi, slotKey) {
     }).catch(() => {})
 
     // Sync session name set by auto-session-name extension
-    pi.request({ type: 'get_state' }, 5000).then(resp => {
+    pi.request({ type: 'get_state' }, 5000).then((resp: any) => {
       const name = resp?.data?.sessionName
       if (name && name !== pi._title && !pi._userRenamed) {
         pi._title = name
@@ -1328,7 +1336,7 @@ function _wireSlotEvents(pi, slotKey) {
     agentStartTime = 0
   })
 
-  pi.on('tool_start', ({ toolName, toolCallId, args }) => {
+  pi.on('tool_start', ({ toolName, toolCallId, args }: any) => {
     toolStartTimes.set(toolCallId, { startTime: Date.now(), toolName })
     // Finalize any partial text before tool call
     if (_partialTextMsg) { _partialTextMsg._partial = false; _partialTextMsg = null }
@@ -1337,7 +1345,7 @@ function _wireSlotEvents(pi, slotKey) {
     broadcast('tool_call', { slot: slotKey, tool: toolName, id: toolCallId, args })
   })
 
-  pi.on('tool_end', (event) => {
+  pi.on('tool_end', (event: any) => {
     const result = event.result?.content?.[0]?.text || ''
     // Persist result on the tool message so it survives refresh/slot-switch
     for (let i = pi.messages.length - 1; i >= 0; i--) {
@@ -1375,7 +1383,7 @@ function _wireSlotEvents(pi, slotKey) {
     }
   })
 
-  pi.on('message_end', (event) => {
+  pi.on('message_end', (event: any) => {
     if (event.message?.role === 'custom') {
       const m = event.message
       const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
@@ -1392,7 +1400,7 @@ function _wireSlotEvents(pi, slotKey) {
     }
   })
 
-  pi.on('extension_ui', (event) => {
+  pi.on('extension_ui', (event: any) => {
     if (event.method === 'confirm') {
       pi.send({ type: 'extension_ui_response', id: event.id, confirmed: true })
     } else if (event.method === 'select') {
@@ -1407,15 +1415,15 @@ function _wireSlotEvents(pi, slotKey) {
     }
   })
 
-  pi.on('log', (data) => {
+  pi.on('log', (data: any) => {
     for (const ws of wsClients) {
-      if (ws._subscribedLogs && ws.readyState === 1) {
+      if ((ws as any)._subscribedLogs && ws.readyState === 1) {
         ws.send(JSON.stringify({ type: 'log', data }))
       }
     }
   })
 
-  pi.on('slash_result', ({ content }) => {
+  pi.on('slash_result', ({ content }: any) => {
     broadcast('chat_message', {
       slot: slotKey,
       role: 'assistant',
@@ -1426,7 +1434,7 @@ function _wireSlotEvents(pi, slotKey) {
 
   pi.on('session_file', () => persistSlots())
 
-  pi.on('error', (err) => {
+  pi.on('error', (err: any) => {
     if (midTurn) {
       midTurn = false
       _stopStallDetector()
@@ -1459,9 +1467,9 @@ function _wireSlotEvents(pi, slotKey) {
     broadcastSlots()
   })
 
-  pi.on('startup_error', ({ code, stderr }) => {
-    const errorMsg = {
-      role: 'system',
+  pi.on('startup_error', ({ code, stderr }: { code: number; stderr: string }) => {
+    const errorMsg: ChatMessage = {
+      role: 'system' as const,
       content: `⚠️ Pi process crashed at startup (exit code ${code}).\n\n${stderr ? '```\n' + stderr + '\n```' : 'No error output captured.'}`,
       ts: new Date().toISOString(),
     }
@@ -1490,9 +1498,9 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
   console.log()
 })
 
-process.on('SIGINT', () => { saveSlotStateSync(manager.slots); manager.shutdown(); shutdownPty(); process.exit(0) })
-process.on('SIGTERM', () => { saveSlotStateSync(manager.slots); manager.shutdown(); shutdownPty(); process.exit(0) })
-process.on('uncaughtException', (err) => {
+process.on('SIGINT', () => { saveSlotStateSync(manager.slots as any); manager.shutdown(); shutdownPty(); process.exit(0) })
+process.on('SIGTERM', () => { saveSlotStateSync(manager.slots as any); manager.shutdown(); shutdownPty(); process.exit(0) })
+process.on('uncaughtException', (err: any) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`❌ Port ${PORT} already in use — exiting so systemd can retry`)
     process.exit(1)
