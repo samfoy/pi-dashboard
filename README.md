@@ -1,20 +1,41 @@
 # Pi Dashboard
 
-A web-based dashboard for the [pi coding agent](https://github.com/mariozechner/pi-coding-agent). Chat with pi, manage multiple sessions, browse files, edit documents with inline comments, and monitor background processes — all from your browser.
+A web and iOS dashboard for the [pi coding agent](https://github.com/mariozechner/pi-coding-agent). Chat with pi, manage multiple sessions, browse files, and run terminals — from your browser or iPhone.
 
 ![Pi Dashboard](https://img.shields.io/badge/status-alpha-orange)
 
 ## Features
 
-- **Multi-slot chat** — run multiple pi sessions side by side, each with its own working directory and model
-- **File browser & editor** — browse directories, open files in a side panel, edit with syntax highlighting and markdown preview
-- **Doc collaboration** — inline comments on line ranges, version tracking, diff view with word-level highlighting, and a "Review Comments" button that sends feedback to the agent
-- **Terminal** — integrated terminal via node-pty
-- **Background processes** — monitor subagents and long-running processes with live status cards
+### Chat
+- **Multi-slot sessions** — run multiple pi conversations, each with its own working directory, model, and history
+- **Streaming responses** — real-time token streaming with thinking blocks, tool calls, and inline images
 - **Slash commands** — `/clear`, `/compact`, `/import`, and custom commands from pi extensions
-- **Settings** — configure models, providers, system prompts, and agent instructions per session
-- **Logs** — real-time streaming of pi's internal logs
-- **Desktop app** — optional Electron wrapper with SSH tunnel management and system tray (see `desktop/`)
+- **Fork & resume** — fork a conversation at any point, or resume past sessions
+- **Context usage** — live token/context tracking per session
+
+### Files & Editing
+- **File browser** — directory tree navigation with workspace picker
+- **Document panel** — syntax-highlighted code viewer, markdown preview, PDF/XLSX rendering
+- **Inline comments** — comment on line ranges, review and send feedback to the agent
+- **Diff view** — word-level diff highlighting with accept/reject
+
+### Terminal & Monitoring
+- **Integrated terminal** — full PTY terminal via xterm.js and node-pty
+- **Background processes** — live status cards for subagents and long-running tasks
+- **System monitor** — CPU, memory, disk, and process stats
+- **Streaming logs** — real-time pi internal log viewer
+
+### iOS App
+- **Native SwiftUI** — full chat interface with markdown rendering, thinking blocks, and tool call display
+- **Session list** — browse, search, and manage all chat slots
+- **Push notifications** — get notified when pi needs approval or finishes a task
+- **Siri Shortcuts** — "Ask Pi", "Send to Pi", "Check Pi Status", "Get Active Chats"
+- **Session history** — browse and resume past sessions
+- **Project picker** — switch working directories per session
+
+### Desktop App (Optional)
+- **Electron wrapper** — native window with system tray
+- **SSH tunnel management** — automatic tunnel setup for remote servers
 
 ## Quick Start
 
@@ -22,61 +43,79 @@ A web-based dashboard for the [pi coding agent](https://github.com/mariozechner/
 git clone https://github.com/samfoy/pi-dashboard.git
 cd pi-dashboard
 npm run setup    # installs deps + builds frontend
-node backend/server.js
+npm start        # starts server with auto-restart
 ```
 
-Open http://localhost:7777 in your browser.
+Open http://localhost:7777.
 
 ### Requirements
 
 - Node.js 18+
 - [pi](https://github.com/mariozechner/pi-coding-agent) installed and on PATH
 
-### Optional: Pi Extensions
+### Run as a Service (macOS)
 
-Some dashboard features require pi extensions to be installed:
+```bash
+./ctl.sh install   # installs launchd plist, starts on boot
+./ctl.sh start     # start the service
+./ctl.sh stop      # stop the service
+./ctl.sh restart   # restart
+./ctl.sh status    # check status
+./ctl.sh logs      # tail stdout/stderr
+```
 
-- **Background processes** (ProcessCard) — requires the [pi-processes](https://github.com/aliou/pi-processes) extension
-- **Subagents** (SubagentCard) — requires the subagent extension from [pi-essentials](https://github.com/samfoy/pi-essentials)
-- **Slash commands** — auto-discovered from pi extensions and prompt templates
-
-Without these, the core chat, file browser, terminal, and doc collaboration features work normally.
+Logs: `~/Library/Logs/pi-dashboard/stdout.log` and `stderr.log`.
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PI_DASH_PORT` | `7777` | Server port |
-| `WORKSPACE_DIR` | — | Directory to list in workspace picker |
 
 ## Architecture
 
 ```
 pi-dashboard/
 ├── backend/
-│   ├── server.js        # Express + WebSocket server
-│   ├── pi-manager.js    # Spawns and manages pi processes via JSON-RPC
-│   ├── pty-manager.js   # Terminal sessions via node-pty
-│   ├── pi-env.js        # Pi environment detection (extensions, models, sessions)
-│   └── session-store.js # Session persistence and history
-├── frontend/            # React + TypeScript + Tailwind + Vite
+│   ├── server.js          # Express + WebSocket server, chat routing, file/doc APIs
+│   ├── pi-manager.js      # Spawns pi --mode rpc processes, one per chat slot
+│   ├── pty-manager.js     # Terminal sessions via node-pty
+│   ├── pi-env.js          # Pi environment detection (extensions, models, memory stats)
+│   └── session-store.js   # Slot state persistence, session JSONL parsing
+├── frontend/              # React + TypeScript + Tailwind + Vite
 │   └── src/
-│       ├── pages/       # ChatPage, TerminalPage, LogsPage, SettingsPage, SystemPage
-│       ├── components/  # MarkdownPanel, DiffView, FileBrowser, InlineComments, etc.
-│       ├── store/       # Redux slices (chat, dashboard, settings)
-│       └── api/         # API client
-├── bin/
-│   ├── dash-spawn       # CLI: spawn a pi session and send it a prompt
-│   └── dash-slot        # CLI: interact with a running session
-├── desktop/             # Optional Electron wrapper
-└── pi-dash-connect.sh   # SSH tunnel helper for remote access
+│       ├── pages/         # ChatPage, ChatSidebar, TerminalPage, LogsPage, SettingsPage, SystemPage
+│       ├── components/    # MarkdownPanel, DiffView, FileBrowser, InlineComments, WelcomeView
+│       └── store/         # Redux slices (chat, dashboard, settings, notifications)
+├── ios/PiDash/            # Native iOS app (SwiftUI)
+│   └── PiDash/
+│       ├── Views/         # Chat, SlotList, Settings, Common
+│       ├── ViewModels/    # ChatViewModel, SlotListViewModel
+│       ├── Intents/       # Siri Shortcuts (AskPi, SendToPi, CheckStatus, GetActiveChats)
+│       └── Networking/    # API client
+├── desktop/               # Optional Electron wrapper
+├── run.sh                 # Auto-restart wrapper
+├── start.sh               # Startup script (used by launchd)
+├── restart.sh             # Graceful restart via SIGUSR2
+├── ctl.sh                 # Service management (install/start/stop/restart/logs)
+└── pi-dash-connect.sh     # SSH tunnel helper for remote access
 ```
 
-The backend spawns pi as a child process using its JSON-RPC mode (`pi --rpc`), bridging messages between the React frontend (via WebSocket) and pi. Each chat "slot" is an independent pi instance with its own working directory, model, and conversation history.
+The backend spawns pi as a child process using JSON-RPC mode (`pi --mode rpc`), one per chat slot. The React frontend and iOS app connect via WebSocket for real-time streaming. Slot metadata is persisted to `~/.pi/agent/pi-web-sessions.json`; message history lives in pi's session files and is loaded on demand.
+
+Idle pi processes are automatically reaped after 30 minutes and restart transparently on the next message.
 
 ## Remote Access
 
-If pi-dashboard runs on a remote server, use the connect script to set up an SSH tunnel:
+### Tailscale (recommended)
+
+If both machines are on the same Tailscale network, just hit the Tailscale IP directly:
+
+```
+http://<tailscale-ip>:7777
+```
+
+### SSH Tunnel
 
 ```bash
 PI_DASH_HOST=your-server PI_DASH_USER=you ./pi-dash-connect.sh
@@ -89,49 +128,13 @@ ssh -f -N -L 7777:localhost:7777 user@your-remote-host
 open http://localhost:7777
 ```
 
-## CLI Tools
+## iOS App
 
-**dash-spawn** — create a session and send a prompt:
+The iOS app lives in `ios/PiDash/`. Open `PiDash.xcodeproj` in Xcode and build for your device.
 
-```bash
-bin/dash-spawn --name "my-task" --cwd /path/to/project "Refactor the auth module"
-# Returns the slot key
-```
+Configure the server URL in the app's settings. Supports both local network and Tailscale connections.
 
-**dash-slot** — interact with a running session:
-
-```bash
-bin/dash-slot <key> send "Add error handling"
-bin/dash-slot <key> status
-bin/dash-slot <key> messages 20
-bin/dash-slot <key> stop
-```
-
-## Auto-Restart
-
-Use `run.sh` for auto-restart on crash, or send `SIGUSR2` for graceful restart:
-
-```bash
-./run.sh                    # auto-restarts on crash
-kill -USR2 <run.sh-pid>     # graceful restart
-./restart.sh                # finds run.sh in tmux and signals it
-./restart.sh --build        # rebuild frontend first, then restart
-```
-
-## Desktop App (Optional)
-
-The `desktop/` directory contains an Electron wrapper that provides a native window with system tray integration. It handles SSH tunnel management automatically for remote servers, or connects directly when running locally.
-
-```bash
-cd desktop
-npm install
-npm start
-```
-
-Configure via the tray menu or edit `~/.config/pi-dashboard-desktop/config.json`:
-- `host` — `localhost` for local, or your remote hostname
-- `user` — SSH username (for remote)
-- `localPort` / `remotePort` — defaults to 7777
+Features: full chat with markdown/code rendering, thinking block expansion, tool call details, session management, push notifications for approval requests, and Siri Shortcuts for hands-free interaction.
 
 ## License
 
