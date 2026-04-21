@@ -2,12 +2,23 @@
  * Pi RPC Process Manager
  * Spawns and manages `pi --mode rpc` processes, one per chat slot.
  */
-import { spawn } from 'child_process'
+import { spawn, execSync } from 'child_process'
 import { EventEmitter } from 'events'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
 import { extractText } from './session-store.js'
+
+// Resolve pi binary path at startup (avoids ENOENT in launchd)
+const PI_BIN = (() => {
+  try { return execSync('which pi', { encoding: 'utf-8' }).trim() } catch {}
+  // Fallback to common locations
+  const candidates = ['/opt/homebrew/bin/pi', '/usr/local/bin/pi']
+  for (const c of candidates) {
+    try { execSync(`test -x ${c}`); return c } catch {}
+  }
+  return 'pi' // last resort — rely on PATH
+})()
 
 const IMAGE_DIR = join(os.tmpdir(), 'pi-dashboard-images')
 mkdirSync(IMAGE_DIR, { recursive: true })
@@ -81,7 +92,7 @@ export class PiProcess extends EventEmitter {
     }
     if (this.cwd) spawnOpts.cwd = this.cwd
 
-    this.proc = spawn('pi', args, spawnOpts)
+    this.proc = spawn(PI_BIN, args, spawnOpts)
 
     // Ready promise — resolves when pi responds to get_state (templates loaded)
     this._readyPromise = this.request({ type: 'get_state' }, 15000).then(resp => {
@@ -122,6 +133,7 @@ export class PiProcess extends EventEmitter {
       this.running = false
       this._stopping = false
       this._pendingApproval = false
+      this.proc = null
       if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
       if (this._startupTimer) {
         clearTimeout(this._startupTimer)
@@ -536,7 +548,14 @@ export class PiManager {
   ensureRunning(key) {
     const pi = this.slots.get(key)
     if (!pi) return null
-    if (!pi.proc) pi.start()
+    // Restart if process is missing or dead
+    if (!pi.proc || pi.proc.killed || pi.proc.exitCode !== null) {
+      pi.proc = null
+      pi.running = false
+      pi._stopping = false
+      pi._pendingApproval = false
+      pi.start()
+    }
     return pi
   }
 
@@ -658,8 +677,18 @@ export class PiManager {
   }
 
   _healthCheck() {
+    const now = Date.now()
     for (const pi of this.slots.values()) {
       pi.checkHealth()
+      // Reap idle processes (not running a turn, idle > 10 minutes)
+      if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
+        const idle = now - pi._lastActivity
+        if (idle > 30 * 60 * 1000) {
+          pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, stopping process` })
+          pi.kill()
+          pi.proc = null
+        }
+      }
     }
   }
 

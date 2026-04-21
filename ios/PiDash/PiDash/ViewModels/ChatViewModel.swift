@@ -198,26 +198,20 @@ final class ChatViewModel {
     func handle(event: ServerEvent) {
         switch event {
         case .chatChunk(let slot, let content, _) where slot == slotKey:
-            print("[ChatVM] chunk for \(slot): \(content.prefix(30))")
             appendStreamingChunk(content)
         case .chatDone(let slot) where slot == slotKey:
-            print("[ChatVM] done for \(slot)")
             finalizeStreaming()
             HapticManager.streamingComplete()
         case .chatMessage(let slot, let role, let content, let ts, let meta) where slot == slotKey:
-            print("[ChatVM] message for \(slot) role=\(role)")
             handleInboundMessage(role: role, content: content, ts: ts, meta: meta)
         case .chatError(let slot, let message) where slot == slotKey:
-            print("[ChatVM] chat_error for \(slot): \(message)")
             finalizeStreaming()
             self.error = message
             HapticManager.error()
         case .toolCall(let slot, let tool, let id, let args) where slot == slotKey:
-            print("[ChatVM] tool_call \(tool) for \(slot)")
             handleToolCall(tool: tool, id: id, args: args)
-        case .toolResult(let slot, let tool, let id, let result, let isError) where slot == slotKey:
-            print("[ChatVM] tool_result \(tool) for \(slot)")
-            handleToolResult(tool: tool, id: id, result: result, isError: isError)
+        case .toolResult(let slot, _, let id, let result, let isError) where slot == slotKey:
+            handleToolResult(tool: "", id: id, result: result, isError: isError)
         case .slotTitle(let key, let title) where key == slotKey:
             self.slot.title = title
         default:

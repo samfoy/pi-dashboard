@@ -18,6 +18,7 @@ interface Slot {
   agent?: string
   workspace?: string
   cwd?: string
+  created?: string
 }
 
 interface HistoryItem {
@@ -66,6 +67,58 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): { key: string; item
   return Array.from(map.entries()).map(([key, items]) => ({ key, items }))
 }
 
+type GroupMode = 'date' | 'project'
+const SLOTS_GROUP_LS_KEY = 'mc-slots-group-mode'
+
+/** Temporal grouping matching iOS: Today, Yesterday, Last 7 Days, Last 30 Days, then months. */
+function temporalGroupLabel(dateStr?: string): string {
+  if (!dateStr) return 'Unknown'
+  const date = new Date(dateStr)
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfYesterday = new Date(startOfToday.getTime() - 86400000)
+  const ts = date.getTime()
+  if (ts >= startOfToday.getTime()) return 'Today'
+  if (ts >= startOfYesterday.getTime()) return 'Yesterday'
+  const daysAgo = Math.floor((startOfToday.getTime() - ts) / 86400000)
+  if (daysAgo <= 7) return 'Last 7 Days'
+  if (daysAgo <= 30) return 'Last 30 Days'
+  return date.toLocaleDateString([], { month: 'long', year: 'numeric' })
+}
+
+/** Fixed ordering for temporal groups. Lower = shown first. */
+const TEMPORAL_ORDER: Record<string, number> = {
+  'Today': 0, 'Yesterday': 1, 'Last 7 Days': 2, 'Last 30 Days': 3,
+}
+
+function groupByDate<T extends { created?: string }>(items: T[]): { key: string; items: T[] }[] {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const k = temporalGroupLabel(item.created)
+    const arr = map.get(k)
+    if (arr) arr.push(item)
+    else map.set(k, [item])
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => {
+      const oa = TEMPORAL_ORDER[a] ?? 100
+      const ob = TEMPORAL_ORDER[b] ?? 100
+      if (oa !== ob) return oa - ob
+      if (oa === 100 && ob === 100) {
+        return new Date(b + ' 1').getTime() - new Date(a + ' 1').getTime()
+      }
+      return 0
+    })
+    .map(([key, items]) => ({
+      key,
+      items: items.sort((a, b) => {
+        const ta = a.created ? new Date(a.created).getTime() : 0
+        const tb = b.created ? new Date(b.created).getTime() : 0
+        return tb - ta
+      })
+    }))
+}
+
 function ChatSidebar({
   slots, activeSlot, unreadSlots, notifications, history, historyHasMore,
   viewingNotification, onViewNotification, onNewSessionInCwd, onNewSession,
@@ -86,6 +139,9 @@ function ChatSidebar({
   const [historyFilter, setHistoryFilter] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [notifLimit, setNotifLimit] = useState(50)
+  const [slotsGroupMode, setSlotsGroupMode] = useState<GroupMode>(() => {
+    return (localStorage.getItem(SLOTS_GROUP_LS_KEY) as GroupMode) || 'date'
+  })
 
   // Resize logic
   const sidebarDragging = useRef(false)
@@ -130,17 +186,23 @@ function ChatSidebar({
       </div>
       <div className="flex justify-between items-center px-4 py-3.5 border-b border-border">
         <span className="text-[13px] font-medium text-muted uppercase tracking-[.04em] flex items-center gap-1.5">Sessions <InfoTip text="Each tab is an independent pi session with its own context. Switch agents per tab. Sessions persist to history on close." /></span>
-        <button className="w-7 h-7 rounded-md bg-accent text-white border-none text-lg cursor-pointer flex items-center justify-center hover:bg-accent-hover hover:shadow-[0_0_16px_var(--accent-glow)] hover:rotate-90 hover:scale-110 active:scale-95 transition-all" onClick={() => onNewSession ? onNewSession() : dispatch(switchSlot(null))} title="New chat" aria-label="New chat session">+</button>
+        <div className="flex items-center gap-1.5">
+          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'date' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('date'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'date') }} title="Group by date">🕐</button>
+          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'project' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('project'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'project') }} title="Group by project">📂</button>
+          <button className="w-7 h-7 rounded-md bg-accent text-white border-none text-lg cursor-pointer flex items-center justify-center hover:bg-accent-hover hover:shadow-[0_0_16px_var(--accent-glow)] hover:rotate-90 hover:scale-110 active:scale-95 transition-all" onClick={() => onNewSession ? onNewSession() : dispatch(switchSlot(null))} title="New chat" aria-label="New chat session">+</button>
+        </div>
       </div>
       <div className="px-2 pt-2 pb-1"><SearchInput placeholder="Filter sessions…" value={slotFilter} onChange={e => setSlotFilter(e.target.value)} /></div>
       <div className="flex-1 overflow-y-auto p-2">
         {(() => {
           const filtered = slots.filter(s => !slotFilter || (s.title + s.key + (s.agent || '')).toLowerCase().includes(slotFilter.toLowerCase()))
-          const groups = groupBy(filtered, s => projectName(s.cwd) || '')
+          const groups = slotsGroupMode === 'date'
+            ? groupByDate(filtered)
+            : groupBy(filtered, s => projectName(s.cwd) || '')
           const needsHeaders = groups.length > 1 || (groups.length === 1 && groups[0].key !== '')
           return groups.map(g => (
             <div key={g.key || '__ungrouped'}>
-              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">📂</span>{g.key || 'Other'}</div>}
+              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">{slotsGroupMode === 'date' ? '🕐' : '📂'}</span>{g.key || 'Other'}</div>}
               {g.items.map(s => {
                 const agentName = 'pi'
                 const agentColor = 'text-accent'

@@ -42,8 +42,15 @@ const manager = new PiManager()
 // ── Restore persisted slots on startup ──
 const savedSlots = loadSlotState()
 for (const s of savedSlots) {
-  if (s.messages?.length > 0) {
-    manager.restoreSlot(s.key, s.title, s.messages, {
+  // Load messages from session file if available, otherwise use persisted messages
+  let messages = s.messages || []
+  if (s.sessionFile && !messages.length) {
+    try {
+      messages = parseSessionMessages(s.sessionFile, 200)
+    } catch {}
+  }
+  if (messages.length > 0 || s.sessionFile) {
+    manager.restoreSlot(s.key, s.title, messages, {
       modelProvider: s.modelProvider,
       modelId: s.modelId,
       cwd: s.cwd,

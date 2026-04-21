@@ -186,15 +186,19 @@ export function saveSlotState(slots) {
   // Snapshot the data immediately (cheap), write async
   const data = []
   for (const [key, pi] of slots.entries()) {
-    data.push({
+    const entry = {
       key,
       title: pi._title || 'New Chat',
-      messages: pi.messages,
       sessionFile: pi.sessionFile || null,
       modelProvider: pi.modelProvider || null,
       modelId: pi.modelId || null,
       cwd: pi.cwd || null,
-    })
+    }
+    // Only persist messages for slots without a session file (unsaved new chats)
+    if (!pi.sessionFile && pi.messages.length > 0) {
+      entry.messages = pi.messages
+    }
+    data.push(entry)
   }
   _persistQueued = data
   if (!_persistPending) {
@@ -221,15 +225,19 @@ async function _flushPersist() {
 export function saveSlotStateSync(slots) {
   const data = []
   for (const [key, pi] of slots.entries()) {
-    data.push({
+    const entry = {
       key,
       title: pi._title || 'New Chat',
-      messages: pi.messages,
       sessionFile: pi.sessionFile || null,
       modelProvider: pi.modelProvider || null,
       modelId: pi.modelId || null,
       cwd: pi.cwd || null,
-    })
+    }
+    // Only persist messages for slots without a session file (unsaved new chats)
+    if (!pi.sessionFile && pi.messages.length > 0) {
+      entry.messages = pi.messages
+    }
+    data.push(entry)
   }
   try {
     writeFileSync(STATE_FILE, JSON.stringify(data), 'utf-8')

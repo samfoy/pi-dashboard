@@ -92,12 +92,11 @@ export function getFacts() {
 }
 
 export function getMemoryStats() {
-  const r = (sql) => { const rows = sqliteQuery(sql); return rows[0]?.c || 0 }
+  const r = (sql) => { try { const rows = sqliteQuery(sql); return rows[0]?.c || 0 } catch { return 0 } }
   return {
     facts: r('SELECT count(*) as c FROM semantic'),
     lessons: r('SELECT count(*) as c FROM lessons WHERE is_deleted = 0'),
     events: r('SELECT count(*) as c FROM events'),
-    episodic: r('SELECT count(*) as c FROM episodic_memories'),
   }
 }
 
