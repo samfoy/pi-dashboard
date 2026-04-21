@@ -811,17 +811,43 @@ const SLASH_BUILTINS = [
 ]
 
 app.get('/api/slash-commands', async (_req, res) => {
+  const dedup = (cmds) => {
+    const seen = new Map()
+    for (const c of cmds) {
+      if (!seen.has(c.name)) seen.set(c.name, c)
+    }
+    return [...seen.values()]
+  }
+
+  // Scan prompt templates (~/.pi/agent/prompts/*.md)
+  const scanPromptTemplates = () => {
+    const promptDir = join(os.homedir(), '.pi', 'agent', 'prompts')
+    const results = []
+    try {
+      for (const entry of readdirSync(promptDir, { withFileTypes: true })) {
+        if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+        const name = entry.name.replace(/\.md$/, '')
+        try {
+          const content = readFileSync(join(promptDir, entry.name), 'utf-8')
+          const descMatch = content.match(/description:\s*(.+)/)
+          const desc = descMatch ? descMatch[1].trim().slice(0, 80) : name
+          results.push({ name: '/' + name, description: desc, source: 'prompt' })
+        } catch {}
+      }
+    } catch {}
+    return results
+  }
+
   // Try RPC first — most accurate, includes runtime-registered commands
   try {
     const rpcCommands = await manager.getCommands()
     if (rpcCommands && rpcCommands.length > 0) {
-      // Merge: RPC commands (with /name prefix) + builtins (deduped)
-      const rpcNames = new Set(rpcCommands.map(c => '/' + c.name))
-      const merged = [...SLASH_BUILTINS.filter(b => !rpcNames.has(b.name))]
+      const merged = [...SLASH_BUILTINS]
       for (const c of rpcCommands) {
         merged.push({ name: '/' + c.name, description: c.description || '', source: c.source || 'extension' })
       }
-      return res.json(merged)
+      merged.push(...scanPromptTemplates())
+      return res.json(dedup(merged))
     }
   } catch {}
 
@@ -830,6 +856,9 @@ app.get('/api/slash-commands', async (_req, res) => {
 
   // Builtin pi commands (includes /import which is only available offline)
   commands.push(...SLASH_BUILTINS, { name: '/import', description: 'Import and resume a session', source: 'builtin' })
+
+  // Prompt templates
+  commands.push(...scanPromptTemplates())
 
   // Extension-registered commands (scan .ts files for registerCommand)
   const extDir = join(os.homedir(), '.pi', 'agent', 'extensions')
@@ -869,7 +898,7 @@ app.get('/api/slash-commands', async (_req, res) => {
     }
   } catch {}
 
-  res.json(commands)
+  res.json(dedup(commands))
 })
 
 // Pi settings
@@ -1464,6 +1493,10 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
 process.on('SIGINT', () => { saveSlotStateSync(manager.slots); manager.shutdown(); shutdownPty(); process.exit(0) })
 process.on('SIGTERM', () => { saveSlotStateSync(manager.slots); manager.shutdown(); shutdownPty(); process.exit(0) })
 process.on('uncaughtException', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} already in use — exiting so systemd can retry`)
+    process.exit(1)
+  }
   console.error('⚠ Uncaught exception (kept running):', err.message)
   console.error(err.stack)
 })
