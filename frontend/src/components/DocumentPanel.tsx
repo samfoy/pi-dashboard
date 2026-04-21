@@ -38,7 +38,11 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [lineNums, setLineNums] = useState(true)
-  const [width, setWidth] = useState(480)
+  const [width, setWidth] = useState(() => {
+    const saved = localStorage.getItem('mc-docpanel-width')
+    const n = saved ? parseInt(saved, 10) : NaN
+    return !isNaN(n) && n >= 300 ? n : 480
+  })
   const [activeInputRange, setActiveInputRange] = useState<{ start: number; end: number } | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; startLine: number; endLine: number } | null>(null)
   const fileName = filePath.split('/').pop() || filePath
@@ -126,9 +130,13 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc) }
   }, [contextMenu])
 
-  const currentVersion = selectedVersion ?? (versions.length > 0 ? versions[versions.length - 1]?.version ?? 1 : 1)
-
-  const filteredComments = useMemo(() => comments.filter(c => c.version === currentVersion), [comments, currentVersion])
+  const filteredComments = useMemo(() => {
+    // When viewing a specific historical version, filter to that version's comments.
+    // When viewing the current (live) version, show all comments regardless of version
+    // to prevent them from disappearing when the file is modified and version increments.
+    if (selectedVersion !== null) return comments.filter(c => c.version === selectedVersion)
+    return comments
+  }, [comments, selectedVersion])
 
   const handleVersionChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
@@ -140,7 +148,7 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
     const startX = e.clientX
     const startW = width
     const onMove = (ev: MouseEvent) => { setWidth(Math.max(300, Math.min(startW + (startX - ev.clientX), window.innerWidth * 0.8))) }
-    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); setWidth(w => { localStorage.setItem('mc-docpanel-width', String(w)); return w }) }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }, [width])

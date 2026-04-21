@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import hljs from 'highlight.js'
 import DOMPurify from 'dompurify'
 import MarkdownRenderer from '../MarkdownRenderer'
@@ -169,6 +169,12 @@ export default function TextRenderer({ content, filePath, mode, lineNums, onChan
   const displayContent = isMarkdown ? content : wrapCode(content, ext)
   const hasComments = comments.length > 0
 
+  // Preserve scroll position across comment add/edit/delete re-renders
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const savedScroll = useRef(0)
+  const onScroll = useCallback(() => { savedScroll.current = scrollRef.current?.scrollTop ?? 0 }, [])
+  useLayoutEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = savedScroll.current }, [comments])
+
   if (mode === 'edit') {
     // Edit mode: CodeEditor with 💬 gutter markers + comment list below
     const commentedLines = useMemo(() => {
@@ -194,7 +200,7 @@ export default function TextRenderer({ content, filePath, mode, lineNums, onChan
   // Preview mode
   if (hasComments && !isMarkdown) {
     return (
-      <div className="w-full h-full overflow-auto">
+      <div ref={scrollRef} className="w-full h-full overflow-auto" onScroll={onScroll}>
         <CodePreviewWithComments content={content} ext={ext} comments={comments} onEdit={onEditComment} onDelete={onDeleteComment} />
       </div>
     )
@@ -218,7 +224,7 @@ export default function TextRenderer({ content, filePath, mode, lineNums, onChan
     const remaining = lines.slice(start).join('\n')
     if (remaining.trim()) elements.push(<MarkdownRenderer key={`md-${start}`} content={remaining} />)
 
-    return <div className="msg-content text-sm leading-relaxed h-full overflow-auto">{elements}</div>
+    return <div ref={scrollRef} className="msg-content text-sm leading-relaxed h-full overflow-auto" onScroll={onScroll}>{elements}</div>
   }
 
   // No comments — render normally

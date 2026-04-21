@@ -668,10 +668,6 @@ export default function ChatPage() {
       prevSlotRef.current = activeSlot
       setIsAtBottom(true)
       isAtBottomRef.current = true
-      // Tab switched — scroll to bottom after messages load
-      if (messages.length > 0) {
-        setTimeout(() => scrollBottom(), 100)
-      }
     }
   }, [activeSlot, messages.length, scrollBottom])
 
@@ -1028,6 +1024,7 @@ export default function ChatPage() {
                 </div>
               )}
               <Virtuoso
+              key={activeSlot}
               ref={virtuosoRef}
               onTouchStart={() => { if (document.activeElement instanceof HTMLElement && document.activeElement.tagName === 'TEXTAREA') document.activeElement.blur() }}
               style={{ flex: 1, paddingBottom: 24 }}

@@ -201,6 +201,22 @@ export class PiProcess extends EventEmitter {
       const cmd = spaceIdx === -1 ? message.slice(1).trim() : message.slice(1, spaceIdx).trim()
       const args = spaceIdx === -1 ? '' : message.slice(spaceIdx + 1).trim()
 
+      // /reload needs special handling — pi's RPC mode doesn't support it.
+      // Kill and restart the process to pick up new extensions/skills/config.
+      if (cmd === 'reload') {
+        if (this.proc) {
+          this.kill()
+          this.proc = null
+          this.ready = false
+          this.running = false
+          this.buffer = ''
+        }
+        this.start()
+        this.messages.push({ role: 'system', content: '🔄 Reloaded extensions, skills, prompts, and themes.', ts: new Date().toISOString() })
+        this.emit('agent_end', { messages: [] })
+        return
+      }
+
       const RPC_MAP = {
         'compact': { type: 'compact' },
         'new': { type: 'new_session' },
@@ -208,7 +224,6 @@ export class PiProcess extends EventEmitter {
         'fork': { type: 'fork' },
         'export': { type: 'export_html', path: args || undefined },
         'name': { type: 'set_session_name', name: args || 'New Chat' },
-        'reload': { type: 'reload' },
       }
 
       // Commands that return data — use request() and emit result as a message
