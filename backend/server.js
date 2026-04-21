@@ -14,7 +14,7 @@ import { execSync } from 'child_process'
 import { PiManager } from './pi-manager.js'
 import { handlePtyConnection, shutdownAll as shutdownPty } from './pty-manager.js'
 import * as piEnv from './pi-env.js'
-import { saveSlotState, loadSlotState, findSessionFile, parseSessionMessages, parseSessionTree } from './session-store.js'
+import { saveSlotState, saveSlotStateSync, loadSlotState, findSessionFile, parseSessionMessages, parseSessionTree } from './session-store.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = parseInt(process.env.PI_DASH_PORT || '7777', 10)
@@ -184,7 +184,7 @@ app.get('/api/system', (_req, res) => {
   let diskTotal = '', diskFree = ''
   try {
     const dfCmd = process.platform === 'darwin' ? "df -g / | tail -1" : "df -BG / | tail -1"
-    const df = execSync(dfCmd, { encoding: 'utf-8' }).trim().split(/\s+/)
+    const df = execSync(dfCmd, { encoding: 'utf-8', timeout: 2000 }).trim().split(/\s+/)
     diskTotal = parseFloat(df[1])
     diskFree = parseFloat(df[3])
   } catch {}
@@ -207,12 +207,18 @@ app.get('/api/system', (_req, res) => {
     procMem = (process.memoryUsage.rss() / 1048576).toFixed(1)
   } catch {}
   try {
-    const ps = execSync(`ps -o rss=,nlwp= -p ${process.pid}`, { encoding: 'utf-8' }).trim().split(/\s+/)
-    if (!procMem) procMem = (parseInt(ps[0]) / 1024).toFixed(1)
-    threads = ps[1]
+    // macOS ps doesn't support nlwp; just get RSS as fallback
+    if (process.platform === 'darwin') {
+      const ps = execSync(`ps -o rss= -p ${process.pid}`, { encoding: 'utf-8', timeout: 2000 }).trim()
+      if (!procMem) procMem = (parseInt(ps) / 1024).toFixed(1)
+    } else {
+      const ps = execSync(`ps -o rss=,nlwp= -p ${process.pid}`, { encoding: 'utf-8', timeout: 2000 }).trim().split(/\s+/)
+      if (!procMem) procMem = (parseInt(ps[0]) / 1024).toFixed(1)
+      threads = ps[1]
+    }
   } catch {}
   try {
-    childProcs = execSync(`pgrep -c -P ${process.pid} 2>/dev/null || echo 0`, { encoding: 'utf-8' }).trim()
+    childProcs = execSync(`pgrep -c -P ${process.pid} 2>/dev/null || echo 0`, { encoding: 'utf-8', timeout: 2000 }).trim()
   } catch {}
 
   // CPU usage (simple 1s sample)
@@ -1147,7 +1153,45 @@ function _wireSlotEvents(pi, slotKey) {
   let _partialTextMsg = null
   let _partialThinkMsg = null
   let _persistTimer = null
-  const _throttledPersist = () => { if (!_persistTimer) _persistTimer = setTimeout(() => { _persistTimer = null; persistSlots() }, 2000) }
+  const _throttledPersist = () => { if (!_persistTimer) _persistTimer = setTimeout(() => { _persistTimer = null; persistSlots() }, 5000) }
+
+  // Stall detector: if running but no events from pi for 90s, check health
+  let _lastEventTime = 0
+  let _stallTimer = null
+  const STALL_CHECK_INTERVAL = 30_000  // check every 30s
+  const STALL_THRESHOLD = 90_000       // 90s without events = stall
+
+  function _startStallDetector() {
+    _lastEventTime = Date.now()
+    if (_stallTimer) return
+    _stallTimer = setInterval(() => {
+      if (!midTurn) return
+      const silent = Date.now() - _lastEventTime
+      if (silent > STALL_THRESHOLD) {
+        // Process might be wedged — check if it's actually dead
+        if (pi.checkHealth()) {
+          // checkHealth found dead process and reset state
+          _stopStallDetector()
+          return
+        }
+        // Process alive but silent — broadcast heartbeat so client knows we're still connected
+        broadcast('heartbeat', { slot: slotKey, stallMs: silent })
+      }
+    }, STALL_CHECK_INTERVAL)
+  }
+
+  function _stopStallDetector() {
+    if (_stallTimer) { clearInterval(_stallTimer); _stallTimer = null }
+  }
+
+  // Update last event time on any pi event
+  if (typeof pi.emit === 'function') {
+    const origEmit = pi.emit.bind(pi)
+    pi.emit = function(event, ...args) {
+      if (midTurn) _lastEventTime = Date.now()
+      return origEmit(event, ...args)
+    }
+  }
 
   pi.on('message_update', ({ event, delta }) => {
     if (delta.type === 'text_delta') {
@@ -1200,10 +1244,12 @@ function _wireSlotEvents(pi, slotKey) {
   pi.on('agent_start', () => {
     agentStartTime = Date.now()
     midTurn = true
+    _startStallDetector()
   })
 
   pi.on('agent_end', () => {
     midTurn = false
+    _stopStallDetector()
     streamBuf = ''
     _partialTextMsg = null
     _partialThinkMsg = null
@@ -1347,6 +1393,7 @@ function _wireSlotEvents(pi, slotKey) {
   pi.on('error', (err) => {
     if (midTurn) {
       midTurn = false
+      _stopStallDetector()
       streamBuf = ''
       _partialTextMsg = null
       _partialThinkMsg = null
@@ -1360,6 +1407,7 @@ function _wireSlotEvents(pi, slotKey) {
   })
 
   pi.on('exit', () => {
+    _stopStallDetector()
     if (midTurn) {
       midTurn = false
       streamBuf = ''
@@ -1406,8 +1454,8 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
   console.log()
 })
 
-process.on('SIGINT', () => { manager.shutdown(); shutdownPty(); process.exit(0) })
-process.on('SIGTERM', () => { manager.shutdown(); shutdownPty(); process.exit(0) })
+process.on('SIGINT', () => { saveSlotStateSync(manager.slots); manager.shutdown(); shutdownPty(); process.exit(0) })
+process.on('SIGTERM', () => { saveSlotStateSync(manager.slots); manager.shutdown(); shutdownPty(); process.exit(0) })
 process.on('uncaughtException', (err) => {
   console.error('⚠ Uncaught exception (kept running):', err.message)
   console.error(err.stack)

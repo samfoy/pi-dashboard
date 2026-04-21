@@ -2,6 +2,7 @@
  * Session persistence and JSONL parser for pi sessions.
  */
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs'
+import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { homedir } from 'os'
 
@@ -177,7 +178,47 @@ export function parseSessionTree(sessionPath) {
 
 // ── Persist/restore dashboard slot state ──
 
+// Async persist with write coalescing — avoids blocking the event loop
+let _persistPending = false
+let _persistQueued = null  // latest slots snapshot waiting to write
+
 export function saveSlotState(slots) {
+  // Snapshot the data immediately (cheap), write async
+  const data = []
+  for (const [key, pi] of slots.entries()) {
+    data.push({
+      key,
+      title: pi._title || 'New Chat',
+      messages: pi.messages,
+      sessionFile: pi.sessionFile || null,
+      modelProvider: pi.modelProvider || null,
+      modelId: pi.modelId || null,
+      cwd: pi.cwd || null,
+    })
+  }
+  _persistQueued = data
+  if (!_persistPending) {
+    _persistPending = true
+    // Defer to next tick so multiple rapid calls coalesce
+    setImmediate(_flushPersist)
+  }
+}
+
+async function _flushPersist() {
+  while (_persistQueued) {
+    const data = _persistQueued
+    _persistQueued = null
+    try {
+      // Stringify in chunks won't help much, but at least the write is async
+      const json = JSON.stringify(data)
+      await writeFile(STATE_FILE, json, 'utf-8')
+    } catch {}
+  }
+  _persistPending = false
+}
+
+/** Synchronous save for shutdown — blocks but ensures data is written */
+export function saveSlotStateSync(slots) {
   const data = []
   for (const [key, pi] of slots.entries()) {
     data.push({
@@ -191,7 +232,7 @@ export function saveSlotState(slots) {
     })
   }
   try {
-    writeFileSync(STATE_FILE, JSON.stringify(data, null, 2), 'utf-8')
+    writeFileSync(STATE_FILE, JSON.stringify(data), 'utf-8')
   } catch {}
 }
 
