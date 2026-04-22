@@ -206,22 +206,26 @@ function ChatSidebar({
               {g.items.map(s => {
                 const agentName = 'pi'
                 const agentColor = 'text-accent'
+                const needsAttention = s.pending_approval && !s.stopping
+                const isIdle = !s.running && !s.stopping && !s.pending_approval
                 return (
-                  <div key={s.key} className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
+                  <div key={s.key} className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${needsAttention ? 'bg-warn-subtle border-warn/40 text-text-strong shadow-[0_0_12px_rgba(245,158,11,.15)]' : activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
                     role="button"
                     tabIndex={0}
                     onMouseDown={(e) => { e.preventDefault(); if ((e.target as HTMLElement).dataset.close) { dispatch(deleteSlot(s.key)); return }; onViewNotification(null); dispatch(switchSlot(s.key)) }}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewNotification(null); dispatch(switchSlot(s.key)) } }}>
-                    {unreadSlots.includes(s.key) ? <span className="w-2 h-2 rounded-full bg-[var(--info)] shrink-0 shadow-[0_0_6px_rgba(59,130,246,.4)] animate-dot-breathe self-center" /> : <span className="w-2 shrink-0" />}
+                    {needsAttention ? <span className="w-2 h-2 rounded-full bg-warn shrink-0 shadow-[0_0_8px_rgba(245,158,11,.5)] animate-dot-breathe self-center" /> : unreadSlots.includes(s.key) ? <span className="w-2 h-2 rounded-full bg-[var(--info)] shrink-0 shadow-[0_0_6px_rgba(59,130,246,.4)] animate-dot-breathe self-center" /> : <span className="w-2 shrink-0" />}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className={`text-[11px] font-semibold truncate leading-tight flex items-center gap-1 ${agentColor}`}>
                       {agentName}
-                      {s.pending_approval ? (
-                        <span className="inline-flex items-center gap-0.5 px-1 py-[1px] rounded-full text-[10px] font-bold bg-warn-subtle text-warn border border-warn/30 animate-scale-in" title="Waiting for approval">🔐</span>
+                      {needsAttention ? (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-[2px] rounded-full text-[10px] font-bold bg-warn text-white animate-pulse" title="Waiting for approval">⚠ Needs input</span>
                       ) : s.stopping ? (
                         <span className="inline-flex items-center gap-0.5 px-1 py-[1px] rounded-full text-[10px] font-bold bg-danger-subtle text-danger border border-danger/30" title="Stopping">■</span>
                       ) : s.running ? (
                         <span className="typing-dots-sm"><span /><span /><span /></span>
+                      ) : isIdle ? (
+                        <span className="inline-flex items-center px-1 py-[1px] rounded-full text-[10px] text-muted/50">idle</span>
                       ) : null}
                     </div>
                       <div className="overflow-x-auto" title={s.title !== s.key ? s.title : s.key}>

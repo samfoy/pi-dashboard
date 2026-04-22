@@ -47,6 +47,7 @@ export default function ChatPage() {
   const slotRunning = useAppSelector(s => s.chat.slotRunning)
   const slotStopping = useAppSelector(s => s.chat.slotStopping)
   const slotState = useAppSelector(s => s.chat.slotState)
+  const slotSwitching = useAppSelector(s => s.chat.slotSwitching)
   const contextUsage = useAppSelector(s => s.chat.contextUsage)
   const extensionStatuses = useAppSelector(s => s.chat.extensionStatuses)
   const pendingApproval = useAppSelector(s => { const slot = s.dashboard.slots.find(sl => sl.key === s.chat.activeSlot); return slot?.pending_approval ?? false })
@@ -131,6 +132,10 @@ export default function ChatPage() {
       }
       // Restore per-slot panel state
       panel.switchToSlot(activeSlot)
+      // Focus input on session switch (desktop only — avoid keyboard pop on mobile)
+      if (window.innerWidth >= 768) {
+        setTimeout(() => inputRef.current?.focus(), 100)
+      }
     }
   }, [activeSlot])
   useEffect(() => { if (inputRef.current && input) { inputRef.current.style.height = 'auto'; inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 140) + 'px' } }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount-only auto-size
@@ -639,12 +644,29 @@ export default function ChatPage() {
               {/* Desktop toolbar */}
               <div className="hidden md:flex gap-1.5 shrink-0">
                 {slotRunning && <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all font-body" aria-label={slotStopping ? 'Skip queue' : 'Stop generation'} onClick={() => { if (activeSlot) api.stopChatSlot(activeSlot) }}>{slotStopping ? '■ Skip Queue' : '■ Stop'}</button>}
-                <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTree ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle session tree" onClick={() => setShowTree(t => !t)}>🌳 Tree</button>
-                <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showRefs ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle referenced files" onClick={() => setShowRefs(t => !t)}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
-                <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showFiles ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle file browser" onClick={() => setShowFiles(t => !t)}>📄 Files</button>
-                <button className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTerminal ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`} aria-label="Toggle terminal" onClick={() => setShowTerminal(t => !t)}>▸_ Terminal</button>
+                {/* Panels dropdown — groups Tree, Refs, Files, Terminal */}
+                <div className="relative">
+                  <button
+                    className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTree || showRefs || showFiles || showTerminal ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`}
+                    onClick={() => setShowOverflowMenu(v => !v)}
+                    aria-label="Toggle panels"
+                  >
+                    ☰ Panels{(showTree || showRefs || showFiles || showTerminal) ? ' ·' : ''}
+                  </button>
+                  {showOverflowMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                        <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showTree ? 'text-accent' : 'text-text'}`} onClick={() => { setShowTree(t => !t); setShowOverflowMenu(false) }}>🌳 Tree{showTree ? ' ✓' : ''}</button>
+                        <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showRefs ? 'text-accent' : 'text-text'}`} onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}{showRefs ? ' ✓' : ''}</button>
+                        <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showFiles ? 'text-accent' : 'text-text'}`} onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files{showFiles ? ' ✓' : ''}</button>
+                        <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showTerminal ? 'text-accent' : 'text-text'}`} onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal{showTerminal ? ' ✓' : ''}</button>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <ChatSettings config={chatConfig} onChange={setChatConfig} activeSlot={activeSlot} currentModel={currentSlot?.model} models={availableModels} />
-                <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-danger hover:border-danger transition-all font-body" aria-label="Close session" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)) }}>✕ Close</button>
+                <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-danger hover:border-danger transition-all font-body" aria-label="Close session" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)) }}>✕</button>
               </div>
               {/* Mobile overflow menu */}
               <div className="md:hidden relative shrink-0">
@@ -695,6 +717,46 @@ export default function ChatPage() {
                   ))}
                 </div>
               )}
+              {slotSwitching && messages.length === 0 ? (
+                <div className="flex-1 flex flex-col gap-4 px-5 py-6 animate-pulse">
+                  {/* Skeleton: user message */}
+                  <div className="flex gap-3 items-start flex-row-reverse">
+                    <div className="w-8 h-8 rounded-md bg-bg-elevated shrink-0" />
+                    <div className="flex flex-col gap-1.5 items-end max-w-[60%]">
+                      <div className="skeleton h-10 w-48 rounded-lg" />
+                    </div>
+                  </div>
+                  {/* Skeleton: tool calls */}
+                  <div className="flex gap-3 items-start">
+                    <div className="w-8 h-8 rounded-md bg-bg-elevated shrink-0" />
+                    <div className="flex flex-col gap-1.5 max-w-[70%] w-full">
+                      <div className="skeleton h-8 w-full rounded-md" />
+                      <div className="skeleton h-8 w-[85%] rounded-md" />
+                    </div>
+                  </div>
+                  {/* Skeleton: assistant response */}
+                  <div className="flex gap-3 items-start">
+                    <div className="w-8 h-8 rounded-md bg-bg-elevated shrink-0" />
+                    <div className="flex flex-col gap-1.5 max-w-[70%] w-full">
+                      <div className="skeleton h-24 w-full rounded-lg" />
+                    </div>
+                  </div>
+                  {/* Skeleton: user message 2 */}
+                  <div className="flex gap-3 items-start flex-row-reverse">
+                    <div className="w-8 h-8 rounded-md bg-bg-elevated shrink-0" />
+                    <div className="flex flex-col gap-1.5 items-end max-w-[60%]">
+                      <div className="skeleton h-8 w-36 rounded-lg" />
+                    </div>
+                  </div>
+                  {/* Skeleton: assistant response 2 */}
+                  <div className="flex gap-3 items-start">
+                    <div className="w-8 h-8 rounded-md bg-bg-elevated shrink-0" />
+                    <div className="flex flex-col gap-1.5 max-w-[70%] w-full">
+                      <div className="skeleton h-16 w-full rounded-lg" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
               <Virtuoso
               key={activeSlot}
               ref={virtuosoRef}
@@ -726,6 +788,7 @@ export default function ChatPage() {
                 )
               }}
             />
+            )}
             {!isAtBottom && messages.length > 0 && (
               <div className="flex justify-center py-1.5">
                 <button

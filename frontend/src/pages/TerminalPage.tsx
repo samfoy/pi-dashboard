@@ -64,6 +64,7 @@ export default function TerminalPage() {
     wsRef.current = ws
 
     ws.onopen = () => setConnected(true)
+    ws.onerror = () => {} // Suppress console errors (PTY may be disabled server-side)
     ws.onclose = () => setConnected(false)
     ws.onmessage = (e) => {
       const data = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data)
