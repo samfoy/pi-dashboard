@@ -29,17 +29,25 @@ export default function TerminalPage() {
     wsRef.current?.close()
     terminalRef.current?.dispose()
 
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light'
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 14,
       fontFamily: "'JetBrainsMono Nerd Font', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-      theme: {
+      theme: isDark ? {
         background: '#0d1117',
         foreground: '#c9d1d9',
         cursor: '#58a6ff',
         selectionBackground: '#264f78',
         black: '#0d1117', red: '#ff7b72', green: '#3fb950', yellow: '#d29922',
         blue: '#58a6ff', magenta: '#bc8cff', cyan: '#39d353', white: '#c9d1d9',
+      } : {
+        background: '#fafafa',
+        foreground: '#3f3f46',
+        cursor: '#d97706',
+        selectionBackground: '#d4d4d8',
+        black: '#18181b', red: '#dc2626', green: '#16a34a', yellow: '#d97706',
+        blue: '#2563eb', magenta: '#7c3aed', cyan: '#0891b2', white: '#fafafa',
       },
       allowProposedApi: true,
     })

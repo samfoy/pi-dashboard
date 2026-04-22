@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo, useContext } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo, useContext, lazy, Suspense } from 'react'
 
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -11,7 +11,7 @@ import {
 import { sseSlotTitle } from '../store/dashboardSlice'
 import { api } from '../api/client'
 import TypewriterText from '../components/TypewriterText'
-import DocumentPanel from '../components/DocumentPanel'
+const DocumentPanel = lazy(() => import('../components/DocumentPanel'))
 import FileBrowser from '../components/FileBrowser'
 import ReferencedFiles from '../components/ReferencedFiles'
 import { useReferencedFiles } from '../hooks/useReferencedFiles'
@@ -28,6 +28,7 @@ import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettin
 import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
+import MessageSearch from './chat/MessageSearch'
 import type { Notification, ChatMessage } from '../types'
 
 
@@ -77,6 +78,7 @@ export default function ChatPage() {
   const [showRefs, setShowRefs] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
 
   // Sync viewingNotification from Redux store (e.g. after auto-ack)
   useEffect(() => {
@@ -495,8 +497,9 @@ export default function ChatPage() {
   useKeyboardShortcuts(useMemo(() => [
     { key: 'n', ctrl: true, label: 'New session', action: () => { wantsNewSession.current = true; dispatch(switchSlot(null)) } },
     { key: 'l', ctrl: true, label: 'Focus input', action: () => inputRef.current?.focus() },
-    { key: 'Escape', label: 'Stop generation', action: () => { if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } },
-  ], [activeSlot, slotRunning, dispatch]))
+    { key: 'f', ctrl: true, label: 'Search messages', action: () => setShowSearch(s => !s) },
+    { key: 'Escape', label: 'Stop / Close search', action: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } },
+  ], [activeSlot, slotRunning, showSearch, dispatch]))
 
   const loadingOlder = useAppSelector(s => s.chat.loadingOlder)
 
@@ -710,6 +713,20 @@ export default function ChatPage() {
               )}
               <div className="flex-1 min-h-0 flex flex-col" style={{ display: showTerminal ? 'flex' : 'none' }}><TerminalPage /></div>
               {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col">
+              {showSearch && (
+                <MessageSearch
+                  messages={messages}
+                  onJumpToIndex={(msgIdx) => {
+                    // Map message index to grouped messages index for Virtuoso
+                    const gIdx = groupedMessages.findIndex(g =>
+                      g.type === 'single' ? g.index === msgIdx
+                        : g.tools.some(t => t.index === msgIdx)
+                    )
+                    if (gIdx >= 0) virtuosoRef.current?.scrollToIndex({ index: gIdx, behavior: 'smooth', align: 'center' })
+                  }}
+                  onClose={() => setShowSearch(false)}
+                />
+              )}
               {Object.keys(extensionStatuses).length > 0 && (
                 <div className="px-4 py-1 bg-accent-subtle text-accent text-[11px] font-medium border-b border-border flex items-center gap-4 shrink-0">
                   {Object.entries(extensionStatuses).map(([key, text]) => (
@@ -847,7 +864,9 @@ export default function ChatPage() {
         )}
       </div>
       {panel.isOpen && (
-        <DocumentPanel filePath={panel.filePath} content={panel.content} onContentChange={handleContentChange} onSave={handleFileSave} onClose={panel.closePanel} dirty={panel.dirty} versions={panel.versions} selectedVersion={panel.selectedVersion} conflictContent={panel.conflictContent} onSelectVersion={panel.selectVersion} onResolveConflict={panel.resolveConflict} diffMode={panel.diffMode} onToggleDiff={panel.toggleDiffMode} comments={panel.comments} onAddComment={handleAddComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onReviewComments={handleReviewComments} />
+        <Suspense fallback={<div className="flex-[0_0_40%] border-l border-border bg-bg flex items-center justify-center"><span className="text-muted text-sm">Loading…</span></div>}>
+          <DocumentPanel filePath={panel.filePath} content={panel.content} onContentChange={handleContentChange} onSave={handleFileSave} onClose={panel.closePanel} dirty={panel.dirty} versions={panel.versions} selectedVersion={panel.selectedVersion} conflictContent={panel.conflictContent} onSelectVersion={panel.selectVersion} onResolveConflict={panel.resolveConflict} diffMode={panel.diffMode} onToggleDiff={panel.toggleDiffMode} comments={panel.comments} onAddComment={handleAddComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onReviewComments={handleReviewComments} />
+        </Suspense>
       )}
     </div>
   )
