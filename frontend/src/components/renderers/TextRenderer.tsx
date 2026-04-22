@@ -212,13 +212,15 @@ export default function TextRenderer({ content, filePath, mode, lineNums, onChan
   const onScroll = useCallback(() => { savedScroll.current = scrollRef.current?.scrollTop ?? 0 }, [])
   useLayoutEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = savedScroll.current }, [comments])
 
+  // Compute commented lines for edit mode (must be before conditionals per Rules of Hooks)
+  const commentedLines = useMemo(() => {
+    const set = new Set<number>()
+    for (const c of comments) for (let l = c.startLine; l <= c.endLine; l++) set.add(l)
+    return set
+  }, [comments])
+
   if (mode === 'edit') {
     // Edit mode: CodeEditor with 💬 gutter markers + comment list below
-    const commentedLines = useMemo(() => {
-      const set = new Set<number>()
-      for (const c of comments) for (let l = c.startLine; l <= c.endLine; l++) set.add(l)
-      return set
-    }, [comments])
 
     return (
       <div className="w-full h-full flex flex-col">

@@ -132,6 +132,7 @@ describe('ChatSidebar', () => {
   })
 
   it('groups slots by project when cwd differs', () => {
+    localStorageMock.getItem.mockImplementation((key: string) => key === 'mc-slots-group-mode' ? 'project' : null)
     const props = {
       ...baseProps,
       slots: [
@@ -142,5 +143,6 @@ describe('ChatSidebar', () => {
     renderWithProviders(<ChatSidebar {...props} />)
     expect(screen.getByText('project-a')).toBeInTheDocument()
     expect(screen.getByText('project-b')).toBeInTheDocument()
+    localStorageMock.getItem.mockReturnValue(null)
   })
 })
