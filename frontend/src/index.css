@@ -55,6 +55,100 @@
   color-scheme:light;
 }
 
+/* ── Rosé Pine (main) ── */
+[data-theme="rose-pine"]{
+  --bg:#191724;--bg-accent:#1f1d2e;--bg-elevated:#26233a;--bg-hover:#2a2740;
+  --card:#1f1d2e;--card-fg:#e0def4;--card-hl:rgba(224,222,244,.05);
+  --panel:#191724;--panel-strong:#1f1d2e;
+  --chrome:rgba(25,23,36,.95);
+  --text:#e0def4;--text-strong:#e0def4;--muted:#908caa;--muted-strong:#6e6a86;
+  --border:#26233a;--border-strong:#393552;--border-hover:#524f67;
+  --accent:#c4a7e7;--accent-hover:#d4bff7;--accent-subtle:rgba(196,167,231,.15);
+  --accent-glow:rgba(196,167,231,.25);--ring:#c4a7e7;
+  --ok:#9ccfd8;--ok-subtle:rgba(156,207,216,.12);
+  --warn:#f6c177;--warn-subtle:rgba(246,193,119,.12);
+  --danger:#eb6f92;--danger-subtle:rgba(235,111,146,.12);
+  --info:#31748f;
+  --aim:#c4a7e7;--aim-subtle:rgba(196,167,231,.15);
+  --clarify:#f6c177;--clarify-subtle:rgba(246,193,119,.05);
+  --diff-add:rgba(156,207,216,.15);--diff-add-text:#9ccfd8;
+  --diff-del:rgba(235,111,146,.15);--diff-del-text:#eb6f92;
+  --diff-hunk:rgba(49,116,143,.15);--diff-hunk-text:#31748f;
+  --diff-meta-text:#e0def4;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow-md:0 4px 12px rgba(0,0,0,.35),0 0 0 1px rgba(224,222,244,.03);
+  --shadow-lg:0 12px 28px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+
+/* ── Rosé Pine Moon ── */
+[data-theme="rose-pine-moon"]{
+  --bg:#232136;--bg-accent:#2a273f;--bg-elevated:#393552;--bg-hover:#3e3a54;
+  --card:#2a273f;--card-fg:#e0def4;--card-hl:rgba(224,222,244,.05);
+  --panel:#232136;--panel-strong:#2a273f;
+  --chrome:rgba(35,33,54,.95);
+  --text:#e0def4;--text-strong:#e0def4;--muted:#908caa;--muted-strong:#6e6a86;
+  --border:#393552;--border-strong:#44415a;--border-hover:#56526e;
+  --accent:#c4a7e7;--accent-hover:#d4bff7;--accent-subtle:rgba(196,167,231,.15);
+  --accent-glow:rgba(196,167,231,.25);--ring:#c4a7e7;
+  --ok:#9ccfd8;--ok-subtle:rgba(156,207,216,.12);
+  --warn:#f6c177;--warn-subtle:rgba(246,193,119,.12);
+  --danger:#eb6f92;--danger-subtle:rgba(235,111,146,.12);
+  --info:#3e8fb0;
+  --aim:#c4a7e7;--aim-subtle:rgba(196,167,231,.15);
+  --clarify:#f6c177;--clarify-subtle:rgba(246,193,119,.05);
+  --diff-add:rgba(156,207,216,.15);--diff-add-text:#9ccfd8;
+  --diff-del:rgba(235,111,146,.15);--diff-del-text:#eb6f92;
+  --diff-hunk:rgba(62,143,176,.15);--diff-hunk-text:#3e8fb0;
+  --diff-meta-text:#e0def4;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.25);
+  --shadow-md:0 4px 12px rgba(0,0,0,.3),0 0 0 1px rgba(224,222,244,.03);
+  --shadow-lg:0 12px 28px rgba(0,0,0,.4);
+  color-scheme:dark;
+}
+
+/* ── Rosé Pine Dawn ── */
+[data-theme="rose-pine-dawn"]{
+  --bg:#faf4ed;--bg-accent:#f2e9e1;--bg-elevated:#fffaf3;--bg-hover:#f0e6dd;
+  --card:#fffaf3;--card-fg:#575279;--card-hl:rgba(87,82,121,.04);
+  --panel:#faf4ed;--panel-strong:#f2e9e1;
+  --chrome:rgba(250,244,237,.95);
+  --text:#575279;--text-strong:#26233a;--muted:#9893a5;--muted-strong:#797593;
+  --border:#dfdad9;--border-strong:#cecacd;--border-hover:#9893a5;
+  --accent:#907aa9;--accent-hover:#a08dbd;--accent-subtle:rgba(144,122,169,.12);
+  --accent-glow:rgba(144,122,169,.15);--ring:#907aa9;
+  --ok:#56949f;--ok-subtle:rgba(86,148,159,.1);
+  --warn:#ea9d34;--warn-subtle:rgba(234,157,52,.1);
+  --danger:#b4637a;--danger-subtle:rgba(180,99,122,.1);
+  --info:#286983;
+  --aim:#907aa9;--aim-subtle:rgba(144,122,169,.12);
+  --clarify:#ea9d34;--clarify-subtle:rgba(234,157,52,.06);
+  --diff-add:rgba(86,148,159,.12);--diff-add-text:#56949f;
+  --diff-del:rgba(180,99,122,.12);--diff-del-text:#b4637a;
+  --diff-hunk:rgba(40,105,131,.12);--diff-hunk-text:#286983;
+  --diff-meta-text:#575279;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);
+  --shadow-lg:0 12px 28px rgba(0,0,0,.12);
+  color-scheme:light;
+}
+
+/* ── Rosé Pine ambient backgrounds ── */
+[data-theme="rose-pine"] body::before,[data-theme="rose-pine-moon"] body::before{
+  background:radial-gradient(ellipse at 20% 50%,rgba(196,167,231,.04) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 20%,rgba(49,116,143,.03) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 80%,rgba(156,207,216,.03) 0%,transparent 50%)}
+[data-theme="rose-pine-dawn"] body::before{
+  background:radial-gradient(ellipse at 20% 50%,rgba(144,122,169,.05) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 20%,rgba(40,105,131,.04) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 80%,rgba(86,148,159,.04) 0%,transparent 50%)}
+
+/* ── Rosé Pine code blocks ── */
+[data-theme="rose-pine"] .msg-content :not(pre)>code,[data-theme="rose-pine-moon"] .msg-content :not(pre)>code{background:rgba(224,222,244,.08)}
+[data-theme="rose-pine"] .msg-content pre,[data-theme="rose-pine-moon"] .msg-content pre{background:rgba(224,222,244,.06)}
+[data-theme="rose-pine-dawn"] .msg-content :not(pre)>code{background:rgba(87,82,121,.07)}
+[data-theme="rose-pine-dawn"] .msg-content pre{background:rgba(87,82,121,.05)}
+
 /* ── Base ── */
 @layer base {
   *{box-sizing:border-box;margin:0;padding:0}
@@ -125,7 +219,7 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── Code in messages ── */
-.msg-content{-webkit-user-select:text;user-select:text;cursor:text}
+.msg-content{-webkit-user-select:text;user-select:text;cursor:text;overflow-wrap:break-word;word-break:break-word}
 .msg-content code{font-family:var(--mono);font-size:.9em}
 .msg-content :not(pre)>code{background:rgba(0,0,0,.15);padding:.15em .4em;border-radius:4px;overflow-wrap:break-word;word-break:break-all}
 [data-theme="light"] .msg-content :not(pre)>code{background:rgba(0,0,0,.06)}
@@ -324,13 +418,18 @@ html.is-standalone .standalone-pad [role="button"]{-webkit-app-region:no-drag}
   user-select: none;
 }
 
-.cmdk-item[data-selected="true"] {
+.cmdk-item[data-selected="true"],
+.cmdk-item.cmdk-item-active {
   background: var(--accent);
   color: #fff;
 }
 .cmdk-item[data-selected="true"] .cmdk-kbd,
 .cmdk-item[data-selected="true"] .cmdk-item-meta,
-.cmdk-item[data-selected="true"] .cmdk-item-badge {
+.cmdk-item[data-selected="true"] .cmdk-item-badge,
+.cmdk-item.cmdk-item-active .cmdk-kbd,
+.cmdk-item.cmdk-item-active .cmdk-item-meta,
+.cmdk-item.cmdk-item-active .cmdk-item-badge,
+.cmdk-item.cmdk-item-active .text-muted {
   color: rgba(255, 255, 255, 0.7);
   border-color: rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.1);

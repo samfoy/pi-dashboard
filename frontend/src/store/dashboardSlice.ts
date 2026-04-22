@@ -51,6 +51,10 @@ const dashboardSlice = createSlice({
       const slot = state.slots.find(s => s.key === action.payload.key)
       if (slot) slot.title = action.payload.title
     },
+    sseSlotTags(state, action: PayloadAction<{ key: string; tags: string[] }>) {
+      const slot = state.slots.find(s => s.key === action.payload.key)
+      if (slot) slot.tags = action.payload.tags
+    },
     addSlotOptimistic(state, action: PayloadAction<ChatSlot>) {
       if (!state.slots.find(s => s.key === action.payload.key)) {
         state.slots.push(action.payload)
@@ -87,5 +91,5 @@ const dashboardSlice = createSlice({
   },
 })
 
-export const { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, addSlotOptimistic, removeSlotOptimistic, triggerRefresh, markSlotUnread, markSlotRead, addSlotError, clearSlotErrors } = dashboardSlice.actions
+export const { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, sseSlotTags, addSlotOptimistic, removeSlotOptimistic, triggerRefresh, markSlotUnread, markSlotRead, addSlotError, clearSlotErrors } = dashboardSlice.actions
 export default dashboardSlice.reducer

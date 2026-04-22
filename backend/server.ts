@@ -16,10 +16,106 @@ import { PiManager, PiProcess } from './pi-manager.js'
 import { handlePtyConnection, shutdownAll as shutdownPty } from './pty-manager.js'
 import * as piEnv from './pi-env.js'
 import { saveSlotState, saveSlotStateSync, loadSlotState, findSessionFile, parseSessionMessages, parseSessionTree, ChatMessage } from './session-store.js'
+import { DatabaseSync } from 'node:sqlite'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = parseInt(process.env.PI_DASH_PORT || '7777', 10)
 const DIST_DIR = join(__dirname, '..', 'frontend', 'dist')
+const SESSION_INDEX_DIR = join(os.homedir(), '.pi', 'session-search', 'index')
+
+// ─── Session search (FTS5 + session-index.json) ─────────────────────
+interface SessionSearchResult {
+  id: string
+  name: string
+  file: string
+  cwd: string
+  startedAt: string
+  projectSlug: string
+  summary: string
+  userMessageCount: number
+  assistantMessageCount: number
+  models: string[]
+}
+
+function toFtsQuery(q: string): string {
+  const tokens = q.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean)
+  if (tokens.length === 0) return ''
+  return tokens.map(t => `"${t}"*`).join(' OR ')
+}
+
+function searchSessionIndex(query: string, limit: number): SessionSearchResult[] {
+  const ftsDbPath = join(SESSION_INDEX_DIR, 'hybrid-fts.db')
+  const indexJsonPath = join(SESSION_INDEX_DIR, 'session-index.json')
+  
+  // Load metadata from session-index.json
+  let sessions: Record<string, any> = {}
+  try {
+    const raw = readFileSync(indexJsonPath, 'utf8')
+    sessions = JSON.parse(raw).sessions || {}
+  } catch { /* index not built yet */ }
+  
+  // Query FTS5 for ranked IDs
+  const ftsQuery = toFtsQuery(query)
+  if (!ftsQuery) return []
+  
+  let ftsIds: string[] = []
+  try {
+    const db = new DatabaseSync(ftsDbPath, { open: true } as any)
+    try {
+      const rows = db.prepare('SELECT id FROM s WHERE s MATCH ? ORDER BY bm25(s) LIMIT ?').all(ftsQuery, limit) as any[]
+      ftsIds = rows.map(r => String(r.id))
+    } finally {
+      db.close()
+    }
+  } catch { /* db doesn't exist yet */ }
+  
+  // Join with metadata
+  return ftsIds.map(id => {
+    const entry = sessions[id]
+    if (!entry) return null
+    const s = entry.session
+    return {
+      id: s.id,
+      name: s.name || (s.firstUserMessage || '').slice(0, 100),
+      file: s.file,
+      cwd: s.cwd,
+      startedAt: s.startedAt,
+      projectSlug: s.projectSlug,
+      summary: entry.summary || '',
+      userMessageCount: s.userMessageCount || 0,
+      assistantMessageCount: s.assistantMessageCount || 0,
+      models: s.models || [],
+    }
+  }).filter((r): r is SessionSearchResult => r !== null)
+}
+
+function listRecentSessions(limit: number): SessionSearchResult[] {
+  const indexJsonPath = join(SESSION_INDEX_DIR, 'session-index.json')
+  let sessions: Record<string, any> = {}
+  try {
+    const raw = readFileSync(indexJsonPath, 'utf8')
+    sessions = JSON.parse(raw).sessions || {}
+  } catch { return [] }
+  
+  return Object.values(sessions)
+    .map((entry: any) => {
+      const s = entry.session
+      return {
+        id: s.id,
+        name: s.name || (s.firstUserMessage || '').slice(0, 100),
+        file: s.file,
+        cwd: s.cwd,
+        startedAt: s.startedAt,
+        projectSlug: s.projectSlug,
+        summary: entry.summary || '',
+        userMessageCount: s.userMessageCount || 0,
+        assistantMessageCount: s.assistantMessageCount || 0,
+        models: s.models || [],
+      } as SessionSearchResult
+    })
+    .sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''))
+    .slice(0, limit)
+}
 
 // ── Notifications ──
 interface Notification {
@@ -64,6 +160,7 @@ for (const s of savedSlots) {
       modelId: s.modelId,
       cwd: s.cwd,
       sessionFile: s.sessionFile || null,
+      tags: s.tags,
     })
   }
 }
@@ -382,6 +479,17 @@ app.patch('/api/chat/slots/:key/title', (req: Request, res: Response) => {
   res.json({ ok: true })
 })
 
+app.patch('/api/chat/slots/:key/tags', (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
+  if (!pi) return res.status(404).json({ error: 'slot not found' })
+  const tags: string[] = Array.isArray(req.body.tags) ? req.body.tags.map((t: any) => String(t).trim().toLowerCase()).filter(Boolean) : []
+  pi._tags = [...new Set(tags)]  // dedupe
+  broadcastSlots()
+  broadcast('slot_tags', { key: req.params.key as string, tags: pi._tags })
+  persistSlots()
+  res.json({ ok: true, tags: pi._tags })
+})
+
 app.post('/api/chat/slots/:key/generate-title', (req: Request, res: Response) => {
   const pi = manager.getSlot(req.params.key as string)
   if (!pi) return res.status(404).json({ error: 'slot not found' })
@@ -395,10 +503,10 @@ app.post('/api/chat/slots/:key/generate-title', (req: Request, res: Response) =>
 })
 
 app.post('/api/chat/slots/:key/resume', (req: Request, res: Response) => {
-  const { name, key: reqKey, title } = req.body || {}
+  const { name, key: reqKey, title, file: bodyFile } = req.body || {}
   const sessionKey = req.params.key as string
-  // Find the actual session JSONL file
-  const sessionPath = findSessionFile(sessionKey)
+  // Find the actual session JSONL file — prefer explicit path from search index
+  const sessionPath = bodyFile || findSessionFile(sessionKey)
   let messages: ChatMessage[] = []
   if (sessionPath) {
     messages = parseSessionMessages(sessionPath, 200)
@@ -468,6 +576,26 @@ app.post('/api/notifications/ack-all', (_req: Request, res: Response) => {
   res.json({ ok: true })
 })
 app.delete('/api/notifications', (_req: Request, res: Response) => { notifications.length = 0; res.json({ ok: true }) })
+
+// Session search (uses pi-session-search FTS5 index)
+app.get('/api/sessions/search', (req: Request, res: Response) => {
+  const query = (req.query.q as string || '').trim()
+  const limit = Math.min(parseInt(req.query.limit as string || '20', 10), 50)
+  if (!query) {
+    try {
+      const results = listRecentSessions(limit)
+      return res.json({ results })
+    } catch (err: any) {
+      return res.json({ results: [], error: err.message })
+    }
+  }
+  try {
+    const results = searchSessionIndex(query, limit)
+    res.json({ results })
+  } catch (err: any) {
+    res.json({ results: [], error: err.message })
+  }
+})
 
 // Sessions history
 app.get('/api/sessions', (req: Request, res: Response) => {
@@ -1289,6 +1417,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     agentStartTime = Date.now()
     midTurn = true
     _startStallDetector()
+    broadcastSlots()
   })
 
   pi.on('agent_end', () => {

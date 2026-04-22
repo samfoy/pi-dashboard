@@ -1,10 +1,21 @@
 import { memo, useState, useEffect } from 'react'
 
 const THINKING_LABELS = [
-  'Thinking…',
-  'Reasoning…',
-  'Analyzing…',
-  'Working on it…',
+  'Preheating the oven…',
+  'Kneading the dough…',
+  'Letting it rise…',
+  'Folding in the layers…',
+  'Simmering ideas…',
+  'Whisking it together…',
+  'Adding a pinch of logic…',
+  'Reducing the sauce…',
+  'Checking the recipe…',
+  'Rolling out the answer…',
+  'Baking at 350°…',
+  'Caramelizing thoughts…',
+  'Proofing the response…',
+  'Deglazing the pan…',
+  'Tempering the chocolate…',
 ]
 
 function useRotatingLabel(labels: string[], intervalMs = 4000) {
@@ -42,12 +53,12 @@ const ChatFooter = memo(function ChatFooter({ running, stopping, state, lastRole
         {stopping ? (
           <div className="flex items-center gap-2">
             <span className="inline-block w-4 h-4 border-2 border-muted/30 border-t-muted rounded-full animate-spin" />
-            <span className="text-muted text-[13px]">Stopping…</span>
+            <span className="text-muted text-[13px]">Pulling from the oven…</span>
           </div>
         ) : state === 'tool_running' ? (
           <div className="flex items-center gap-2">
             <span className="inline-block w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
-            <span className="text-[13px] text-muted">Running tool…</span>
+            <span className="text-[13px] text-muted">Greasing the pan…</span>
             {timer}
           </div>
         ) : (

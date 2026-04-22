@@ -10,6 +10,7 @@ import {
 } from '../store/chatSlice'
 import { sseSlotTitle } from '../store/dashboardSlice'
 import { api } from '../api/client'
+import { recordDirUsage, migratePinnedDirs } from '../store/dirFrequency'
 import TypewriterText from '../components/TypewriterText'
 const DocumentPanel = lazy(() => import('../components/DocumentPanel'))
 import FileBrowser from '../components/FileBrowser'
@@ -21,9 +22,9 @@ import PathCompleteMenu from '../components/PathCompleteMenu'
 import { usePanelState, detectFileType } from '../hooks/usePanelState'
 import { WsContext } from '../App'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
-import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage } from './chat'
+import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage, SystemMessage } from './chat'
 import ChatSidebar from './ChatSidebar'
-import NotificationViewer from './NotificationViewer'
+
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
 import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
@@ -31,7 +32,7 @@ import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
 import SessionCostBar from './chat/SessionCostBar'
 import SplitPane from './chat/SplitPane'
-import type { Notification, ChatMessage } from '../types'
+import type { ChatMessage } from '../types'
 
 
 
@@ -44,7 +45,6 @@ export default function ChatPage() {
   const slots = useAppSelector(s => s.dashboard.slots)
   const unreadSlots = useAppSelector(s => s.dashboard.unreadSlots)
   const refreshTrigger = useAppSelector(s => s.dashboard.refreshTrigger)
-  const notifications = useAppSelector(s => s.notifications.items)
   const activeSlot = useAppSelector(s => s.chat.activeSlot)
   const messages = useAppSelector(s => s.chat.messages)
   const slotRunning = useAppSelector(s => s.chat.slotRunning)
@@ -57,8 +57,6 @@ export default function ChatPage() {
   const pendingApproval = useAppSelector(s => { const slot = s.dashboard.slots.find(sl => sl.key === s.chat.activeSlot); return slot?.pending_approval ?? false })
   const slotHasMore = useAppSelector(s => s.chat.slotHasMore)
   const slotOldestIndex = useAppSelector(s => s.chat.slotOldestIndex)
-  const history = useAppSelector(s => s.chat.history)
-  const historyHasMore = useAppSelector(s => s.chat.historyHasMore)
 
   // Per-slot input state: store draft text per slot key
   const slotInputsRef = useRef<Map<string, string>>(new Map())
@@ -73,7 +71,6 @@ export default function ChatPage() {
   const [pendingImages, setPendingImages] = useState<{data: string; mimeType: string; preview: string}[]>([])
   const pendingInput = useAppSelector(s => s.chat.pendingInput)
 
-  const [viewingNotification, setViewingNotification] = useState<Notification | null>(null)
   const [chatConfig, setChatConfig] = useState<ChatConfig>(loadChatConfig)
   const [showTerminal, setShowTerminal] = useState(false)
   const [showTree, setShowTree] = useState(false)
@@ -85,18 +82,16 @@ export default function ChatPage() {
   const [splitSlot, setSplitSlot] = useState<string | null>(null)
   const [showSplitPicker, setShowSplitPicker] = useState(false)
 
-  // Sync viewingNotification from Redux store (e.g. after auto-ack)
-  useEffect(() => {
-    if (!viewingNotification) return
-    const fresh = notifications.find(n => n.ts === viewingNotification.ts)
-    if (fresh && fresh.acked !== viewingNotification.acked) setViewingNotification(fresh)
-  }, [notifications, viewingNotification])
+
   
   const [availableModels, setAvailableModels] = useState<{id: string; name: string; provider: string; contextWindow?: number}[]>([])
   const [pendingModel, setPendingModel] = useState('')  // agent for next new slot
   const [pendingCwd, setPendingCwd] = useState('')
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Migrate old pinned dirs to frequency store (one-time)
+  useEffect(() => { migratePinnedDirs() }, [])
 
   const [prefillHint, setPrefillHint] = useState(false)
   const wantsNewSession = useRef(false)
@@ -439,6 +434,7 @@ export default function ChatPage() {
     if (!slot) {
       wantsNewSession.current = false
       const result = await dispatch(createSlot({ model: pendingModel || undefined, cwd: pendingCwd || undefined })).unwrap()
+      if (pendingCwd) recordDirUsage(pendingCwd)
       slot = result.key
     }
     if (!optionText) setInput('')
@@ -515,6 +511,7 @@ export default function ChatPage() {
     { key: 'l', ctrl: true, label: 'Focus input', action: () => inputRef.current?.focus() },
     { key: 'f', ctrl: true, label: 'Search messages', action: () => setShowSearch(s => !s) },
     { key: 'Escape', label: 'Stop / Close search', action: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } },
+    { key: 'w', ctrl: true, label: 'Close session', action: () => { if (activeSlot) dispatch(deleteSlot(activeSlot)) } },
   ], [activeSlot, slotRunning, showSearch, dispatch]))
 
   // Clear split pane if the slot was deleted
@@ -549,6 +546,7 @@ export default function ChatPage() {
     if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} />
     if (m.role === 'queued') return <div key={key} className="bg-warn-subtle border border-warn/15 rounded-md px-3 py-2 text-[13px] text-warn italic animate-scale-in">⏳ <em>Queued:</em> {m.content}</div>
     if (m.role === 'error') return <div key={key} className="bg-danger-subtle text-danger text-[13px] px-3 py-2 rounded-md border border-danger/15 self-center animate-scale-in">{m.content}</div>
+    if (m.role === 'system') return <SystemMessage key={key} content={m.content} meta={m.meta} />
     if (m.role === 'permission') {
       const isLast = i === messages.map(x => x.role).lastIndexOf('permission')
       const showButtons = isLast && (pendingApproval || slotRunning)
@@ -567,7 +565,7 @@ export default function ChatPage() {
         }
         <div className={`flex flex-col gap-0.5 max-w-[min(820px,calc(100%-56px))] ${isUser ? 'items-end' : ''} group/msg relative`}>
           {isUser ? (
-            <div className="msg-content px-3.5 py-2.5 text-sm leading-relaxed break-all whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text">
+            <div className="msg-content px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text" style={{ overflowWrap: 'anywhere' }}>
               {m.content.split('\n').map((line, li) => {
                 const imgMatch = line.match(/^!\[image\]\((data:image\/[^)]+)\)$/)
                 if (imgMatch) {
@@ -613,11 +611,6 @@ export default function ChatPage() {
         slots={slots}
         activeSlot={activeSlot}
         unreadSlots={unreadSlots}
-        notifications={notifications}
-        history={history}
-        historyHasMore={historyHasMore}
-        viewingNotification={viewingNotification}
-        onViewNotification={(n) => { setViewingNotification(n); setMobileSidebarOpen(false) }}
         onNewSessionInCwd={(cwd) => { setPendingCwd(cwd); wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
         onNewSession={() => { wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
         mobileOpen={mobileSidebarOpen}
@@ -626,14 +619,7 @@ export default function ChatPage() {
 
       {/* Chat pane */}
       <div className={`flex flex-col bg-bg min-w-0 ${splitSlot ? 'flex-[1_1_50%] max-w-[50%]' : panel.isOpen ? 'flex-[1_1_60%]' : 'flex-1'}`} style={{ transition: 'flex 0.2s' }}>
-        {viewingNotification ? (
-          <NotificationViewer
-            key={viewingNotification.ts}
-            notification={viewingNotification}
-            onClose={() => setViewingNotification(null)}
-            dispatch={dispatch}
-          />
-        ) : !activeSlot ? (
+        {!activeSlot ? (
           <WelcomeView
             input={input}
             setInput={setInput}
@@ -646,6 +632,10 @@ export default function ChatPage() {
             onSelectCwd={setPendingCwd}
             prefillHint={prefillHint}
             onDismissHint={() => setPrefillHint(false)}
+            pendingImages={pendingImages}
+            onPaste={handlePaste}
+            onRemoveImage={removeImage}
+            inputRef={inputRef}
           />
         ) : (
           <>

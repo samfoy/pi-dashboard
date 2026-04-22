@@ -15,6 +15,7 @@ import SystemPage from './pages/SystemPage'
 import LogsPage from './pages/LogsPage'
 import SettingsPage from './pages/SettingsPage'
 import CommandPalette from './components/CommandPalette'
+import SessionPicker from './components/SessionPicker'
 
 import type { FileChangeCallback } from './hooks/useWebSocket'
 type LogSubscribeFn = (cb: ((data: { level: string; msg: string }) => void) | null) => void
@@ -53,6 +54,7 @@ export default function App() {
   const [showErrors, setShowErrors] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
 
   // Detect virtual keyboard on mobile via visualViewport resize
@@ -139,9 +141,11 @@ export default function App() {
     { key: '4', ctrl: true, label: 'Go to Settings', action: () => navigate('/settings') },
     { key: '\\', ctrl: true, label: 'Toggle sidebar', action: () => toggleNav() },
     { key: '/', ctrl: false, label: 'Show shortcuts', action: () => setShowShortcuts(s => !s) },
-    { key: 'k', ctrl: true, label: 'Command palette', action: () => setCommandPaletteOpen(s => !s) },
-    { key: 'Escape', label: 'Close dialog', action: () => { setShowShortcuts(false); setShowChangelog(false); setCommandPaletteOpen(false) } },
-  ], [navigate])
+    { key: 'p', ctrl: true, shift: true, label: 'Command palette', action: () => setCommandPaletteOpen(s => !s) },
+    { key: 'p', ctrl: true, label: 'Session picker', action: () => setSessionPickerOpen(s => !s) },
+    { key: 'Escape', label: 'Close dialog', action: () => { setShowShortcuts(false); setShowChangelog(false); setCommandPaletteOpen(false); setSessionPickerOpen(false) } },
+    { key: 'w', ctrl: true, label: 'Close session (prevent tab close)', action: () => { const onChat = location.pathname === '/chat' || location.pathname === '/'; if (!onChat) navigate('/chat') } },
+  ], [navigate, location.pathname])
   useKeyboardShortcuts(shortcuts)
 
   const activePath = location.pathname
@@ -150,7 +154,8 @@ export default function App() {
 
   return (
     <WsContext.Provider value={{ subscribeLogs, subscribeFileChange, wsRef }}>
-    <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} onNewSessionInCwd={(cwd) => navigate(`/chat?newCwd=${encodeURIComponent(cwd)}`)} />
+    <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} />
+    <SessionPicker open={sessionPickerOpen} onOpenChange={setSessionPickerOpen} />
     <ConnectionOverlay />
     <div className={`relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
@@ -235,6 +240,7 @@ export default function App() {
                 { keys: ['/'], label: 'Show shortcuts' },
                 { keys: ['Esc'], label: 'Close dialog / Stop generation' },
                 { keys: ['Ctrl', 'N'], label: 'New session', section: 'Chat' },
+                { keys: ['Ctrl', 'W'], label: 'Close session' },
                 { keys: ['Ctrl', 'L'], label: 'Focus input' },
                 { keys: ['Enter'], label: 'Send message' },
                 { keys: ['Shift', 'Enter'], label: 'New line' },

@@ -1,123 +1,338 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '../store'
-import { switchSlot } from '../store/chatSlice'
+import { switchSlot, resumeFromHistory } from '../store/chatSlice'
 import { fetchSlots } from '../store/dashboardSlice'
 import { useTheme } from '../hooks/useTheme'
-import { loadPinnedDirs } from '../pages/chat/PinnedDirs'
+import { api } from '../api/client'
+
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high']
+
+type Mode = 'root' | 'model' | 'thinking' | 'rename' | 'tag' | 'session-search'
+
+interface SessionResult {
+  id: string
+  name: string
+  file: string
+  cwd: string
+  startedAt: string
+  projectSlug: string
+  summary: string
+  userMessageCount: number
+  assistantMessageCount: number
+  models: string[]
+}
 
 interface CommandPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onToggleSidebar: () => void
-  onNewSessionInCwd?: (cwd: string) => void
 }
 
-export default function CommandPalette({ open, onOpenChange, onToggleSidebar, onNewSessionInCwd }: CommandPaletteProps) {
+export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandPaletteProps) {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const slots = useAppSelector(s => s.dashboard.slots)
-  const activeSlot = useAppSelector(s => s.chat.activeSlot)
   const { cycle: cycleTheme } = useTheme()
   const inputRef = useRef<HTMLInputElement>(null)
-  const pinnedDirs = open ? loadPinnedDirs() : []
+  const [mode, setMode] = useState<Mode>('root')
+  const [models, setModels] = useState<{ id: string; name: string; provider: string }[]>([])
+  const [renameValue, setRenameValue] = useState('')
+  const [tagValue, setTagValue] = useState('')
+  const [sessionQuery, setSessionQuery] = useState('')
+  const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
+  const [sessionSearching, setSessionSearching] = useState(false)
+  const [sessionSelected, setSessionSelected] = useState(0)
+  const sessionListRef = useRef<HTMLDivElement>(null)
+  const sessionDebounce = useRef<ReturnType<typeof setTimeout>>()
 
-  // Focus input when opening
+  const activeSlot = useAppSelector(s => s.chat.activeSlot)
+  const slots = useAppSelector(s => s.dashboard.slots)
+  const currentSlot = slots.find(s => s.key === activeSlot)
+
+  // Fetch models when opening model picker
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 0)
+    if (open && mode === 'model') {
+      api.models().then((d: { models?: { id: string; name: string; provider: string }[] }) => setModels(d.models || [])).catch(() => {})
+    }
+  }, [open, mode])
+
+  // Reset mode when opening/closing
+  useEffect(() => {
+    if (open) {
+      setMode('root')
+      setSessionQuery('')
+      setSessionResults([])
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
   }, [open])
 
-  const close = useCallback(() => onOpenChange(false), [onOpenChange])
+  // Debounced session search
+  useEffect(() => {
+    if (mode !== 'session-search') return
+    if (sessionDebounce.current) clearTimeout(sessionDebounce.current)
+    setSessionSearching(true)
+    sessionDebounce.current = setTimeout(() => {
+      api.searchSessions(sessionQuery.trim(), 20)
+        .then((d: { results?: SessionResult[] }) => { setSessionResults(d.results || []); setSessionSelected(0) })
+        .catch(() => setSessionResults([]))
+        .finally(() => setSessionSearching(false))
+    }, sessionQuery.trim() ? 200 : 0)
+    return () => { if (sessionDebounce.current) clearTimeout(sessionDebounce.current) }
+  }, [sessionQuery, mode])
+
+  const close = useCallback(() => { setMode('root'); onOpenChange(false) }, [onOpenChange])
 
   const run = useCallback((fn: () => void) => {
     close()
     fn()
   }, [close])
 
+  const enterMode = useCallback((m: Mode) => {
+    setMode(m)
+    if (m === 'rename') setRenameValue(currentSlot?.title || '')
+    if (m === 'tag') setTagValue('')
+    if (m === 'session-search') { setSessionQuery(''); setSessionResults([]); setSessionSelected(0) }
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [currentSlot])
+
+  const goBack = useCallback(() => {
+    setMode('root')
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [])
+
+  const handleModelSelect = useCallback((provider: string, modelId: string) => {
+    if (!activeSlot) return
+    run(() => api.setSlotModel(activeSlot, provider, modelId))
+  }, [activeSlot, run])
+
+  const handleThinkingSelect = useCallback((level: string) => {
+    if (!activeSlot) return
+    run(() => api.setSlotThinking(activeSlot, level))
+  }, [activeSlot, run])
+
+  const handleRename = useCallback(() => {
+    if (!activeSlot || !renameValue.trim()) return
+    run(() => { api.renameSlot(activeSlot, renameValue.trim()); dispatch(fetchSlots()) })
+  }, [activeSlot, renameValue, run, dispatch])
+
+  const handleTag = useCallback(() => {
+    if (!activeSlot || !tagValue.trim()) return
+    const newTag = tagValue.trim().toLowerCase()
+    const current = currentSlot?.tags || []
+    if (!current.includes(newTag)) {
+      run(() => { api.tagSlot(activeSlot, [...current, newTag]); dispatch(fetchSlots()) })
+    } else {
+      close()
+    }
+  }, [activeSlot, tagValue, currentSlot, run, close, dispatch])
+
+  const handleSessionResume = useCallback((result: SessionResult) => {
+    run(() => {
+      dispatch(resumeFromHistory({ key: result.id, title: result.name, file: result.file }))
+      navigate('/chat')
+    })
+  }, [run, dispatch, navigate])
+
+  // Sub-mode: Session search
+  if (mode === 'session-search') {
+    const handleSessionKey = (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); close() }
+      else if (e.key === 'ArrowDown' || (e.key === 'n' && e.ctrlKey)) {
+        e.preventDefault(); setSessionSelected(i => Math.min(i + 1, sessionResults.length - 1))
+      } else if (e.key === 'ArrowUp' || (e.key === 'p' && e.ctrlKey)) {
+        e.preventDefault(); setSessionSelected(i => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter' && sessionResults.length > 0) {
+        e.preventDefault(); handleSessionResume(sessionResults[sessionSelected])
+      }
+    }
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <div className="cmdk-dialog" style={{ position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', zIndex: 99999 }}>
+          <div className="cmdk-input-wrapper">
+            <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+            <input
+              ref={inputRef}
+              className="cmdk-input"
+              placeholder="Search past sessions…"
+              value={sessionQuery}
+              onChange={e => setSessionQuery(e.target.value)}
+              onKeyDown={handleSessionKey}
+            />
+            {sessionSearching && <span className="text-[12px] text-muted animate-pulse">…</span>}
+            <kbd className="cmdk-badge">ESC</kbd>
+          </div>
+          <div ref={sessionListRef} className="cmdk-list" style={{ maxHeight: 400, overflowY: 'auto' }}>
+            {!sessionSearching && sessionResults.length === 0 && (
+              <div className="cmdk-empty">{sessionQuery.trim() ? 'No sessions found.' : 'Loading…'}</div>
+            )}
+            {sessionResults.map((r, i) => {
+              const date = r.startedAt ? new Date(r.startedAt).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+              const project = r.projectSlug?.replace(/^--/, '').replace(/--$/, '').replace(/--/g, '/') || ''
+              const model = r.models?.[0]?.split('/').pop() || ''
+              return (
+                <div
+                  key={r.id}
+                  className={`cmdk-item ${i === sessionSelected ? 'cmdk-item-active' : ''}`}
+                  role="button"
+                  tabIndex={-1}
+                  onClick={() => handleSessionResume(r)}
+                  onMouseEnter={() => setSessionSelected(i)}
+                  ref={el => { if (i === sessionSelected && el) el.scrollIntoView({ block: 'nearest' }) }}
+                >
+                  <span className="cmdk-item-icon">📜</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="cmdk-item-label truncate">{r.name}</div>
+                    <div className="flex items-center gap-2 text-[11px] text-muted mt-0.5">
+                      {date && <span>{date}</span>}
+                      {project && <span className="font-mono truncate max-w-[150px]">{project}</span>}
+                      {model && <span>🧠 {model}</span>}
+                      <span>{r.userMessageCount} msgs</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Sub-mode: Model picker
+  if (mode === 'model') {
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <Command.Dialog open={open} onOpenChange={onOpenChange} label="Pick model" className="cmdk-dialog" shouldFilter={true}>
+          <div className="cmdk-input-wrapper">
+            <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+            <Command.Input ref={inputRef} placeholder="Switch model…" className="cmdk-input" />
+            <kbd className="cmdk-badge">ESC</kbd>
+          </div>
+          <Command.List className="cmdk-list">
+            <Command.Empty className="cmdk-empty">No models found.</Command.Empty>
+            <Command.Group heading="Models" className="cmdk-group">
+              {models.map(m => {
+                const fullId = `${m.provider}/${m.id}`
+                const isCurrent = currentSlot?.model === fullId
+                return (
+                  <Command.Item key={fullId} value={`${m.name || m.id} ${m.provider}`} onSelect={() => handleModelSelect(m.provider, m.id)} className="cmdk-item">
+                    <span className="cmdk-item-icon">{isCurrent ? '●' : '○'}</span>
+                    <span className="cmdk-item-label font-mono">{m.name || m.id}</span>
+                    <span className="text-[11px] text-muted ml-auto">{m.provider}</span>
+                  </Command.Item>
+                )
+              })}
+            </Command.Group>
+          </Command.List>
+        </Command.Dialog>
+      </>
+    )
+  }
+
+  // Sub-mode: Thinking level
+  if (mode === 'thinking') {
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <Command.Dialog open={open} onOpenChange={onOpenChange} label="Thinking level" className="cmdk-dialog" shouldFilter={true}>
+          <div className="cmdk-input-wrapper">
+            <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+            <Command.Input ref={inputRef} placeholder="Set thinking level…" className="cmdk-input" />
+            <kbd className="cmdk-badge">ESC</kbd>
+          </div>
+          <Command.List className="cmdk-list">
+            <Command.Empty className="cmdk-empty">No match.</Command.Empty>
+            <Command.Group heading="Thinking Level" className="cmdk-group">
+              {THINKING_LEVELS.map(l => (
+                <Command.Item key={l} value={l} onSelect={() => handleThinkingSelect(l)} className="cmdk-item">
+                  <span className="cmdk-item-icon">{l === 'off' ? '💤' : l === 'minimal' ? '💭' : l === 'low' ? '🧠' : l === 'medium' ? '🤔' : '🔥'}</span>
+                  <span className="cmdk-item-label capitalize">{l}</span>
+                </Command.Item>
+              ))}
+            </Command.Group>
+          </Command.List>
+        </Command.Dialog>
+      </>
+    )
+  }
+
+  // Sub-mode: Rename
+  if (mode === 'rename') {
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <div className="cmdk-dialog" style={{ position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', zIndex: 99999 }}>
+          <div className="cmdk-input-wrapper">
+            <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+            <input
+              ref={inputRef}
+              className="cmdk-input"
+              placeholder="New session name…"
+              value={renameValue}
+              onChange={e => setRenameValue(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleRename()
+                if (e.key === 'Escape') close()
+              }}
+            />
+            <kbd className="cmdk-badge" style={{ cursor: 'pointer' }} onClick={handleRename}>⏎</kbd>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Sub-mode: Tag
+  if (mode === 'tag') {
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <div className="cmdk-dialog" style={{ position: 'fixed', top: '20%', left: '50%', transform: 'translateX(-50%)', zIndex: 99999 }}>
+          <div className="cmdk-input-wrapper">
+            <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              {(currentSlot?.tags || []).map(t => (
+                <span key={t} className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold bg-accent/15 text-accent border border-accent/25 whitespace-nowrap shrink-0">{t}</span>
+              ))}
+              <input
+                ref={inputRef}
+                className="cmdk-input"
+                style={{ minWidth: 0 }}
+                placeholder="Add tag…"
+                value={tagValue}
+                onChange={e => setTagValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleTag()
+                  if (e.key === 'Escape') close()
+                }}
+              />
+            </div>
+            <kbd className="cmdk-badge" style={{ cursor: 'pointer' }} onClick={handleTag}>⏎</kbd>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Root mode
   return (
     <>
-      {/* Backdrop */}
-      {open && (
-        <div
-          className="cmdk-overlay"
-          onClick={close}
-        />
-      )}
-
-      {/* Dialog */}
-      <Command.Dialog
-        open={open}
-        onOpenChange={onOpenChange}
-        label="Command palette"
-        className="cmdk-dialog"
-        shouldFilter={true}
-      >
+      {open && <div className="cmdk-overlay" onClick={close} />}
+      <Command.Dialog open={open} onOpenChange={onOpenChange} label="Command palette" className="cmdk-dialog" shouldFilter={true}>
         <div className="cmdk-input-wrapper">
           <svg className="cmdk-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <Command.Input
-            ref={inputRef}
-            placeholder="Type a command or search…"
-            className="cmdk-input"
-          />
+          <Command.Input ref={inputRef} placeholder="Type a command…" className="cmdk-input" />
           <kbd className="cmdk-badge">ESC</kbd>
         </div>
 
         <Command.List className="cmdk-list">
           <Command.Empty className="cmdk-empty">No results found.</Command.Empty>
-
-          {/* Sessions */}
-          {slots.length > 0 && (
-            <Command.Group heading="Sessions" className="cmdk-group">
-              {slots.map(slot => (
-                <Command.Item
-                  key={slot.key}
-                  value={`session ${slot.title} ${slot.key}`}
-                  onSelect={() => run(() => { dispatch(switchSlot(slot.key)); navigate('/chat') })}
-                  className="cmdk-item"
-                >
-                  <span className="cmdk-item-icon">
-                    {slot.running ? (
-                      <span className="cmdk-dot cmdk-dot-active" />
-                    ) : (
-                      <span className="cmdk-dot" />
-                    )}
-                  </span>
-                  <div className="cmdk-item-content">
-                    <span className="cmdk-item-label">{slot.title || slot.key}</span>
-                    {slot.model && <span className="cmdk-item-meta">{slot.model}</span>}
-                  </div>
-                  {activeSlot === slot.key && <span className="cmdk-item-badge">Active</span>}
-                </Command.Item>
-              ))}
-            </Command.Group>
-          )}
-
-          {/* Navigate */}
-
-          {/* Pinned Directories */}
-          {pinnedDirs.length > 0 && (
-            <Command.Group heading="Pinned Directories" className="cmdk-group">
-              {pinnedDirs.map(dir => (
-                <Command.Item
-                  key={dir}
-                  value={`pinned directory ${dir} ${dir.split('/').pop()}`}
-                  onSelect={() => run(() => { if (onNewSessionInCwd) { onNewSessionInCwd(dir); navigate('/chat') } })}
-                  className="cmdk-item"
-                >
-                  <span className="cmdk-item-icon">📌</span>
-                  <div className="cmdk-item-content">
-                    <span className="cmdk-item-label">{dir.split('/').pop()}</span>
-                    <span className="cmdk-item-meta">{dir}</span>
-                  </div>
-                  <span className="cmdk-item-badge">▶ new</span>
-                </Command.Item>
-              ))}
-            </Command.Group>
-          )}
 
           {/* Navigate */}
           <Command.Group heading="Navigate" className="cmdk-group">
@@ -143,8 +358,35 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar, on
             </Command.Item>
           </Command.Group>
 
+          {/* Session Actions — only when there's an active slot */}
+          {activeSlot && (
+            <Command.Group heading="Session" className="cmdk-group">
+              <Command.Item value="Rename session title" onSelect={() => enterMode('rename')} className="cmdk-item">
+                <span className="cmdk-item-icon">✏️</span>
+                <span className="cmdk-item-label">Rename Session</span>
+              </Command.Item>
+              <Command.Item value="Tag session label" onSelect={() => enterMode('tag')} className="cmdk-item">
+                <span className="cmdk-item-icon">🏷</span>
+                <span className="cmdk-item-label">Tag Session</span>
+              </Command.Item>
+              <Command.Item value="Switch model provider" onSelect={() => enterMode('model')} className="cmdk-item">
+                <span className="cmdk-item-icon">🤖</span>
+                <span className="cmdk-item-label">Switch Model</span>
+                {currentSlot?.model && <span className="text-[11px] text-muted ml-auto font-mono">{currentSlot.model.split('/').pop()}</span>}
+              </Command.Item>
+              <Command.Item value="Thinking level reasoning budget" onSelect={() => enterMode('thinking')} className="cmdk-item">
+                <span className="cmdk-item-icon">🧠</span>
+                <span className="cmdk-item-label">Thinking Level</span>
+              </Command.Item>
+            </Command.Group>
+          )}
+
           {/* Actions */}
           <Command.Group heading="Actions" className="cmdk-group">
+            <Command.Item value="Resume session search history" onSelect={() => enterMode('session-search')} className="cmdk-item">
+              <span className="cmdk-item-icon">📜</span>
+              <span className="cmdk-item-label">Resume Session…</span>
+            </Command.Item>
             <Command.Item value="New session /new" onSelect={() => run(() => { dispatch(switchSlot(null)); navigate('/chat') })} className="cmdk-item">
               <span className="cmdk-item-icon">✨</span>
               <span className="cmdk-item-label">New Session</span>

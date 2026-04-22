@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api/client'
+import { getFrequentDirs, removeDirFreq } from '../store/dirFrequency'
 
 interface Entry { name: string; path: string; isDir: boolean }
 
@@ -9,12 +10,20 @@ interface DirTreeProps {
   workspaces: { name: string; path: string }[]
 }
 
+function shortName(path: string): string {
+  const cleaned = path.replace(/\/+$/, '')
+  const home = cleaned.replace(/^\/local\/home\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~')
+  if (home === '~') return '~'
+  return home.split('/').pop() || home
+}
+
 export default function DirTree({ value, onChange, workspaces }: DirTreeProps) {
   const [cwd, setCwd] = useState('')
   const [entries, setEntries] = useState<Entry[]>([])
   const [parent, setParent] = useState('')
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  const [freqDirs, setFreqDirs] = useState(() => getFrequentDirs())
 
   const load = useCallback(async (path?: string) => {
     setLoading(true)
@@ -27,7 +36,12 @@ export default function DirTree({ value, onChange, workspaces }: DirTreeProps) {
     setLoading(false)
   }, [])
 
-  useEffect(() => { if (open && !cwd) load(value || undefined) }, [open, cwd, value, load])
+  useEffect(() => {
+    if (open) {
+      setFreqDirs(getFrequentDirs())
+      if (!cwd) load(value || undefined)
+    }
+  }, [open, cwd, value, load])
 
   const select = (path: string) => {
     onChange(path)
@@ -51,13 +65,28 @@ export default function DirTree({ value, onChange, workspaces }: DirTreeProps) {
 
   return (
     <div className="bg-bg-elevated border border-accent rounded-lg overflow-hidden shadow-lg">
-      {/* Bookmarks row */}
+      {/* Bookmarks row: workspaces + frequent dirs */}
       <div className="flex gap-1 px-2 py-1.5 border-b border-border bg-bg-accent overflow-x-auto">
         {workspaces.map(w => (
           <button key={w.path} type="button"
             className="px-2 py-0.5 rounded text-[11px] font-mono bg-bg-hover border border-border text-muted hover:text-accent hover:border-accent transition-colors whitespace-nowrap shrink-0"
             onClick={() => select(w.path)}
+            title={w.path}
           >{w.name}</button>
+        ))}
+        {freqDirs.filter(d => !workspaces.some(w => w.path === d.path)).slice(0, 6).map(d => (
+          <button key={d.path} type="button"
+            className="group relative px-2 py-0.5 rounded text-[11px] font-mono bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 hover:border-accent transition-colors whitespace-nowrap shrink-0"
+            onClick={() => select(d.path)}
+            title={`${d.path} (${d.count}×)`}
+          >
+            {shortName(d.path)}
+            <span
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-bg-elevated border border-border text-muted text-[9px] cursor-pointer items-center justify-center hidden group-hover:flex hover:text-danger hover:border-danger transition-colors"
+              onClick={e => { e.stopPropagation(); removeDirFreq(d.path); setFreqDirs(getFrequentDirs()) }}
+              title="Remove"
+            >✕</span>
+          </button>
         ))}
       </div>
 

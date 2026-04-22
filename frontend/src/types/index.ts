@@ -56,7 +56,8 @@ export interface McpServer {
 export interface ChatSlot {
   model?: string; cwd?: string;
   key: string; title: string; messages: number
-  tool_calls?: number; running: boolean; stopping?: boolean; pending_approval?: boolean; created?: string; agent?: string; workspace?: string; trust?: boolean
+  tool_calls?: number; running: boolean; stopping?: boolean; pending_approval?: boolean; created?: string; updated?: string; agent?: string; workspace?: string; trust?: boolean
+  tags?: string[]
 }
 
 export interface ChatMessage {

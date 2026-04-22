@@ -1,14 +1,11 @@
 import { useState, useRef, useEffect, memo } from 'react'
 import { useAppDispatch } from '../store'
-import { clearNotifications, deleteNotification, ackAllNotifications } from '../store/notificationsSlice'
-import { switchSlot, deleteSlot, fetchHistory, resumeFromHistory, deleteHistorySession } from '../store/chatSlice'
+import { switchSlot, deleteSlot } from '../store/chatSlice'
 import { api } from '../api/client'
 import { SearchInput } from '../components/ui'
 import InfoTip from '../components/InfoTip'
 import TypewriterText from '../components/TypewriterText'
-import { NotificationItem } from './chat'
-import PinnedDirs from './chat/PinnedDirs'
-import type { Notification } from '../types'
+
 
 interface Slot {
   key: string
@@ -20,20 +17,15 @@ interface Slot {
   workspace?: string
   cwd?: string
   created?: string
-}
-
-interface HistoryItem {
-  key: string
-  title: string
-  created?: string
-  project?: string
+  updated?: string
+  tags?: string[]
 }
 
 const STATUS_ORDER: Record<string, number> = {
   '⚠ Needs Input': 0, '▶ Running': 1, '⏸ Idle': 2,
 }
 
-function groupByStatus<T extends { running: boolean; stopping?: boolean; pending_approval?: boolean }>(items: T[]): { key: string; items: T[] }[] {
+function groupByStatus<T extends { running: boolean; stopping?: boolean; pending_approval?: boolean; updated?: string }>(items: T[]): { key: string; items: T[] }[] {
   const map = new Map<string, T[]>()
   for (const item of items) {
     const k = item.pending_approval ? '⚠ Needs Input' : item.running ? '▶ Running' : '⏸ Idle'
@@ -43,18 +35,21 @@ function groupByStatus<T extends { running: boolean; stopping?: boolean; pending
   }
   return Array.from(map.entries())
     .sort(([a], [b]) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99))
-    .map(([key, items]) => ({ key, items }))
+    .map(([key, items]) => ({
+      key,
+      items: items.sort((a, b) => {
+        const ta = a.updated ? new Date(a.updated).getTime() : 0
+        const tb = b.updated ? new Date(b.updated).getTime() : 0
+        return tb - ta
+      })
+    }))
 }
 
 interface ChatSidebarProps {
   slots: Slot[]
   activeSlot: string | null
   unreadSlots: string[]
-  notifications: Notification[]
-  history: HistoryItem[]
-  historyHasMore: boolean
-  viewingNotification: Notification | null
-  onViewNotification: (n: Notification | null) => void
+
   onNewSessionInCwd?: (cwd: string) => void
   onNewSession?: () => void
   mobileOpen?: boolean
@@ -84,7 +79,7 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): { key: string; item
   return Array.from(map.entries()).map(([key, items]) => ({ key, items }))
 }
 
-type GroupMode = 'date' | 'project' | 'status'
+type GroupMode = 'date' | 'project' | 'status' | 'tag'
 const SLOTS_GROUP_LS_KEY = 'mc-slots-group-mode'
 
 /** Temporal grouping matching iOS: Today, Yesterday, Last 7 Days, Last 30 Days, then months. */
@@ -106,6 +101,34 @@ function temporalGroupLabel(dateStr?: string): string {
 /** Fixed ordering for temporal groups. Lower = shown first. */
 const TEMPORAL_ORDER: Record<string, number> = {
   'Today': 0, 'Yesterday': 1, 'Last 7 Days': 2, 'Last 30 Days': 3,
+}
+
+/** Group slots by their tags. Slots with multiple tags appear in each group. Untagged slots go to 'Untagged'. */
+function groupByTag<T extends { tags?: string[]; updated?: string }>(items: T[]): { key: string; items: T[] }[] {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const tags = item.tags?.length ? item.tags : ['untagged']
+    for (const tag of tags) {
+      const arr = map.get(tag)
+      if (arr) arr.push(item)
+      else map.set(tag, [item])
+    }
+  }
+  // Sort: named tags first (alphabetical), then 'untagged' last
+  return Array.from(map.entries())
+    .sort(([a], [b]) => {
+      if (a === 'untagged') return 1
+      if (b === 'untagged') return -1
+      return a.localeCompare(b)
+    })
+    .map(([key, items]) => ({
+      key,
+      items: items.sort((a, b) => {
+        const ta = (a as any).updated ? new Date((a as any).updated).getTime() : 0
+        const tb = (b as any).updated ? new Date((b as any).updated).getTime() : 0
+        return tb - ta
+      })
+    }))
 }
 
 function groupByDate<T extends { created?: string }>(items: T[]): { key: string; items: T[] }[] {
@@ -137,8 +160,8 @@ function groupByDate<T extends { created?: string }>(items: T[]): { key: string;
 }
 
 function ChatSidebar({
-  slots, activeSlot, unreadSlots, notifications, history, historyHasMore,
-  viewingNotification, onViewNotification, onNewSessionInCwd, onNewSession,
+  slots, activeSlot, unreadSlots,
+  onNewSessionInCwd, onNewSession,
   mobileOpen, onMobileClose,
 }: ChatSidebarProps) {
   const dispatch = useAppDispatch()
@@ -152,10 +175,10 @@ function ChatSidebar({
 
   // Sidebar-only state
   const [slotFilter, setSlotFilter] = useState('')
-  const [notifFilter, setNotifFilter] = useState('')
-  const [historyFilter, setHistoryFilter] = useState('')
-  const [historyOpen, setHistoryOpen] = useState(false)
-  const [notifLimit, setNotifLimit] = useState(50)
+
+  const [editingTagsSlot, setEditingTagsSlot] = useState<string | null>(null)
+  const [tagInput, setTagInput] = useState('')
+  const tagInputRef = useRef<HTMLInputElement>(null)
   const [slotsGroupMode, setSlotsGroupMode] = useState<GroupMode>(() => {
     return (localStorage.getItem(SLOTS_GROUP_LS_KEY) as GroupMode) || 'date'
   })
@@ -183,7 +206,6 @@ function ChatSidebar({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
   }, [])
 
-  const visibleNotifs = notifications.slice().reverse().slice(0, notifLimit)
 
   return (
     <>
@@ -207,33 +229,38 @@ function ChatSidebar({
           <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'date' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('date'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'date') }} title="Group by date">🕐</button>
           <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'project' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('project'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'project') }} title="Group by project">📂</button>
           <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'status' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('status'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'status') }} title="Group by status">⚡</button>
+          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'tag' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('tag'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'tag') }} title="Group by tag">🏷</button>
           <button className="w-7 h-7 rounded-md bg-accent text-white border-none text-lg cursor-pointer flex items-center justify-center hover:bg-accent-hover hover:shadow-[0_0_16px_var(--accent-glow)] hover:rotate-90 hover:scale-110 active:scale-95 transition-all" onClick={() => onNewSession ? onNewSession() : dispatch(switchSlot(null))} title="New chat" aria-label="New chat session">+</button>
         </div>
       </div>
       <div className="px-2 pt-2 pb-1"><SearchInput placeholder="Filter sessions…" value={slotFilter} onChange={e => setSlotFilter(e.target.value)} /></div>
       <div className="flex-1 overflow-y-auto p-2">
         {(() => {
-          const filtered = slots.filter(s => !slotFilter || (s.title + s.key + (s.agent || '')).toLowerCase().includes(slotFilter.toLowerCase()))
+          const filtered = slots.filter(s => !slotFilter || (s.title + s.key + (s.agent || '') + (s.tags || []).join(' ')).toLowerCase().includes(slotFilter.toLowerCase()))
           const groups = slotsGroupMode === 'status'
             ? groupByStatus(filtered)
             : slotsGroupMode === 'date'
             ? groupByDate(filtered)
+            : slotsGroupMode === 'tag'
+            ? groupByTag(filtered)
             : groupBy(filtered, s => projectName(s.cwd) || '')
           const needsHeaders = groups.length > 1 || (groups.length === 1 && groups[0].key !== '')
           return groups.map(g => (
             <div key={g.key || '__ungrouped'}>
-              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">{slotsGroupMode === 'status' ? '⚡' : slotsGroupMode === 'date' ? '🕐' : '📂'}</span>{g.key || 'Other'}</div>}
+              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">{slotsGroupMode === 'status' ? '⚡' : slotsGroupMode === 'date' ? '🕐' : slotsGroupMode === 'tag' ? '🏷️' : '📂'}</span>{g.key || 'Other'}</div>}
               {g.items.map(s => {
                 const agentName = 'pi'
                 const agentColor = 'text-accent'
                 const needsAttention = s.pending_approval && !s.stopping
                 const isIdle = !s.running && !s.stopping && !s.pending_approval
+                const hasUnread = unreadSlots.includes(s.key)
                 return (
-                  <div key={s.key} className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${needsAttention ? 'bg-warn-subtle border-warn/40 text-text-strong shadow-[0_0_12px_rgba(245,158,11,.15)]' : activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
+                  <div key={s.key}>
+                  <div className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${needsAttention ? 'bg-warn-subtle border-warn/40 text-text-strong shadow-[0_0_12px_rgba(245,158,11,.15)]' : activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
                     role="button"
                     tabIndex={0}
-                    onMouseDown={(e) => { e.preventDefault(); if ((e.target as HTMLElement).dataset.close) { dispatch(deleteSlot(s.key)); return }; onViewNotification(null); dispatch(switchSlot(s.key)) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onViewNotification(null); dispatch(switchSlot(s.key)) } }}>
+                    onMouseDown={(e) => { e.preventDefault(); if ((e.target as HTMLElement).dataset.close) { dispatch(deleteSlot(s.key)); return }; dispatch(switchSlot(s.key)) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch(switchSlot(s.key)) } }}>
                     {needsAttention ? <span className="w-2 h-2 rounded-full bg-warn shrink-0 shadow-[0_0_8px_rgba(245,158,11,.5)] animate-dot-breathe self-center" /> : unreadSlots.includes(s.key) ? <span className="w-2 h-2 rounded-full bg-[var(--info)] shrink-0 shadow-[0_0_6px_rgba(59,130,246,.4)] animate-dot-breathe self-center" /> : <span className="w-2 shrink-0" />}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <div className={`text-[11px] font-semibold truncate leading-tight flex items-center gap-1 ${agentColor}`}>
@@ -244,17 +271,61 @@ function ChatSidebar({
                         <span className="inline-flex items-center gap-0.5 px-1 py-[1px] rounded-full text-[10px] font-bold bg-danger-subtle text-danger border border-danger/30" title="Stopping">■</span>
                       ) : s.running ? (
                         <span className="typing-dots-sm"><span /><span /><span /></span>
-                      ) : isIdle ? (
+                      ) : isIdle && !hasUnread ? (
                         <span className="inline-flex items-center px-1 py-[1px] rounded-full text-[10px] text-muted/50">idle</span>
                       ) : null}
                     </div>
                       <div className="overflow-x-auto" title={s.title !== s.key ? s.title : s.key}>
                         <TypewriterText className="whitespace-nowrap font-mono text-[13px]" text={s.title !== s.key ? s.title : s.key} />
                       </div>
+                      {s.tags && s.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-0.5 mt-0.5">
+                          {s.tags.map(tag => (
+                            <span key={tag} className="px-1.5 py-[1px] rounded-full text-[10px] font-semibold bg-accent/15 text-accent border border-accent/25 leading-tight">{tag}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {s.workspace && s.workspace !== 'default' && <span className="px-1.5 py-[2px] rounded-full text-[11px] font-bold bg-ok-subtle text-ok border border-ok/30 shrink-0 max-w-[60px] overflow-hidden text-ellipsis whitespace-nowrap self-center" title={`workspace: ${s.workspace}`}>{s.workspace}</span>}
                     {s.cwd && onNewSessionInCwd && <span className="opacity-0 text-[12px] text-muted cursor-pointer px-[3px] py-[2px] rounded hover:opacity-100 hover:text-accent hover:bg-accent-subtle group-hover:opacity-50 transition-all self-center" title={`New session in ${s.cwd}`} onClick={e => { e.stopPropagation(); onNewSessionInCwd(s.cwd!) }}>+</span>}
+                    <span className="opacity-0 text-[12px] text-muted cursor-pointer px-[3px] py-[2px] rounded hover:opacity-100 hover:text-accent hover:bg-accent-subtle group-hover:opacity-50 transition-all self-center" title="Edit tags" onClick={e => { e.stopPropagation(); e.preventDefault(); setEditingTagsSlot(editingTagsSlot === s.key ? null : s.key); setTagInput(''); setTimeout(() => tagInputRef.current?.focus(), 50) }}>🏷</span>
                     <span data-close="1" className="opacity-0 text-[12px] text-muted cursor-pointer px-[5px] py-[2px] rounded hover:opacity-100 hover:text-danger hover:bg-danger-subtle group-hover:opacity-50 transition-all self-center">✕</span>
+                  </div>
+                  {editingTagsSlot === s.key && (
+                    <div className="px-2.5 pb-2 pt-0.5 flex flex-wrap items-center gap-1 animate-slide-in-left" onClick={e => e.stopPropagation()}>
+                      {(s.tags || []).map(tag => (
+                        <span key={tag} className="inline-flex items-center gap-0.5 px-1.5 py-[1px] rounded-full text-[10px] font-semibold bg-accent/15 text-accent border border-accent/25">
+                          {tag}
+                          <span className="cursor-pointer hover:text-danger ml-0.5" onClick={() => { api.tagSlot(s.key, (s.tags || []).filter(t => t !== tag)) }}>×</span>
+                        </span>
+                      ))}
+                      <input
+                        ref={editingTagsSlot === s.key ? tagInputRef : undefined}
+                        className="bg-transparent border border-border rounded-md px-1.5 py-[2px] text-[11px] text-text w-20 outline-none focus:border-accent"
+                        placeholder="add tag…"
+                        value={tagInput}
+                        onChange={e => setTagInput(e.target.value)}
+                        onBlur={() => { setTimeout(() => { setEditingTagsSlot(null); setTagInput('') }, 150) }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && tagInput.trim()) {
+                            e.preventDefault()
+                            const newTag = tagInput.trim().toLowerCase()
+                            const current = s.tags || []
+                            if (!current.includes(newTag)) {
+                              api.tagSlot(s.key, [...current, newTag])
+                            }
+                            setTagInput('')
+                            setEditingTagsSlot(null)
+                          } else if (e.key === 'Escape') {
+                            setEditingTagsSlot(null)
+                            setTagInput('')
+                          } else if (e.key === 'Backspace' && !tagInput && s.tags?.length) {
+                            api.tagSlot(s.key, s.tags.slice(0, -1))
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                   </div>
                 )
               })}
@@ -263,80 +334,8 @@ function ChatSidebar({
         })()}
       </div>
 
-      {/* Pinned Directories */}
-      <PinnedDirs onNewSession={(cwd) => { if (onNewSessionInCwd) onNewSessionInCwd(cwd) }} />
 
-      {/* Notifications */}
-      <div className="flex justify-between items-center px-3 pt-2.5 pb-1.5 mt-1 border-t border-border bg-bg-accent">
-        <span className="text-[13px] font-semibold text-text-strong flex items-center gap-1.5 select-none min-w-0 shrink">
-          🔔 <span className="truncate">Notifications</span> {notifications.filter(n => !n.acked).length > 0 && <span className="bg-danger text-white text-[12px] font-bold px-1 py-[2px] rounded-full min-w-[18px] text-center leading-[12px] animate-scale-in shrink-0">{notifications.filter(n => !n.acked).length}</span>}
-        </span>
-        <div className="flex gap-1 shrink-0">
-          {notifications.some(n => !n.acked) && <button className="h-[22px] px-1.5 rounded-sm border border-ok/40 bg-ok/10 text-ok text-[11px] font-semibold cursor-pointer flex items-center hover:bg-ok/20 hover:border-ok transition-all shrink-0 whitespace-nowrap" onClick={() => dispatch(ackAllNotifications())} title="Mark all as read" aria-label="Mark all notifications as read">✓ All</button>}
-          <button className="w-[22px] h-[22px] rounded-sm border border-border bg-transparent text-muted text-[12px] cursor-pointer flex items-center justify-center hover:text-danger hover:border-danger hover:bg-danger-subtle transition-all shrink-0" onClick={() => dispatch(clearNotifications())} title="Clear all">✕</button>
-        </div>
-      </div>
-      <div className="px-2 pb-1"><SearchInput placeholder="Filter notifications…" value={notifFilter} onChange={e => setNotifFilter(e.target.value)} /></div>
-      <div className="overflow-y-auto p-2 scroll-shadow" style={{ maxHeight: '30%' }}>
-        {visibleNotifs.filter(n => !notifFilter || (n.title + (n.body || '')).toLowerCase().includes(notifFilter.toLowerCase())).map(n => (
-          <NotificationItem key={n.ts} n={n} active={viewingNotification?.ts === n.ts} onOpen={() => { onViewNotification(n) }} onDelete={(ts) => dispatch(deleteNotification(ts))} />
-        ))}
-        {notifications.length > notifLimit && (
-          <div
-            className="flex justify-center py-2 text-accent text-[13px] font-medium cursor-pointer hover:bg-accent-subtle rounded-md"
-            role="button"
-            tabIndex={0}
-            onClick={() => setNotifLimit(prev => prev + 50)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setNotifLimit(prev => prev + 50) } }}
-          >
-            Load more… ({notifications.length - notifLimit} remaining)
-          </div>
-        )}
-      </div>
 
-      {/* History */}
-      <div className="flex justify-between items-center px-3 pt-2.5 pb-1.5 mt-1 border-t border-border bg-bg-accent">
-        <span className="text-[13px] font-semibold text-text-strong cursor-pointer flex items-center gap-1.5 select-none hover:text-accent transition-colors" onClick={() => { setHistoryOpen(!historyOpen); if (!historyOpen) dispatch(fetchHistory(false)) }}>
-          📜 History <span className={`text-[12px] transition-transform duration-200 ${historyOpen ? 'rotate-90' : ''}`}>▸</span>
-        </span>
-        {historyOpen && history.length > 0 && <button className="px-2 py-0.5 rounded-md border border-border bg-transparent text-muted text-[12px] cursor-pointer hover:text-danger hover:border-danger transition-all" onClick={async () => { if (confirm('Delete ALL history sessions? This cannot be undone.')) { await api.clearSessions(); dispatch(fetchHistory(false)) } }}>Clear all</button>}
-      </div>
-      {historyOpen && (<>
-        <div className="px-2 pb-1"><SearchInput placeholder="Filter history…" value={historyFilter} onChange={e => setHistoryFilter(e.target.value)} /></div>
-        <div className="overflow-y-auto p-2 scroll-shadow" style={{ maxHeight: '30%' }}>
-          {(() => {
-            const filtered = history.filter(s => !historyFilter || (s.title + s.key).toLowerCase().includes(historyFilter.toLowerCase()))
-            const groups = groupBy(filtered, s => s.project || '')
-            const needsHeaders = groups.length > 1 || (groups.length === 1 && groups[0].key !== '')
-            return groups.map(g => (
-              <div key={g.key || '__ungrouped'}>
-                {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">📂</span>{g.key || 'Other'}</div>}
-                {g.items.map(s => (
-                  <div key={s.key} className="group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm text-muted hover:text-text hover:bg-bg-hover transition-all mb-0.5 border border-transparent" title={s.title || s.key}
-                    role="button"
-                    tabIndex={0}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      if ((e.target as HTMLElement).dataset.close) { dispatch(deleteHistorySession(s.key)); return }
-                      dispatch(resumeFromHistory({ key: s.key, title: s.title || s.key }))
-                    }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch(resumeFromHistory({ key: s.key, title: s.title || s.key })) } }}>
-                    <span className="w-2 h-2 mt-1.5 rounded-full border-[1.5px] border-muted-strong shrink-0" />
-                    <span className="text-[12px] mt-0.5 shrink-0">{s.key.startsWith('dashboard') ? '🖥' : <svg className="w-3.5 h-3.5 inline-block" viewBox="0 0 24 24" fill="none"><path d="M6 15a2 2 0 1 1 0-4h4v4a2 2 0 1 1-4 0Zm4-4V5a2 2 0 1 1 4 0v6h-4Z" fill="#E01E5A"/><path d="M18 9a2 2 0 1 1 0 4h-4V9a2 2 0 1 1 4 0Zm-4 4v6a2 2 0 1 1-4 0v-6h4Z" fill="#36C5F0"/><path d="M10 5a2 2 0 0 1 4 0v4h-4V5Z" fill="#2EB67D"/><path d="M14 19a2 2 0 0 1-4 0v-4h4v4Z" fill="#ECB22E"/></svg>}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono text-[13px] leading-snug break-words line-clamp-2">{s.title || s.key}</div>
-                      <div className="text-[11px] text-muted font-mono mt-0.5">{s.created ? new Date(s.created).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</div>
-                    </div>
-                    {onNewSessionInCwd && s.project && <span className="opacity-0 group-hover:opacity-40 text-[12px] cursor-pointer hover:!opacity-100 hover:text-accent shrink-0 mt-0.5 transition-opacity" title={`New session in /${s.project}`} onClick={e => { e.stopPropagation(); e.preventDefault(); onNewSessionInCwd('/' + s.project) }}>+</span>}
-                    <span data-close="1" className="opacity-0 group-hover:opacity-40 text-[12px] cursor-pointer hover:!opacity-100 hover:text-danger shrink-0 mt-0.5 transition-opacity">✕</span>
-                  </div>
-                ))}
-              </div>
-            ))
-          })()}
-          {historyHasMore && <div className="flex justify-center py-2 text-accent text-[13px] font-medium cursor-pointer hover:bg-accent-subtle rounded-md" role="button" tabIndex={0} onMouseDown={(e) => { e.preventDefault(); dispatch(fetchHistory(true)) }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch(fetchHistory(true)) } }}>Load more…</div>}
-        </div>
-      </>)}
     </div>
     </>
   )

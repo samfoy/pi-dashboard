@@ -23,6 +23,12 @@ export function useKeyboardShortcuts(shortcuts: Shortcut[]) {
     const tag = (e.target as HTMLElement)?.tagName
     const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable
 
+    // Let native text-editing shortcuts through when focused in an input
+    if (isInput && (e.ctrlKey || e.metaKey)) {
+      const k = e.key.toLowerCase()
+      if (k === 'a' || k === 'c' || k === 'v' || k === 'x' || k === 'z') return
+    }
+
     for (const s of shortcuts) {
       // Match modifiers — treat Meta (Cmd) and Ctrl the same
       const ctrlOk = s.ctrl ? (e.ctrlKey || e.metaKey) : !(e.ctrlKey || e.metaKey)
@@ -30,8 +36,8 @@ export function useKeyboardShortcuts(shortcuts: Shortcut[]) {
       const keyOk = e.key.toLowerCase() === s.key.toLowerCase()
 
       if (keyOk && ctrlOk && shiftOk) {
-        // Only Escape works when focused in an input
-        if (isInput && s.key !== 'Escape') continue
+        // Allow Escape and Ctrl/Cmd combos when focused in an input; skip plain keys
+        if (isInput && s.key !== 'Escape' && !s.ctrl) continue
         e.preventDefault()
         s.action()
         return

@@ -40,6 +40,7 @@ interface PiProcessOptions {
   modelId?: string | null
   title?: string | null
   key?: string
+  tags?: string[]
 }
 
 interface SlotInfo {
@@ -51,6 +52,7 @@ interface SlotInfo {
   pending_approval: boolean
   model: string | null
   cwd: string | null
+  tags: string[]
   created_at: string
   updated_at: string
 }
@@ -105,6 +107,7 @@ export class PiProcess extends EventEmitter {
   modelProvider: string | null
   modelId: string | null
   _title: string | null
+  _tags: string[]
   _userRenamed: boolean
   _startTime: number
   _lastActivity: number
@@ -134,6 +137,7 @@ export class PiProcess extends EventEmitter {
     this.modelProvider = opts.modelProvider || null
     this.modelId = opts.modelId || null
     this._title = opts.title || null
+    this._tags = opts.tags || []
     this._userRenamed = false  // true if user manually renamed
     this._startTime = Date.now()
     this._lastActivity = 0  // 0 = never; updated on actual activity
@@ -701,8 +705,11 @@ export class PiManager {
         pending_approval: pi._pendingApproval || false,
         model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
         cwd: pi.cwd || null,
+        tags: pi._tags || [],
         created_at: createdAt,
         updated_at: updatedAt,
+        created: createdAt,
+        updated: updatedAt,
       }
     })
   }

@@ -20,6 +20,9 @@ const defaultProps = {
   workspaces: [{ name: 'default', path: '/home' }],
   selectedCwd: '',
   onSelectCwd: vi.fn(),
+  pendingImages: [],
+  onPaste: vi.fn(),
+  onRemoveImage: vi.fn(),
 }
 
 describe('WelcomeView', () => {

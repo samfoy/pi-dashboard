@@ -1,0 +1,17 @@
+[Unit]
+Description=pi-dashboard server
+After=network.target
+
+[Service]
+Type=simple
+User=samfp
+WorkingDirectory=/local/home/samfp/pi-dashboard
+Environment=PATH=/home/samfp/.local/share/mise/installs/node/24.7.0/bin:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/home/samfp
+Environment=PI_DASH_PORT=7777
+ExecStart=/home/samfp/.local/share/mise/installs/node/24.7.0/bin/node backend/server.js
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

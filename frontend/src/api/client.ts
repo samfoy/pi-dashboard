@@ -124,10 +124,11 @@ export const api = {
   deleteChatSlot: (slot: string) => del('/api/chat/slots/' + encodeURIComponent(slot)).then(j),
   stopChatSlot: (slot: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/stop').then(j),
   approveChatSlot: (slot: string, action: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/approve', { action }).then(j),
-  resumeChatSlot: (key: string, title?: string) => post('/api/chat/slots/' + encodeURIComponent(key) + '/resume', { name: key, key, title: title || key }).then(j),
+  resumeChatSlot: (key: string, title?: string, file?: string) => post('/api/chat/slots/' + encodeURIComponent(key) + '/resume', { name: key, key, title: title || key, file }).then(j),
   chatMode: (mode: string, slot?: string) => post('/api/chat/mode', { mode, slot: slot || '' }).then(j),
   generateTitle: (slot: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/generate-title').then(j),
   renameSlot: (slot: string, title: string) => fetch('/api/chat/slots/' + encodeURIComponent(slot) + '/title', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }).then(j),
+  tagSlot: (slot: string, tags: string[]) => fetch('/api/chat/slots/' + encodeURIComponent(slot) + '/tags', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tags }) }).then(j),
   sendChat: (message: string, slot?: string) =>
     fetch('/api/chat?ws=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, slot }) }),
   // Notifications
@@ -139,6 +140,7 @@ export const api = {
   ackAllNotifications: () => post('/api/notifications/ack-all').then(j),
   // Sessions (history)
   sessions: (limit = 30, offset = 0) => fetch('/api/sessions?limit=' + limit + '&offset=' + offset).then(j),
+  searchSessions: (query: string, limit = 20) => fetch('/api/sessions/search?q=' + encodeURIComponent(query) + '&limit=' + limit).then(j),
   sessionDetail: (key: string) => fetch('/api/sessions/' + encodeURIComponent(key)).then(j),
   deleteSession: (key: string) => del('/api/sessions/' + encodeURIComponent(key)).then(j),
   clearSessions: () => del('/api/sessions').then(j),

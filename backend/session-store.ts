@@ -35,6 +35,7 @@ export interface SlotState {
   modelProvider: string | null
   modelId: string | null
   cwd: string | null
+  tags?: string[]
 }
 
 export interface SessionTreeEntry {
@@ -51,6 +52,7 @@ export interface SessionTreeEntry {
 /** Duck-typed interface for PiProcess slots (avoids circular deps) */
 interface SlotProcess {
   _title?: string
+  _tags?: string[]
   messages: ChatMessage[]
   sessionFile?: string | null
   modelProvider?: string | null
@@ -253,6 +255,7 @@ export function saveSlotState(slots: Map<string, SlotProcess>): void {
       modelProvider: pi.modelProvider || null,
       modelId: pi.modelId || null,
       cwd: pi.cwd || null,
+      tags: pi._tags?.length ? pi._tags : undefined,
     }
     // Only persist messages for slots without a session file (unsaved new chats)
     if (!pi.sessionFile && pi.messages.length > 0) {
@@ -294,6 +297,7 @@ export function saveSlotStateSync(slots: Map<string, SlotProcess>): void {
       modelProvider: pi.modelProvider || null,
       modelId: pi.modelId || null,
       cwd: pi.cwd || null,
+      tags: pi._tags?.length ? pi._tags : undefined,
     }
     // Only persist messages for slots without a session file (unsaved new chats)
     if (!pi.sessionFile && pi.messages.length > 0) {

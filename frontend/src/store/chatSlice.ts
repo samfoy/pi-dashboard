@@ -124,8 +124,8 @@ export const deleteSlot = createAsyncThunk(
 
 export const resumeFromHistory = createAsyncThunk(
   'chat/resumeFromHistory',
-  async ({ key, title }: { key: string; title: string }, { dispatch }) => {
-    const d = await api.resumeChatSlot(key, title)
+  async ({ key, title, file }: { key: string; title: string; file?: string }, { dispatch }) => {
+    const d = await api.resumeChatSlot(key, title, file)
     if (d.ok) dispatch(addSlotOptimistic({ key: d.key, title: title || d.key, messages: 0, running: false }))
     return { ok: d.ok, key: d.key, messages: filterMessages(d.messages || []), hasMore: d.has_more || false, total: d.total || 0 }
   },
@@ -335,6 +335,16 @@ const chatSlice = createSlice({
           // WS is ahead — keep current messages, just update metadata
         } else {
           state.messages = messages
+        }
+        // Convert backend _partial assistant messages to 'streaming' role so that
+        // incoming WS chunks append to them instead of creating a new bubble.
+        if (running) {
+          for (const m of state.messages) {
+            if ((m as any)._partial && m.role === 'assistant') {
+              m.role = 'streaming'
+              m.rawText = m.content
+            }
+          }
         }
         state.slotState = running ? state.slotState : 'idle'
         state.slotRunning = running

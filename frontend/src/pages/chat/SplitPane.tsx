@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { useAppSelector } from '../../store'
 import { api } from '../../api/client'
-import { AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock } from '.'
+import { AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, SystemMessage } from '.'
 import type { ChatMessage } from '../../types'
 
 interface SplitPaneProps {
@@ -68,6 +68,7 @@ export default function SplitPane({ slotKey, onClose, onFileOpen }: SplitPanePro
     if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} />
     if (m.role === 'queued') return <div key={key} className="bg-warn-subtle border border-warn/15 rounded-md px-3 py-2 text-[13px] text-warn italic">⏳ <em>Queued:</em> {m.content}</div>
     if (m.role === 'error') return <div key={key} className="bg-danger-subtle text-danger text-[13px] px-3 py-2 rounded-md border border-danger/15 self-center">{m.content}</div>
+    if (m.role === 'system') return <SystemMessage key={key} content={m.content} meta={m.meta} />
     if (m.role === 'permission') return (
       <div key={key} className="bg-warn-subtle border border-warn/20 rounded-md px-3 py-2 text-[13px] text-warn">🔒 {m.content}</div>
     )
@@ -82,7 +83,7 @@ export default function SplitPane({ slotKey, onClose, onFileOpen }: SplitPanePro
         }
         <div className={`flex flex-col gap-0.5 max-w-[min(820px,calc(100%-48px))] ${isUser ? 'items-end' : ''}`}>
           {isUser ? (
-            <div className="msg-content px-3 py-2 text-[13px] leading-relaxed break-all whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text">{m.content}</div>
+            <div className="msg-content px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text" style={{ overflowWrap: 'anywhere' }}>{m.content}</div>
           ) : (
             <AssistantMessage content={m.content} isStreaming={isStreaming} slotRunning={false} onOption={() => {}} onFileOpen={handleFileOpen} planTaskId="" onApplyPlan={async () => {}} />
           )}
