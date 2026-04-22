@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo, createContext } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from './store'
-import { fetchSlots, sseStatus } from './store/dashboardSlice'
+import { fetchSlots, sseStatus, clearSlotErrors } from './store/dashboardSlice'
 import { fetchNotifications } from './store/notificationsSlice'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useTheme } from './hooks/useTheme'
@@ -49,6 +49,8 @@ export default function App() {
   const [autoUpdate, setAutoUpdate] = useState(true)
   const [fullChangelog, setFullChangelog] = useState('')
   const [showFull, setShowFull] = useState(false)
+  const slotErrors = useAppSelector(s => s.dashboard.slotErrors)
+  const [showErrors, setShowErrors] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
@@ -166,6 +168,36 @@ export default function App() {
             <span>Health</span>
             <span className="font-mono text-[13px]">{connected ? 'OK' : 'Offline'}</span>
           </div>
+          {/* Slot errors indicator */}
+          {slotErrors.length > 0 && (
+            <div className="relative">
+              <button
+                className="inline-flex items-center gap-1.5 px-2.5 py-[5px] rounded-full text-[13px] font-medium bg-danger-subtle border border-danger/30 text-danger cursor-pointer hover:border-danger hover:bg-danger/20 transition-all animate-scale-in"
+                onClick={() => setShowErrors(v => !v)}
+                title={`${slotErrors.length} error(s)`}
+              >
+                <span className="text-[14px]">⚠</span>
+                <span>{slotErrors.length} error{slotErrors.length > 1 ? 's' : ''}</span>
+              </button>
+              {showErrors && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowErrors(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg p-3 min-w-[320px] max-w-[480px] max-h-[60vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[13px] font-semibold text-text-strong">Session Errors</span>
+                      <button className="text-[12px] text-muted hover:text-danger cursor-pointer bg-transparent border-none" onClick={() => { dispatch(clearSlotErrors()); setShowErrors(false) }}>Clear all</button>
+                    </div>
+                    {slotErrors.map((e, i) => (
+                      <div key={i} className="mb-2 p-2 bg-danger-subtle rounded-md border border-danger/20">
+                        <div className="text-[11px] text-muted font-mono mb-1">{new Date(e.ts).toLocaleTimeString()} — {e.slot}</div>
+                        <pre className="text-[12px] text-danger font-mono whitespace-pre-wrap break-words max-h-[150px] overflow-y-auto">{e.error}</pre>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="hidden md:inline-flex bg-card border border-border rounded-full px-2.5 py-[5px] text-[13px] text-muted font-body font-mono">
             v{version}
           </div>

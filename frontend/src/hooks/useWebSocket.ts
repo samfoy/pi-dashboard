@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useAppDispatch } from '../store'
 import { store } from '../store'
-import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread } from '../store/dashboardSlice'
+import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread, addSlotError } from '../store/dashboardSlice'
 import { addNotification, ackNotificationByTs } from '../store/notificationsSlice'
 import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus } from '../store/chatSlice'
 import type { StatusData, ChatSlot, Notification } from '../types'
@@ -150,6 +150,14 @@ export function useWebSocket() {
             break
           case 'token_stats':
             dispatch(setTokenStats({ slot: data.slot, stats: { totalInputTokens: data.totalInputTokens, totalOutputTokens: data.totalOutputTokens, totalTokens: data.totalTokens, totalCost: data.totalCost, cacheReadTokens: data.cacheReadTokens, cacheWriteTokens: data.cacheWriteTokens } }))
+            break
+          case 'startup_error':
+            // Push startup error as a chat message so it's visible in the session
+            if (data.message) {
+              dispatch(sseChatMessage({ slot: data.slot, ...data.message }))
+            }
+            // Also add to slot errors for the global indicator
+            dispatch(addSlotError({ slot: data.slot, error: data.message?.content || 'Pi process crashed at startup' }))
             break
           case 'extension_status':
             dispatch(setExtensionStatus({ slot: data.slot, key: data.key, text: data.text }))

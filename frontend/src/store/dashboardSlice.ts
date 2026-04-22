@@ -9,6 +9,7 @@ interface DashboardState {
   approvalMode: string
   refreshTrigger: number
   unreadSlots: string[]
+  slotErrors: { slot: string; error: string; ts: string }[]
 }
 
 const initialState: DashboardState = {
@@ -18,6 +19,7 @@ const initialState: DashboardState = {
   approvalMode: 'normal',
   refreshTrigger: 0,
   unreadSlots: [],
+  slotErrors: [],
 }
 
 export const fetchSlots = createAsyncThunk('dashboard/fetchSlots', () => api.chatSlots())
@@ -65,6 +67,14 @@ const dashboardSlice = createSlice({
     markSlotRead(state, action: PayloadAction<string>) {
       state.unreadSlots = state.unreadSlots.filter(k => k !== action.payload)
     },
+    addSlotError(state, action: PayloadAction<{ slot: string; error: string }>) {
+      state.slotErrors.push({ slot: action.payload.slot, error: action.payload.error, ts: new Date().toISOString() })
+      // Keep last 20
+      if (state.slotErrors.length > 20) state.slotErrors = state.slotErrors.slice(-20)
+    },
+    clearSlotErrors(state) {
+      state.slotErrors = []
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -77,5 +87,5 @@ const dashboardSlice = createSlice({
   },
 })
 
-export const { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, addSlotOptimistic, removeSlotOptimistic, triggerRefresh, markSlotUnread, markSlotRead } = dashboardSlice.actions
+export const { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, addSlotOptimistic, removeSlotOptimistic, triggerRefresh, markSlotUnread, markSlotRead, addSlotError, clearSlotErrors } = dashboardSlice.actions
 export default dashboardSlice.reducer
