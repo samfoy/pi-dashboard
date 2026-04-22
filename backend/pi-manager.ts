@@ -150,6 +150,9 @@ export class PiProcess extends EventEmitter {
     const args = ['--mode', 'rpc']
     if (this.sessionFile) {
       args.push('--session', this.sessionFile)
+      console.log(`[pi-manager] Starting slot with session file: ${this.sessionFile}`)
+    } else {
+      console.log(`[pi-manager] Starting slot with NO session file`)
     }
     if (this.agent) {
       args.push('--agent', this.agent)
@@ -172,11 +175,19 @@ export class PiProcess extends EventEmitter {
 
     // Ready promise — resolves when pi responds to get_state (templates loaded)
     this._readyPromise = this.request({ type: 'get_state' }, 15000).then((resp: any) => {
+      console.log(`[pi-manager] get_state response: sessionFile=${resp?.data?.sessionFile}, sessionName=${resp?.data?.sessionName}`)
       if (resp?.data?.sessionFile) {
+        if (this.sessionFile && resp.data.sessionFile !== this.sessionFile) {
+          console.warn(`[pi-manager] ⚠ Session file changed! Was: ${this.sessionFile}, Now: ${resp.data.sessionFile}`)
+        }
         this.sessionFile = resp.data.sessionFile
         this.emit('session_file', this.sessionFile)
+      } else if (this.sessionFile) {
+        console.warn(`[pi-manager] ⚠ get_state returned no sessionFile, but we expected: ${this.sessionFile}`)
       }
-    }).catch(() => {})
+    }).catch((err: any) => {
+      console.error(`[pi-manager] get_state failed:`, err?.message || err)
+    })
 
     this.proc.stdout!.on('data', (chunk: Buffer) => {
       this.buffer += chunk.toString()
@@ -634,6 +645,7 @@ export class PiManager {
   }
 
   restoreSlot(key: string, title: string, messages: ChatMessage[], opts: PiProcessOptions = {}): void {
+    console.log(`[pi-manager] Restoring slot ${key}: title="${title}", msgs=${messages.length}, sessionFile=${opts.sessionFile || 'NONE'}`)
     const pi = new PiProcess(key, { messages, title, ...opts })
     pi.ready = false
     this.slots.set(key, pi)
