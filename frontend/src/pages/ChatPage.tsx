@@ -114,6 +114,17 @@ export default function ChatPage() {
     }
   }, [pendingInput, dispatch, searchParams, setSearchParams])
 
+  // Handle newCwd query param (from command palette)
+  useEffect(() => {
+    const cwd = searchParams.get('newCwd')
+    if (cwd) {
+      setSearchParams({}, { replace: true })
+      setPendingCwd(cwd)
+      wantsNewSession.current = true
+      dispatch(switchSlot(null))
+    }
+  }, [searchParams, setSearchParams, dispatch])
+
   // Re-send queued message after abort
   const resendQueued = useAppSelector(s => s.chat._resendQueued)
   useEffect(() => {

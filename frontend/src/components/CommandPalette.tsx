@@ -5,20 +5,23 @@ import { useAppSelector, useAppDispatch } from '../store'
 import { switchSlot } from '../store/chatSlice'
 import { fetchSlots } from '../store/dashboardSlice'
 import { useTheme } from '../hooks/useTheme'
+import { loadPinnedDirs } from '../pages/chat/PinnedDirs'
 
 interface CommandPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onToggleSidebar: () => void
+  onNewSessionInCwd?: (cwd: string) => void
 }
 
-export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandPaletteProps) {
+export default function CommandPalette({ open, onOpenChange, onToggleSidebar, onNewSessionInCwd }: CommandPaletteProps) {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const slots = useAppSelector(s => s.dashboard.slots)
   const activeSlot = useAppSelector(s => s.chat.activeSlot)
   const { cycle: cycleTheme } = useTheme()
   const inputRef = useRef<HTMLInputElement>(null)
+  const pinnedDirs = open ? loadPinnedDirs() : []
 
   // Focus input when opening
   useEffect(() => {
@@ -88,6 +91,29 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
                     {slot.model && <span className="cmdk-item-meta">{slot.model}</span>}
                   </div>
                   {activeSlot === slot.key && <span className="cmdk-item-badge">Active</span>}
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
+
+          {/* Navigate */}
+
+          {/* Pinned Directories */}
+          {pinnedDirs.length > 0 && (
+            <Command.Group heading="Pinned Directories" className="cmdk-group">
+              {pinnedDirs.map(dir => (
+                <Command.Item
+                  key={dir}
+                  value={`pinned directory ${dir} ${dir.split('/').pop()}`}
+                  onSelect={() => run(() => { if (onNewSessionInCwd) { onNewSessionInCwd(dir); navigate('/chat') } })}
+                  className="cmdk-item"
+                >
+                  <span className="cmdk-item-icon">📌</span>
+                  <div className="cmdk-item-content">
+                    <span className="cmdk-item-label">{dir.split('/').pop()}</span>
+                    <span className="cmdk-item-meta">{dir}</span>
+                  </div>
+                  <span className="cmdk-item-badge">▶ new</span>
                 </Command.Item>
               ))}
             </Command.Group>

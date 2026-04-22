@@ -7,6 +7,7 @@ import { SearchInput } from '../components/ui'
 import InfoTip from '../components/InfoTip'
 import TypewriterText from '../components/TypewriterText'
 import { NotificationItem } from './chat'
+import PinnedDirs from './chat/PinnedDirs'
 import type { Notification } from '../types'
 
 interface Slot {
@@ -261,6 +262,9 @@ function ChatSidebar({
           ))
         })()}
       </div>
+
+      {/* Pinned Directories */}
+      <PinnedDirs onNewSession={(cwd) => { if (onNewSessionInCwd) onNewSessionInCwd(cwd) }} />
 
       {/* Notifications */}
       <div className="flex justify-between items-center px-3 pt-2.5 pb-1.5 mt-1 border-t border-border bg-bg-accent">

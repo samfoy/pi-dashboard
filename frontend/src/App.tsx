@@ -148,7 +148,7 @@ export default function App() {
 
   return (
     <WsContext.Provider value={{ subscribeLogs, subscribeFileChange, wsRef }}>
-    <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} />
+    <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} onNewSessionInCwd={(cwd) => navigate(`/chat?newCwd=${encodeURIComponent(cwd)}`)} />
     <ConnectionOverlay />
     <div className={`relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
