@@ -14,6 +14,7 @@ import ConnectionOverlay from './components/ConnectionOverlay'
 import SystemPage from './pages/SystemPage'
 import LogsPage from './pages/LogsPage'
 import SettingsPage from './pages/SettingsPage'
+import CommandPalette from './components/CommandPalette'
 
 import type { FileChangeCallback } from './hooks/useWebSocket'
 type LogSubscribeFn = (cb: ((data: { level: string; msg: string }) => void) | null) => void
@@ -49,6 +50,7 @@ export default function App() {
   const [fullChangelog, setFullChangelog] = useState('')
   const [showFull, setShowFull] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
 
   // Detect virtual keyboard on mobile via visualViewport resize
@@ -135,7 +137,8 @@ export default function App() {
     { key: '4', ctrl: true, label: 'Go to Settings', action: () => navigate('/settings') },
     { key: '\\', ctrl: true, label: 'Toggle sidebar', action: () => toggleNav() },
     { key: '/', ctrl: false, label: 'Show shortcuts', action: () => setShowShortcuts(s => !s) },
-    { key: 'Escape', label: 'Close dialog', action: () => { setShowShortcuts(false); setShowChangelog(false) } },
+    { key: 'k', ctrl: true, label: 'Command palette', action: () => setCommandPaletteOpen(s => !s) },
+    { key: 'Escape', label: 'Close dialog', action: () => { setShowShortcuts(false); setShowChangelog(false); setCommandPaletteOpen(false) } },
   ], [navigate])
   useKeyboardShortcuts(shortcuts)
 
@@ -145,6 +148,7 @@ export default function App() {
 
   return (
     <WsContext.Provider value={{ subscribeLogs, subscribeFileChange, wsRef }}>
+    <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} />
     <ConnectionOverlay />
     <div className={`relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
@@ -190,6 +194,7 @@ export default function App() {
             </div>
             <div className="space-y-1">
               {[
+                { keys: ['Ctrl', 'K'], label: 'Command palette' },
                 { keys: ['Ctrl', '1'], label: 'Go to Chat' },
                 { keys: ['Ctrl', '2'], label: 'Go to System' },
                 { keys: ['Ctrl', '3'], label: 'Go to Logs' },
