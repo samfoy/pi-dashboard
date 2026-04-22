@@ -8,19 +8,30 @@ interface ToolGroupProps {
 
 /** Collapsible group of consecutive tool calls with a live counter. */
 const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
 
   const summary = useMemo(() => {
     const names = new Map<string, number>()
     let errors = 0
     let completed = 0
+    const files: string[] = []
     for (const { message: m } of tools) {
       const name = (m.meta?.toolName as string) || m.content.replace('🔧 ', '')
       names.set(name, (names.get(name) || 0) + 1)
       if (m.meta?.result) completed++
       if (m.meta?.isError) errors++
+      // Extract file paths from tool args for richer summary
+      if (m.meta?.args && (name === 'edit' || name === 'write' || name === 'read')) {
+        try {
+          const parsed = JSON.parse(m.meta.args as string)
+          if (parsed.path) {
+            const short = parsed.path.split('/').pop() || parsed.path
+            if (!files.includes(short)) files.push(short)
+          }
+        } catch { /* ignore */ }
+      }
     }
-    return { names, errors, completed, total: tools.length }
+    return { names, errors, completed, total: tools.length, files }
   }, [tools])
 
   // Don't group single tool calls
@@ -43,7 +54,10 @@ const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps)
         <span className={`text-[11px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
         <span className="text-accent font-semibold">{summary.total}</span>
         <span>tool calls</span>
-        <span className="text-muted/60 text-[12px] truncate flex-1 text-left">{nameStr}</span>
+        <span className="text-muted/60 text-[12px] truncate flex-1 text-left">
+          {nameStr}
+          {summary.files.length > 0 && <span className="text-text/50 ml-1.5">— {summary.files.slice(0, 3).join(', ')}{summary.files.length > 3 ? ` +${summary.files.length - 3}` : ''}</span>}
+        </span>
         <span className="flex items-center gap-1.5 shrink-0">
           {summary.completed > 0 && <span className="text-ok text-[12px]">✓{summary.completed}</span>}
           {summary.errors > 0 && <span className="text-danger text-[12px]">✗{summary.errors}</span>}

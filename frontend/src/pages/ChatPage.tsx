@@ -2,8 +2,6 @@ import { useState, useRef, useCallback, useEffect, useMemo, useContext } from 'r
 
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import DiffBlock from '../components/DiffBlock'
-import ResizableImage from '../components/ResizableImage'
 import { useAppSelector, useAppDispatch } from '../store'
 import {
   switchSlot, createSlot, deleteSlot, fetchHistory,
@@ -23,9 +21,7 @@ import PathCompleteMenu from '../components/PathCompleteMenu'
 import { usePanelState, detectFileType } from '../hooks/usePanelState'
 import { WsContext } from '../App'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
-import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages } from './chat'
-import SubagentCard from './chat/SubagentCard'
-import ProcessCard from './chat/ProcessCard'
+import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage } from './chat'
 import ChatSidebar from './ChatSidebar'
 import NotificationViewer from './NotificationViewer'
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
@@ -34,335 +30,9 @@ import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
 import type { Notification, ChatMessage } from '../types'
 
-/** Expandable thinking block */
-function ThinkingBlock({ content }: { content: string }) {
-  const [expanded, setExpanded] = useState(false)
-  if (!content || content.trim() === '') {
-    return <div className="msg-content bg-card border border-border rounded-md px-3 py-2 text-[13px] text-muted font-mono animate-scale-in italic flex items-center gap-2"><span className="inline-block w-3.5 h-3.5 border-2 border-muted/30 border-t-accent rounded-full animate-spin" />Thinking…</div>
-  }
-  return (
-    <div className="msg-content bg-card border border-border border-l-[3px] border-l-[#a78bfa] rounded-md animate-scale-in">
-      <button className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-muted font-mono cursor-pointer bg-transparent border-none text-left hover:text-text transition-colors" onClick={() => setExpanded(!expanded)}>
-        <span className={`text-[11px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
-        <span>💭 Thinking</span>
-        <span className="text-[12px] text-muted/60 ml-auto">{content.length.toLocaleString()} chars</span>
-      </button>
-      {expanded && (
-        <div className="px-3 pb-3 border-t border-border">
-          <pre className="text-[13px] text-muted leading-relaxed whitespace-pre-wrap break-words max-h-[400px] overflow-y-auto mt-2 font-body">{content}</pre>
-        </div>
-      )}
-    </div>
-  )
-}
 
-/** Generate a unified diff string from edits array. */
-function generateEditDiff(filePath: string, edits: { oldText: string; newText: string }[]): string {
-  const lines: string[] = [`--- a/${filePath}`, `+++ b/${filePath}`]
-  for (const edit of edits) {
-    const oldLines = edit.oldText.split('\n')
-    const newLines = edit.newText.split('\n')
-    lines.push(`@@ -1,${oldLines.length} +1,${newLines.length} @@`)
-    for (const line of oldLines) lines.push(`-${line}`)
-    for (const line of newLines) lines.push(`+${line}`)
-  }
-  return lines.join('\n')
-}
 
-/** Try to parse edit tool args into { path, edits }. */
-function parseEditArgs(args: string): { path: string; edits: { oldText: string; newText: string }[] } | null {
-  try {
-    const parsed = JSON.parse(args)
-    if (!parsed.path) return null
-    // New format: { path, edits: [{ oldText, newText }] }
-    if (Array.isArray(parsed.edits) && parsed.edits.length > 0 && typeof parsed.edits[0].oldText === 'string') {
-      return { path: parsed.path, edits: parsed.edits }
-    }
-    // Legacy format: { path, oldText, newText }
-    if (typeof parsed.oldText === 'string' && typeof parsed.newText === 'string') {
-      return { path: parsed.path, edits: [{ oldText: parsed.oldText, newText: parsed.newText }] }
-    }
-  } catch { /* not JSON or missing fields */ }
-  return null
-}
 
-/** Try to parse write tool args into { path, content }. */
-function parseWriteArgs(args: string): { path: string; content: string } | null {
-  try {
-    const parsed = JSON.parse(args)
-    if (parsed.path && typeof parsed.content === 'string') {
-      return { path: parsed.path, content: parsed.content }
-    }
-  } catch { /* ignore */ }
-  return null
-}
-
-/** Guess a language from a file extension for syntax highlighting. */
-function langFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() || ''
-  const map: Record<string, string> = {
-    ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-    py: 'python', rs: 'rust', java: 'java', json: 'json', yaml: 'yaml',
-    yml: 'yaml', css: 'css', html: 'xml', xml: 'xml', sql: 'sql',
-    md: 'markdown', sh: 'bash', bash: 'bash', zsh: 'bash',
-  }
-  return map[ext] || ''
-}
-
-/** Expandable tool call block with args and result — shows diff view for edit tool, code preview for write */
-function ToolCallBlock({ content, meta, onFileOpen }: { content: string; meta?: Record<string, unknown>; onFileOpen?: (path: string) => void }) {
-  const toolName = (meta?.toolName as string) || content.replace('🔧 ', '')
-  const [expanded, setExpanded] = useState(false)
-  const args = meta?.args as string | undefined
-  const result = meta?.result as string | undefined
-  const isError = meta?.isError as boolean | undefined
-  const hasDetails = !!(args || result)
-
-  // For edit tool calls, parse args and generate diff
-  const editDiff = useMemo(() => {
-    if (toolName !== 'edit' || !args) return null
-    const parsed = parseEditArgs(args)
-    if (!parsed) return null
-    return { diff: generateEditDiff(parsed.path, parsed.edits), path: parsed.path }
-  }, [toolName, args])
-
-  // For write tool calls, parse args to show file content nicely
-  const writeInfo = useMemo(() => {
-    if (toolName !== 'write' || !args) return null
-    return parseWriteArgs(args)
-  }, [toolName, args])
-
-  // For read tool calls, parse args and use result as file content
-  const readInfo = useMemo(() => {
-    if (toolName !== 'read' || !args) return null
-    try {
-      const parsed = JSON.parse(args)
-      if (!parsed.path) return null
-      return { path: parsed.path as string, offset: parsed.offset as number | undefined, limit: parsed.limit as number | undefined }
-    } catch { return null }
-  }, [toolName, args])
-
-  // Edit tool calls default to expanded (showing diff)
-  const isEdit = !!editDiff
-  const isWrite = !!writeInfo
-  const isRead = !!readInfo
-  const [editExpanded, setEditExpanded] = useState(false)
-  const [writeExpanded, setWriteExpanded] = useState(false)
-  const [readExpanded, setReadExpanded] = useState(false)
-
-  // Early returns AFTER all hooks (Rules of Hooks compliance)
-  if (toolName === 'subagent') return <SubagentCard meta={meta} />
-  if (toolName === 'process') return <ProcessCard meta={meta} />
-
-  if (isEdit) {
-    return (
-      <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
-        <button
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
-          onClick={() => setEditExpanded(!editExpanded)}
-        >
-          <span className={`text-[11px] transition-transform ${editExpanded ? 'rotate-90' : ''}`}>▶</span>
-          <span>✏️ edit</span>
-          <span className="text-text/70 text-[12px] font-normal truncate">{editDiff.path}</span>
-          {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(editDiff.path) }}>Open</button>}
-          {isError && <span className="text-danger text-[12px] ml-auto shrink-0">✗ error</span>}
-          {result && !isError && <span className="text-ok text-[12px] ml-auto shrink-0">✓</span>}
-        </button>
-        {editExpanded && (
-          <div className="px-2 pb-2">
-            <DiffBlock code={editDiff.diff} complete={true} />
-            {isError && result && (
-              <div className="mt-1">
-                <pre className="bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto text-danger">{result}</pre>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  if (isRead && result && !isError) {
-    const isImage = /\.(png|jpe?g|gif|webp|svg)$/i.test(readInfo.path)
-    if (isImage) {
-      const imgUrl = `/api/local-file?path=${encodeURIComponent(readInfo.path)}`
-      // Check if result has a saved temp image URL from the backend
-      const match = result.match(/!\[image\]\(([^)]+)\)/)
-      const src = match ? match[1] : imgUrl
-      return (
-        <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
-          <button
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
-            onClick={() => setReadExpanded(!readExpanded)}
-          >
-            <span className={`text-[11px] transition-transform ${readExpanded ? 'rotate-90' : ''}`}>▶</span>
-            <span>🖼️ read</span>
-            <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path.split('/').pop()}</span>
-            {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
-          </button>
-          {readExpanded && (
-            <div className="px-2 pb-2">
-              <ResizableImage src={src} alt={readInfo.path.split('/').pop() || ''} />
-            </div>
-          )}
-        </div>
-      )
-    }
-    const lang = langFromPath(readInfo.path)
-    const lineCount = result.split('\n').length
-    const rangeLabel = readInfo.offset ? `lines ${readInfo.offset}–${readInfo.offset + (readInfo.limit || lineCount) - 1}` : `${lineCount} lines`
-    return (
-      <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
-        <button
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
-          onClick={() => setReadExpanded(!readExpanded)}
-        >
-          <span className={`text-[11px] transition-transform ${readExpanded ? 'rotate-90' : ''}`}>▶</span>
-          <span>📖 read</span>
-          <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path}</span>
-          {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
-          <span className="text-muted/50 text-[12px] font-normal ml-auto shrink-0">{rangeLabel}</span>
-        </button>
-        {readExpanded && (
-          <div className="px-2 pb-2">
-            <div className="relative group">
-              <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
-                <span className="text-muted text-[12px] font-mono uppercase">{lang || readInfo.path.split('/').pop()}</span>
-                <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => navigator.clipboard.writeText(result)}>Copy</button>
-              </div>
-              <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto max-h-[400px] overflow-y-auto">
-                <code className="text-[13px] font-mono leading-relaxed text-text">{result}</code>
-              </pre>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  if (isWrite) {
-    const lang = langFromPath(writeInfo.path)
-    const lineCount = writeInfo.content.split('\n').length
-    return (
-      <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
-        <button
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
-          onClick={() => setWriteExpanded(!writeExpanded)}
-        >
-          <span className={`text-[11px] transition-transform ${writeExpanded ? 'rotate-90' : ''}`}>▶</span>
-          <span>📝 write</span>
-          <span className="text-text/70 text-[12px] font-normal truncate">{writeInfo.path}</span>
-          {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(writeInfo.path) }}>Open</button>}
-          <span className="text-muted/50 text-[12px] font-normal ml-auto shrink-0">{lineCount} lines</span>
-          {isError && <span className="text-danger text-[12px] shrink-0 ml-1">✗ error</span>}
-          {result && !isError && <span className="text-ok text-[12px] shrink-0 ml-1">✓</span>}
-        </button>
-        {writeExpanded && (
-          <div className="px-2 pb-2">
-            <div className="relative group">
-              <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
-                <span className="text-muted text-[12px] font-mono uppercase">{lang || writeInfo.path.split('/').pop()}</span>
-                <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => navigator.clipboard.writeText(writeInfo.content)}>Copy</button>
-              </div>
-              <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto max-h-[400px] overflow-y-auto">
-                <code className="text-[13px] font-mono leading-relaxed text-text">{writeInfo.content}</code>
-              </pre>
-            </div>
-            {isError && result && (
-              <div className="mt-1">
-                <pre className="bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto text-danger">{result}</pre>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div className={`msg-content bg-card border border-border rounded-md animate-scale-in ${hasDetails ? 'cursor-pointer' : ''}`}>
-      <button
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors"
-        onClick={() => hasDetails && setExpanded(!expanded)}
-        disabled={!hasDetails}
-      >
-        {hasDetails && <span className={`text-[11px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>}
-        <span>🔧 {toolName}</span>
-        {isError && <span className="text-danger text-[12px]">✗ error</span>}
-        {result && !isError && <span className="text-ok text-[12px]">✓</span>}
-      </button>
-      {expanded && (
-        <div className="px-3 pb-3 border-t border-border space-y-2">
-          {args && (
-            <div>
-              <div className="text-[11px] text-muted font-medium uppercase tracking-wider mt-2 mb-1">Arguments</div>
-              <pre className="bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto text-text">{args}</pre>
-            </div>
-          )}
-          {result && (
-            <div>
-              <div className={`text-[11px] font-medium uppercase tracking-wider mt-2 mb-1 ${isError ? 'text-danger' : 'text-muted'}`}>{isError ? 'Error' : 'Result'}</div>
-              {/!\[image\]\(/.test(result) ? (
-                <div className="space-y-2">
-                  {result.split(/\n\n/).map((part, i) => {
-                    const imgMatch = part.match(/!\[image\]\(([^)]+)\)/)
-                    return imgMatch
-                      ? <ResizableImage key={i} src={imgMatch[1]} alt="tool result" />
-                      : part.trim() ? <pre key={i} className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${isError ? 'text-danger' : 'text-muted'}`}>{part}</pre> : null
-                  })}
-                </div>
-              ) : (
-                <pre className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${isError ? 'text-danger' : 'text-muted'}`}>{result}</pre>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Threshold (chars) above which tool_input gets an expand/collapse toggle. */
-const _EXPAND_THRESHOLD = 200
-
-/** Permission approval prompt with optional expandable command details. */
-function PermissionMessage({ title, toolInput, showButtons, onApprove }: {
-  title: string; toolInput: string; showButtons: boolean
-  onApprove: (decision: string) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const needsExpand = toolInput.length > _EXPAND_THRESHOLD
-  return (
-    <div className="bg-card border border-border border-l-[3px] border-l-warn rounded-md px-3.5 py-2.5 text-sm animate-scale-in">
-      {toolInput
-        ? <><strong>Tool approval requested:</strong></>
-        : <>{showButtons ? '📦 Running: ' : '🔧 '}<strong>{title}</strong>{showButtons ? ' wants to run' : ''}</>
-      }
-      {toolInput && (
-        <div className="mt-1.5">
-          {needsExpand && !expanded ? (
-            <>
-              <pre className="bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[4.5em] overflow-hidden text-muted">{toolInput.slice(0, _EXPAND_THRESHOLD)}…</pre>
-              <button className="text-accent text-[13px] mt-1 cursor-pointer bg-transparent border-none font-body hover:underline" onClick={() => setExpanded(true)}>Show full command</button>
-            </>
-          ) : (
-            <>
-              <pre className="bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[40vh] overflow-y-auto text-muted">{toolInput}</pre>
-              {needsExpand && <button className="text-accent text-[13px] mt-1 cursor-pointer bg-transparent border-none font-body hover:underline" onClick={() => setExpanded(false)}>Collapse</button>}
-            </>
-          )}
-        </div>
-      )}
-      {showButtons && (
-        <div className="mt-1.5 flex gap-1.5 flex-wrap">
-          <button className="px-2.5 py-1 rounded-md border border-border bg-transparent text-muted text-[13px] cursor-pointer font-body hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all" onClick={() => onApprove('approved')}>✅ Approve</button>
-          <button className="px-2.5 py-1 rounded-md border border-border bg-transparent text-muted text-[13px] cursor-pointer font-body hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all" onClick={() => onApprove('trust')}>🤝 Trust</button>
-          <button className="px-2.5 py-1 rounded-md border border-border bg-transparent text-muted text-[13px] cursor-pointer font-body hover:text-danger hover:border-danger transition-all" onClick={() => onApprove('rejected')}>🚫 Reject</button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function ChatPage() {
   const dispatch = useAppDispatch()
@@ -1018,9 +688,11 @@ export default function ChatPage() {
               )}
               <div className="flex-1 min-h-0 flex flex-col" style={{ display: showTerminal ? 'flex' : 'none' }}><TerminalPage /></div>
               {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col">
-              {extensionStatuses['meeting-copilot'] && (
-                <div className="px-4 py-1.5 bg-accent-subtle text-accent text-[12px] font-medium border-b border-border flex items-center gap-2 shrink-0 animate-slide-up">
-                  {extensionStatuses['meeting-copilot']}
+              {Object.keys(extensionStatuses).length > 0 && (
+                <div className="px-4 py-1 bg-accent-subtle text-accent text-[11px] font-medium border-b border-border flex items-center gap-4 shrink-0">
+                  {Object.entries(extensionStatuses).map(([key, text]) => (
+                    <span key={key} className="opacity-80">{text}</span>
+                  ))}
                 </div>
               )}
               <Virtuoso
@@ -1039,15 +711,20 @@ export default function ChatPage() {
                 }
               }}
               components={virtuosoComponents}
-              itemContent={(_i, item) => (
-                <div className="px-5 py-2">
-                  {item.type === 'group' ? (
-                    <ToolGroup tools={item.tools} renderTool={renderMessage} />
-                  ) : (
-                    renderMessage(item.index, item.message)
-                  )}
-                </div>
-              )}
+              itemContent={(_i, item) => {
+                // Add turn separator before user messages (except the first)
+                const isUserTurn = item.type === 'single' && item.message.role === 'user' && _i > 0
+                return (
+                  <div className="px-5 py-2">
+                    {isUserTurn && <div className="border-t border-border/40 mb-4 mt-2" />}
+                    {item.type === 'group' ? (
+                      <ToolGroup tools={item.tools} renderTool={renderMessage} />
+                    ) : (
+                      renderMessage(item.index, item.message)
+                    )}
+                  </div>
+                )
+              }}
             />
             {!isAtBottom && messages.length > 0 && (
               <div className="flex justify-center py-1.5">
