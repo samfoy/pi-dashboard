@@ -337,6 +337,15 @@ html.is-standalone .standalone-pad [role="button"]{-webkit-app-region:no-drag}
   animation: cmdk-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.cmdk-dialog.cmdk-dialog--fullview {
+  top: 4vh !important;
+  width: min(780px, calc(100vw - 32px));
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .cmdk-input-wrapper {
   display: flex;
   align-items: center;

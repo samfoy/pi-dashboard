@@ -915,7 +915,7 @@ function DeveloperTab() {
 
   useEffect(() => {
     api.logLevel().then(d => setLogLevel(d.level || 'info')).catch(() => {})
-    fetch('/api/pi/settings').then(r => r.text()).then(t => { setRawJson(t); setJsonDirty(false) }).catch(() => {})
+    fetch('/api/pi/settings').then(r => r.json()).then(obj => { setRawJson(JSON.stringify(obj, null, 2)); setJsonDirty(false) }).catch(() => {})
   }, [])
 
   const changeLevel = useCallback(async (level: string) => {

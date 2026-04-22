@@ -917,6 +917,63 @@ app.post('/api/chat/slots/:key/cwd', (req: Request, res: Response) => {
   res.json({ ok: true })
 })
 
+// System prompt for a slot — returns static (from files) and runtime (with memory injected)
+app.get('/api/chat/slots/:key/system-prompt', async (req: Request, res: Response) => {
+  const pi = manager.getSlot(req.params.key as string)
+  if (!pi) return res.status(404).json({ error: 'slot not found' })
+  try {
+    const cwd = pi.cwd || process.env.HOME || '/tmp'
+    // Resolve pi package from `which pi` -> dist/cli.js -> package root
+    const piPkg = process.env.PI_PKG_PATH || (() => {
+      try {
+        const piCli = execSync('realpath $(which pi)', { encoding: 'utf-8' }).trim()
+        return join(dirname(dirname(piCli)))
+      } catch { return '' }
+    })()
+    const { buildSystemPrompt } = await import(join(piPkg, 'dist/core/system-prompt.js'))
+    const { loadProjectContextFiles } = await import(join(piPkg, 'dist/core/resource-loader.js'))
+    const { loadSkills } = await import(join(piPkg, 'dist/core/skills.js'))
+    const contextFiles = loadProjectContextFiles({ cwd })
+    const { skills } = loadSkills({ cwd })
+    const staticPrompt = buildSystemPrompt({ cwd, contextFiles, skills })
+
+    // Build runtime prompt = static + pi-memory injection
+    let memoryBlock = ''
+    let memoryStats = { semantic: 0, lessons: 0 }
+    try {
+      const piMemoryPkg = join(os.homedir(), 'scratch', 'pi-memory')
+      // pi-memory uses node:sqlite (CJS dist) — require() from its directory
+      const Module = await import('module')
+      const req = Module.default.createRequire(join(piMemoryPkg, 'package.json'))
+      const { MemoryStore } = req('./dist/store.js')
+      const { buildContextBlock } = req('./dist/injector.js')
+      let dbPath = join(os.homedir(), '.pi', 'memory', 'memory.db')
+      try {
+        const localSettings = JSON.parse(readFileSync(join(cwd, '.pi', 'settings.json'), 'utf-8'))
+        const localPath = localSettings?.['pi-memory']?.localPath
+        if (localPath) dbPath = join(localPath, 'memory.db')
+      } catch {}
+      const store = new MemoryStore(dbPath)
+      const { text, stats } = buildContextBlock(store, cwd)
+      store.close()
+      memoryBlock = text || ''
+      memoryStats = stats || memoryStats
+    } catch (err: any) {
+      console.warn('[system-prompt] Could not load pi-memory:', err.message)
+    }
+
+    res.json({
+      static: staticPrompt,
+      runtime: memoryBlock ? staticPrompt + '\n\n' + memoryBlock : staticPrompt,
+      memory: memoryBlock,
+      memoryStats,
+    })
+  } catch (err: any) {
+    console.error('[system-prompt] Error building system prompt:', err)
+    res.status(500).json({ error: 'Failed to build system prompt', detail: err.message })
+  }
+})
+
 // Spawn, Approvals (stubs)
 app.get('/api/spawn', (_req: Request, res: Response) => res.json([]))
 app.get('/api/approvals', (_req: Request, res: Response) => res.json([]))

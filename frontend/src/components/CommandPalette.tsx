@@ -9,7 +9,7 @@ import { api } from '../api/client'
 
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high']
 
-type Mode = 'root' | 'model' | 'thinking' | 'rename' | 'tag' | 'session-search'
+type Mode = 'root' | 'model' | 'thinking' | 'rename' | 'tag' | 'session-search' | 'system-prompt'
 
 interface SessionResult {
   id: string
@@ -45,6 +45,9 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
   const [sessionSelected, setSessionSelected] = useState(0)
   const sessionListRef = useRef<HTMLDivElement>(null)
   const sessionDebounce = useRef<ReturnType<typeof setTimeout>>()
+  const [systemPrompt, setSystemPrompt] = useState<{ static: string; runtime: string; memory: string; memoryStats: { semantic: number; lessons: number } } | null>(null)
+  const [systemPromptLoading, setSystemPromptLoading] = useState(false)
+  const [systemPromptTab, setSystemPromptTab] = useState<'runtime' | 'static' | 'memory'>('runtime')
 
   const activeSlot = useAppSelector(s => s.chat.activeSlot)
   const slots = useAppSelector(s => s.dashboard.slots)
@@ -93,8 +96,26 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
     if (m === 'rename') setRenameValue(currentSlot?.title || '')
     if (m === 'tag') setTagValue('')
     if (m === 'session-search') { setSessionQuery(''); setSessionResults([]); setSessionSelected(0) }
+    if (m === 'system-prompt') {
+      setSystemPrompt(null)
+      setSystemPromptLoading(true)
+      setSystemPromptTab('runtime')
+      const slot = activeSlot
+      if (!slot) {
+        // No active slot — build prompt for default CWD
+        fetch('/api/chat/system-prompt').then(r => r.ok ? r.json() : Promise.reject(r))
+          .then(d => setSystemPrompt(d))
+          .catch(() => setSystemPrompt({ static: 'No active session. Select a chat slot first.', runtime: 'No active session. Select a chat slot first.', memory: '', memoryStats: { semantic: 0, lessons: 0 } }))
+          .finally(() => setSystemPromptLoading(false))
+      } else {
+        api.slotSystemPrompt(slot)
+          .then(d => setSystemPrompt(d))
+          .catch(() => setSystemPrompt({ static: 'Failed to load system prompt.', runtime: 'Failed to load system prompt.', memory: '', memoryStats: { semantic: 0, lessons: 0 } }))
+          .finally(() => setSystemPromptLoading(false))
+      }
+    }
     setTimeout(() => inputRef.current?.focus(), 0)
-  }, [currentSlot])
+  }, [currentSlot, activeSlot])
 
   const goBack = useCallback(() => {
     setMode('root')
@@ -133,6 +154,79 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
       navigate('/chat')
     })
   }, [run, dispatch, navigate])
+
+  // Sub-mode: System prompt viewer
+  if (mode === 'system-prompt') {
+    const handleSysPromptKey = (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); close() }
+    }
+    const tabs = [
+      { id: 'runtime' as const, label: 'Runtime', badge: systemPrompt?.memoryStats ? `${systemPrompt.memoryStats.semantic}f ${systemPrompt.memoryStats.lessons}l` : '' },
+      { id: 'static' as const, label: 'Static' },
+      { id: 'memory' as const, label: 'Memory', badge: systemPrompt?.memoryStats ? `${systemPrompt.memoryStats.semantic + systemPrompt.memoryStats.lessons}` : '' },
+    ]
+    const content = systemPrompt
+      ? systemPromptTab === 'runtime' ? systemPrompt.runtime
+        : systemPromptTab === 'static' ? systemPrompt.static
+        : systemPrompt.memory || '(no memory injected)'
+      : ''
+    const charCount = content.length
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <div className="cmdk-dialog cmdk-dialog--fullview" tabIndex={-1} ref={el => el?.focus()} onKeyDown={handleSysPromptKey} style={{ outline: 'none' }}>
+          <div className="cmdk-input-wrapper" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0, padding: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px 0' }}>
+              <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+              <span style={{ fontWeight: 600, fontSize: 14, flex: 1 }}>System Prompt</span>
+              <span className="text-[11px] text-muted font-mono">{charCount.toLocaleString()} chars</span>
+              <kbd className="cmdk-badge" style={{ cursor: 'pointer' }} onClick={close}>ESC</kbd>
+            </div>
+            <div style={{ display: 'flex', gap: 2, padding: '8px 16px 0', borderBottom: '1px solid var(--border)' }}>
+              {tabs.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setSystemPromptTab(t.id)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: 12,
+                    fontWeight: systemPromptTab === t.id ? 600 : 400,
+                    color: systemPromptTab === t.id ? 'var(--accent)' : 'var(--muted)',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: systemPromptTab === t.id ? '2px solid var(--accent)' : '2px solid transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    marginBottom: -1,
+                  }}
+                >
+                  {t.label}
+                  {t.badge && <span style={{ fontSize: 10, opacity: 0.6, fontFamily: 'var(--font-mono, monospace)' }}>{t.badge}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ flex: '1 1 0', overflowY: 'auto', padding: '16px', minHeight: 0, maxHeight: '100%' }}>
+            {systemPromptLoading ? (
+              <div className="text-muted animate-pulse" style={{ padding: '24px 0', textAlign: 'center' }}>Loading system prompt…</div>
+            ) : (
+              <pre style={{
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontFamily: 'var(--font-mono, ui-monospace, monospace)',
+                fontSize: '12px',
+                lineHeight: '1.6',
+                color: 'var(--fg)',
+                margin: 0,
+              }}>{content}</pre>
+            )}
+          </div>
+        </div>
+      </>
+    )
+  }
 
   // Sub-mode: Session search
   if (mode === 'session-search') {
@@ -383,6 +477,10 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
 
           {/* Actions */}
           <Command.Group heading="Actions" className="cmdk-group">
+            <Command.Item value="Show system prompt instructions context" onSelect={() => enterMode('system-prompt')} className="cmdk-item">
+              <span className="cmdk-item-icon">🥧</span>
+              <span className="cmdk-item-label">Show System Prompt</span>
+            </Command.Item>
             <Command.Item value="Resume session search history" onSelect={() => enterMode('session-search')} className="cmdk-item">
               <span className="cmdk-item-icon">📜</span>
               <span className="cmdk-item-label">Resume Session…</span>

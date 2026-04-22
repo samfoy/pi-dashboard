@@ -73,6 +73,8 @@ export const api = {
     post('/api/chat/slots/' + encodeURIComponent(slot) + '/model', { provider, modelId }).then(j),
   setSlotCwd: (slot: string, cwd: string) =>
     post('/api/chat/slots/' + encodeURIComponent(slot) + '/cwd', { cwd }).then(j),
+  slotSystemPrompt: (slot: string) =>
+    fetch('/api/chat/slots/' + encodeURIComponent(slot) + '/system-prompt').then(j) as Promise<{ static: string; runtime: string; memory: string; memoryStats: { semantic: number; lessons: number } }>,
   setSlotThinking: (slot: string, level: string) =>
     post('/api/chat/slots/' + encodeURIComponent(slot) + '/thinking', { level }).then(j),
   // Crons

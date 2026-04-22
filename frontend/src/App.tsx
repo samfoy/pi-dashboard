@@ -332,7 +332,7 @@ export default function App() {
 
         <div className={`nav-brand-glow relative flex flex-col items-center text-center overflow-hidden transition-all duration-[350ms] ease-in-out ${navCollapsed ? 'h-0 p-0 m-0 opacity-0 pointer-events-none' : 'pt-7 px-3 pb-[22px] mb-3'}`}>
           <div className="relative z-[1] w-20 h-20 grid place-items-center mb-3.5 hover:scale-[1.12] hover:rotate-[-4deg] transition-transform duration-300 drop-shadow-[0_4px_24px_rgba(245,158,50,.35)]">
-            <img src="/logo.png" alt="Pi" className="w-20 h-20 rounded-lg drop-shadow-[0_0_20px_rgba(245,158,50,.4)]" />
+            <img src="/logo.png" alt="Pi" className="w-20 h-20 drop-shadow-[0_0_20px_rgba(245,158,50,.4)]" />
           </div>
           <div className="text-sm font-bold tracking-[.08em] text-text-strong">Pi Dashboard</div>
           <div className="text-[12px] font-medium text-muted tracking-[.06em] mt-0.5">Powered by pi coding agent</div>
