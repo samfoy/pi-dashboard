@@ -33,6 +33,7 @@ interface ChatState {
   contextUsage: ContextUsage | null
   extensionStatuses: Record<string, string>
   _lastChunkSeq: number
+  slotSwitching: boolean
 }
 
 const initialState: ChatState = {
@@ -52,6 +53,7 @@ const initialState: ChatState = {
   contextUsage: null,
   extensionStatuses: {},
   _lastChunkSeq: -1,
+  slotSwitching: false,
 }
 
 export const fetchHistory = createAsyncThunk(
@@ -291,6 +293,7 @@ const chatSlice = createSlice({
         const switchingSlot = action.meta.arg !== state.activeSlot
         state.activeSlot = action.meta.arg
         if (switchingSlot) {
+          state.slotSwitching = true
           // Clear old slot's messages to avoid mixing content from two slots.
           // The fulfilled handler will restore messages from the API response,
           // which includes in-progress content from the backend's in-memory buffer.
@@ -302,6 +305,7 @@ const chatSlice = createSlice({
         }
       })
       .addCase(switchSlot.fulfilled, (state, action) => {
+        state.slotSwitching = false
         const { key, messages, running, hasMore, total } = action.payload
         // User may have switched again while this fetch was in flight
         if (state.activeSlot !== key) return
@@ -323,6 +327,9 @@ const chatSlice = createSlice({
         state.slotHasMore = hasMore
         state.slotOldestIndex = hasMore ? total - messages.length : 0
         state.contextUsage = action.payload.contextUsage
+      })
+      .addCase(switchSlot.rejected, (state) => {
+        state.slotSwitching = false
       })
       .addCase(refreshSlot.fulfilled, (state, action) => {
         if (!action.payload) return

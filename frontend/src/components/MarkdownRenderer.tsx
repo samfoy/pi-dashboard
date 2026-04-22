@@ -145,17 +145,35 @@ function HighlightedCode({ code, lang, className }: { code: string; lang: string
   return <code ref={ref} className={`hljs text-[13px] font-mono leading-relaxed ${className}`} />
 }
 
+const COLLAPSE_LINE_THRESHOLD = 20
+
 const CodeBlock = memo(function CodeBlock({ code, lang, complete }: { code: string; lang?: string; complete: boolean }) {
+  const lineCount = code.split('\n').length
+  const shouldCollapse = lineCount > COLLAPSE_LINE_THRESHOLD && complete
+  const [collapsed, setCollapsed] = useState(shouldCollapse)
+
+  const displayCode = collapsed
+    ? code.split('\n').slice(0, COLLAPSE_LINE_THRESHOLD).join('\n')
+    : code
+
   return (
     <div className="relative group my-2">
       <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
-        <span className="text-muted text-[12px] font-mono uppercase">{lang || 'code'}</span>
+        <span className="text-muted text-[12px] font-mono uppercase">{lang || 'code'}{lineCount > 1 && <span className="text-muted/50 ml-1.5">{lineCount} lines</span>}</span>
         <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text" onClick={() => navigator.clipboard.writeText(code)}>Copy</button>
       </div>
       <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto">
-        <HighlightedCode code={code} lang={lang} className={lang ? `language-${lang}` : ''} />
+        <HighlightedCode code={displayCode} lang={lang} className={lang ? `language-${lang}` : ''} />
         {!complete && <span className="text-muted text-[12px] italic animate-pulse ml-2">generating…</span>}
       </pre>
+      {shouldCollapse && (
+        <button
+          className="w-full py-1.5 text-[12px] text-accent font-medium cursor-pointer bg-bg-elevated border border-t-0 border-border rounded-b-md -mt-[1px] hover:bg-bg-hover transition-colors"
+          onClick={() => setCollapsed(c => !c)}
+        >
+          {collapsed ? `Show all ${lineCount} lines` : 'Collapse'}
+        </button>
+      )}
     </div>
   )
 })

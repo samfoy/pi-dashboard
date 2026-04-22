@@ -1,5 +1,42 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo, Fragment } from 'react'
-import hljs from 'highlight.js'
+import hljs from 'highlight.js/lib/core'
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import python from 'highlight.js/lib/languages/python'
+import bash from 'highlight.js/lib/languages/bash'
+import json from 'highlight.js/lib/languages/json'
+import yaml from 'highlight.js/lib/languages/yaml'
+import xml from 'highlight.js/lib/languages/xml'
+import css from 'highlight.js/lib/languages/css'
+import sql from 'highlight.js/lib/languages/sql'
+import rust from 'highlight.js/lib/languages/rust'
+import java from 'highlight.js/lib/languages/java'
+import markdown from 'highlight.js/lib/languages/markdown'
+
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('js', javascript)
+hljs.registerLanguage('jsx', javascript)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('ts', typescript)
+hljs.registerLanguage('tsx', typescript)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('py', python)
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('sh', bash)
+hljs.registerLanguage('shell', bash)
+hljs.registerLanguage('zsh', bash)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('yaml', yaml)
+hljs.registerLanguage('yml', yaml)
+hljs.registerLanguage('xml', xml)
+hljs.registerLanguage('html', xml)
+hljs.registerLanguage('css', css)
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('rust', rust)
+hljs.registerLanguage('rs', rust)
+hljs.registerLanguage('java', java)
+hljs.registerLanguage('markdown', markdown)
+hljs.registerLanguage('md', markdown)
 import DOMPurify from 'dompurify'
 import MarkdownRenderer from '../MarkdownRenderer'
 import type { Comment } from '../../hooks/usePanelState'
@@ -175,13 +212,15 @@ export default function TextRenderer({ content, filePath, mode, lineNums, onChan
   const onScroll = useCallback(() => { savedScroll.current = scrollRef.current?.scrollTop ?? 0 }, [])
   useLayoutEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = savedScroll.current }, [comments])
 
+  // Compute commented lines for edit mode (must be before conditionals per Rules of Hooks)
+  const commentedLines = useMemo(() => {
+    const set = new Set<number>()
+    for (const c of comments) for (let l = c.startLine; l <= c.endLine; l++) set.add(l)
+    return set
+  }, [comments])
+
   if (mode === 'edit') {
     // Edit mode: CodeEditor with 💬 gutter markers + comment list below
-    const commentedLines = useMemo(() => {
-      const set = new Set<number>()
-      for (const c of comments) for (let l = c.startLine; l <= c.endLine; l++) set.add(l)
-      return set
-    }, [comments])
 
     return (
       <div className="w-full h-full flex flex-col">
