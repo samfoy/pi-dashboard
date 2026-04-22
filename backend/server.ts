@@ -1301,12 +1301,26 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     broadcastSlots()
     persistSlots()
 
-    // Fetch context usage and session name from pi process
+    // Fetch context usage, token stats, and session name from pi process
     pi.request({ type: 'get_session_stats' }, 5000).then((resp: any) => {
       const cu = resp?.data?.contextUsage
       if (cu) {
         pi._contextUsage = { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
         broadcast('context_usage', { slot: slotKey, ...pi._contextUsage })
+      }
+      // Capture token/cost stats
+      const data = resp?.data
+      if (data) {
+        const tokenStats = {
+          totalInputTokens: data.totalInputTokens || 0,
+          totalOutputTokens: data.totalOutputTokens || 0,
+          totalTokens: (data.totalInputTokens || 0) + (data.totalOutputTokens || 0),
+          totalCost: data.totalCost || 0,
+          cacheReadTokens: data.cacheReadTokens || 0,
+          cacheWriteTokens: data.cacheWriteTokens || 0,
+        }
+        pi._tokenStats = tokenStats
+        broadcast('token_stats', { slot: slotKey, ...tokenStats })
       }
     }).catch(() => {})
 

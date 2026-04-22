@@ -3,7 +3,7 @@ import { useAppDispatch } from '../store'
 import { store } from '../store'
 import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread } from '../store/dashboardSlice'
 import { addNotification, ackNotificationByTs } from '../store/notificationsSlice'
-import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setExtensionStatus } from '../store/chatSlice'
+import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus } from '../store/chatSlice'
 import type { StatusData, ChatSlot, Notification } from '../types'
 
 type LogCallback = ((data: { level: string; msg: string }) => void) | null
@@ -147,6 +147,9 @@ export function useWebSocket() {
             break
           case 'context_usage':
             dispatch(setContextUsage({ slot: data.slot, usage: { tokens: data.tokens, contextWindow: data.contextWindow, percent: data.percent } }))
+            break
+          case 'token_stats':
+            dispatch(setTokenStats({ slot: data.slot, stats: { totalInputTokens: data.totalInputTokens, totalOutputTokens: data.totalOutputTokens, totalTokens: data.totalTokens, totalCost: data.totalCost, cacheReadTokens: data.cacheReadTokens, cacheWriteTokens: data.cacheWriteTokens } }))
             break
           case 'extension_status':
             dispatch(setExtensionStatus({ slot: data.slot, key: data.key, text: data.text }))

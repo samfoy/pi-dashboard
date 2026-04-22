@@ -65,6 +65,7 @@ interface SlotDetail {
   model: string | null
   cwd: string | null
   contextUsage: any | null
+  tokenStats: any | null
 }
 
 function saveImagesToTemp(images: ImagePayload[]): string[] {
@@ -116,6 +117,7 @@ export class PiProcess extends EventEmitter {
   _stoppingTimer?: ReturnType<typeof setTimeout> | null
   _readyPromise?: Promise<void> | null
   _contextUsage?: any
+  _tokenStats?: any
   _wired?: boolean
 
   constructor(slotKey: string, opts: PiProcessOptions = {}) {
@@ -707,6 +709,7 @@ export class PiManager {
       model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
       cwd: pi.cwd || null,
       contextUsage: pi._contextUsage || null,
+      tokenStats: pi._tokenStats || null,
     }
   }
 

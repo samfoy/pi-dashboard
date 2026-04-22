@@ -29,6 +29,8 @@ import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
+import SessionCostBar from './chat/SessionCostBar'
+import SplitPane from './chat/SplitPane'
 import type { Notification, ChatMessage } from '../types'
 
 
@@ -49,6 +51,7 @@ export default function ChatPage() {
   const slotStopping = useAppSelector(s => s.chat.slotStopping)
   const slotState = useAppSelector(s => s.chat.slotState)
   const slotSwitching = useAppSelector(s => s.chat.slotSwitching)
+  const tokenStats = useAppSelector(s => s.chat.tokenStats)
   const contextUsage = useAppSelector(s => s.chat.contextUsage)
   const extensionStatuses = useAppSelector(s => s.chat.extensionStatuses)
   const pendingApproval = useAppSelector(s => { const slot = s.dashboard.slots.find(sl => sl.key === s.chat.activeSlot); return slot?.pending_approval ?? false })
@@ -79,6 +82,8 @@ export default function ChatPage() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [splitSlot, setSplitSlot] = useState<string | null>(null)
+  const [showSplitPicker, setShowSplitPicker] = useState(false)
 
   // Sync viewingNotification from Redux store (e.g. after auto-ack)
   useEffect(() => {
@@ -501,6 +506,11 @@ export default function ChatPage() {
     { key: 'Escape', label: 'Stop / Close search', action: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } },
   ], [activeSlot, slotRunning, showSearch, dispatch]))
 
+  // Clear split pane if the slot was deleted
+  useEffect(() => {
+    if (splitSlot && !slots.some(s => s.key === splitSlot)) setSplitSlot(null)
+  }, [slots, splitSlot])
+
   const loadingOlder = useAppSelector(s => s.chat.loadingOlder)
 
   const currentSlot = slots.find(s => s.key === activeSlot)
@@ -604,7 +614,7 @@ export default function ChatPage() {
       />
 
       {/* Chat pane */}
-      <div className={`flex flex-col bg-bg min-w-0 ${panel.isOpen ? 'flex-[1_1_60%]' : 'flex-1'}`} style={{ transition: 'flex 0.2s' }}>
+      <div className={`flex flex-col bg-bg min-w-0 ${splitSlot ? 'flex-[1_1_50%] max-w-[50%]' : panel.isOpen ? 'flex-[1_1_60%]' : 'flex-1'}`} style={{ transition: 'flex 0.2s' }}>
         {viewingNotification ? (
           <NotificationViewer
             key={viewingNotification.ts}
@@ -664,6 +674,39 @@ export default function ChatPage() {
                         <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showRefs ? 'text-accent' : 'text-text'}`} onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}{showRefs ? ' ✓' : ''}</button>
                         <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showFiles ? 'text-accent' : 'text-text'}`} onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files{showFiles ? ' ✓' : ''}</button>
                         <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showTerminal ? 'text-accent' : 'text-text'}`} onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal{showTerminal ? ' ✓' : ''}</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {/* Split view button + picker */}
+                <div className="relative">
+                  <button
+                    className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${splitSlot ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`}
+                    onClick={() => { if (splitSlot) { setSplitSlot(null) } else { setShowSplitPicker(v => !v) } }}
+                    aria-label={splitSlot ? 'Close split view' : 'Split view'}
+                    title={splitSlot ? 'Close split view' : 'View another session side-by-side'}
+                  >
+                    {splitSlot ? '◧ Unsplit' : '◧ Split'}
+                  </button>
+                  {showSplitPicker && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowSplitPicker(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[220px] max-h-[300px] overflow-y-auto">
+                        <div className="px-3 py-1.5 text-[11px] text-muted font-semibold uppercase tracking-wider">Pick session to view</div>
+                        {slots.filter(s => s.key !== activeSlot).length === 0 ? (
+                          <div className="px-3 py-2 text-[13px] text-muted italic">No other sessions open</div>
+                        ) : (
+                          slots.filter(s => s.key !== activeSlot).map(s => (
+                            <button
+                              key={s.key}
+                              className="w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 text-text"
+                              onClick={() => { setSplitSlot(s.key); setShowSplitPicker(false) }}
+                            >
+                              {s.running && <span className="typing-dots-sm"><span /><span /><span /></span>}
+                              <span className="truncate font-mono">{s.title !== s.key ? s.title : s.key}</span>
+                            </button>
+                          ))
+                        )}
                       </div>
                     </>
                   )}
@@ -815,6 +858,7 @@ export default function ChatPage() {
                 >↓ Bottom</button>
               </div>
             )}
+            {tokenStats && <SessionCostBar stats={tokenStats} />}
             {prefillHint && (
               <div className="flex items-center gap-2 px-5 py-2 bg-accent/10 border-t border-accent/30">
                 <span className="text-accent text-[13px]">📋 Plan pre-filled below — add your context then press Send</span>
@@ -863,6 +907,9 @@ export default function ChatPage() {
           </>
         )}
       </div>
+      {splitSlot && slots.some(s => s.key === splitSlot) && (
+        <SplitPane slotKey={splitSlot} onClose={() => setSplitSlot(null)} onFileOpen={handleFileOpen} />
+      )}
       {panel.isOpen && (
         <Suspense fallback={<div className="flex-[0_0_40%] border-l border-border bg-bg flex items-center justify-center"><span className="text-muted text-sm">Loading…</span></div>}>
           <DocumentPanel filePath={panel.filePath} content={panel.content} onContentChange={handleContentChange} onSave={handleFileSave} onClose={panel.closePanel} dirty={panel.dirty} versions={panel.versions} selectedVersion={panel.selectedVersion} conflictContent={panel.conflictContent} onSelectVersion={panel.selectVersion} onResolveConflict={panel.resolveConflict} diffMode={panel.diffMode} onToggleDiff={panel.toggleDiffMode} comments={panel.comments} onAddComment={handleAddComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onReviewComments={handleReviewComments} />

@@ -28,6 +28,22 @@ interface HistoryItem {
   project?: string
 }
 
+const STATUS_ORDER: Record<string, number> = {
+  '⚠ Needs Input': 0, '▶ Running': 1, '⏸ Idle': 2,
+}
+
+function groupByStatus<T extends { running: boolean; stopping?: boolean; pending_approval?: boolean }>(items: T[]): { key: string; items: T[] }[] {
+  const map = new Map<string, T[]>()
+  for (const item of items) {
+    const k = item.pending_approval ? '⚠ Needs Input' : item.running ? '▶ Running' : '⏸ Idle'
+    const arr = map.get(k)
+    if (arr) arr.push(item)
+    else map.set(k, [item])
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99))
+    .map(([key, items]) => ({ key, items }))
+}
 
 interface ChatSidebarProps {
   slots: Slot[]
@@ -67,7 +83,7 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): { key: string; item
   return Array.from(map.entries()).map(([key, items]) => ({ key, items }))
 }
 
-type GroupMode = 'date' | 'project'
+type GroupMode = 'date' | 'project' | 'status'
 const SLOTS_GROUP_LS_KEY = 'mc-slots-group-mode'
 
 /** Temporal grouping matching iOS: Today, Yesterday, Last 7 Days, Last 30 Days, then months. */
@@ -189,6 +205,7 @@ function ChatSidebar({
         <div className="flex items-center gap-1.5">
           <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'date' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('date'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'date') }} title="Group by date">🕐</button>
           <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'project' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('project'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'project') }} title="Group by project">📂</button>
+          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'status' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('status'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'status') }} title="Group by status">⚡</button>
           <button className="w-7 h-7 rounded-md bg-accent text-white border-none text-lg cursor-pointer flex items-center justify-center hover:bg-accent-hover hover:shadow-[0_0_16px_var(--accent-glow)] hover:rotate-90 hover:scale-110 active:scale-95 transition-all" onClick={() => onNewSession ? onNewSession() : dispatch(switchSlot(null))} title="New chat" aria-label="New chat session">+</button>
         </div>
       </div>
@@ -196,13 +213,15 @@ function ChatSidebar({
       <div className="flex-1 overflow-y-auto p-2">
         {(() => {
           const filtered = slots.filter(s => !slotFilter || (s.title + s.key + (s.agent || '')).toLowerCase().includes(slotFilter.toLowerCase()))
-          const groups = slotsGroupMode === 'date'
+          const groups = slotsGroupMode === 'status'
+            ? groupByStatus(filtered)
+            : slotsGroupMode === 'date'
             ? groupByDate(filtered)
             : groupBy(filtered, s => projectName(s.cwd) || '')
           const needsHeaders = groups.length > 1 || (groups.length === 1 && groups[0].key !== '')
           return groups.map(g => (
             <div key={g.key || '__ungrouped'}>
-              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">{slotsGroupMode === 'date' ? '🕐' : '📂'}</span>{g.key || 'Other'}</div>}
+              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">{slotsGroupMode === 'status' ? '⚡' : slotsGroupMode === 'date' ? '🕐' : '📂'}</span>{g.key || 'Other'}</div>}
               {g.items.map(s => {
                 const agentName = 'pi'
                 const agentColor = 'text-accent'

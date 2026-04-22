@@ -16,6 +16,15 @@ export interface ContextUsage {
   percent: number | null
 }
 
+export interface TokenStats {
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalTokens: number
+  totalCost: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
 interface ChatState {
   activeSlot: string | null
   messages: ChatMessage[]
@@ -31,6 +40,7 @@ interface ChatState {
   pendingInput: string | null
   _resendQueued: string | null
   contextUsage: ContextUsage | null
+  tokenStats: TokenStats | null
   extensionStatuses: Record<string, string>
   _lastChunkSeq: number
   slotSwitching: boolean
@@ -51,6 +61,7 @@ const initialState: ChatState = {
   pendingInput: null,
   _resendQueued: null,
   contextUsage: null,
+  tokenStats: null,
   extensionStatuses: {},
   _lastChunkSeq: -1,
   slotSwitching: false,
@@ -69,10 +80,10 @@ export const fetchHistory = createAsyncThunk(
 export const switchSlot = createAsyncThunk(
   'chat/switchSlot',
   async (key: string | null, { dispatch }) => {
-    if (!key) return { key: null, messages: [], running: false, stopping: false, hasMore: false, total: 0, contextUsage: null }
+    if (!key) return { key: null, messages: [], running: false, stopping: false, hasMore: false, total: 0, contextUsage: null, tokenStats: null }
     dispatch(markSlotRead(key))
     const d = await api.chatSlotDetail(key, 200)
-    return { key, messages: filterMessages(d.messages || []), running: d.running || false, stopping: d.stopping || false, hasMore: d.has_more || false, total: d.total || 0, contextUsage: d.contextUsage || null }
+    return { key, messages: filterMessages(d.messages || []), running: d.running || false, stopping: d.stopping || false, hasMore: d.has_more || false, total: d.total || 0, contextUsage: d.contextUsage || null, tokenStats: d.tokenStats || null }
   },
 )
 
@@ -167,6 +178,9 @@ const chatSlice = createSlice({
     setSlotState(state, action: PayloadAction<SlotState>) { state.slotState = action.payload },
     setContextUsage(state, action: PayloadAction<{ slot: string; usage: ContextUsage }>) {
       if (action.payload.slot === state.activeSlot) state.contextUsage = action.payload.usage
+    },
+    setTokenStats(state, action: PayloadAction<{ slot: string; stats: TokenStats }>) {
+      if (action.payload.slot === state.activeSlot) state.tokenStats = action.payload.stats
     },
     setExtensionStatus(state, action: PayloadAction<{ slot: string; key: string; text?: string }>) {
       if (action.payload.slot !== state.activeSlot) return
@@ -301,6 +315,7 @@ const chatSlice = createSlice({
           state.slotHasMore = false
           state.slotOldestIndex = 0
           state.contextUsage = null
+          state.tokenStats = null
           state.extensionStatuses = {}
         }
       })
@@ -327,6 +342,7 @@ const chatSlice = createSlice({
         state.slotHasMore = hasMore
         state.slotOldestIndex = hasMore ? total - messages.length : 0
         state.contextUsage = action.payload.contextUsage
+        state.tokenStats = action.payload.tokenStats || null
       })
       .addCase(switchSlot.rejected, (state) => {
         state.slotSwitching = false
@@ -388,6 +404,6 @@ const chatSlice = createSlice({
 
 export const {
   setActiveSlot, setPendingInput, clearResendQueued, promoteQueued, appendMessage, updateStreamingMessage, finalizeAssistant,
-  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setExtensionStatus, clearMessages, sseChatMessage,
+  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, clearMessages, sseChatMessage,
 } = chatSlice.actions
 export default chatSlice.reducer
