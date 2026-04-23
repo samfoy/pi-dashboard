@@ -184,7 +184,14 @@ export class PiProcess extends EventEmitter {
       cwd?: string
     } = {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PI_RUNTIME: 'dashboard', PI_DASH_PORT: String(process.env.PI_DASH_PORT || 7777), NODE_OPTIONS: [process.env.NODE_OPTIONS?.replace(/--no-wasm-tier-up/g, '').trim(), '--max-old-space-size=4096'].filter(Boolean).join(' ') },
+      env: {
+        ...process.env,
+        PI_RUNTIME: 'dashboard',
+        PI_DASH_PORT: String(process.env.PI_DASH_PORT || 7777),
+        NODE_OPTIONS: [process.env.NODE_OPTIONS?.replace(/--no-wasm-tier-up/g, '').trim(), '--max-old-space-size=4096'].filter(Boolean).join(' '),
+        // If AWS_PROFILE isn't set, fall back to PI_BEDROCK_PROFILE so bedrock sessions work
+        ...((!process.env.AWS_PROFILE && process.env.PI_BEDROCK_PROFILE) ? { AWS_PROFILE: process.env.PI_BEDROCK_PROFILE } : {}),
+      },
     }
     if (this.cwd) spawnOpts.cwd = this.cwd
 
@@ -477,6 +484,14 @@ export class PiProcess extends EventEmitter {
 
     switch (type) {
       case 'response':
+        // If a prompt failed (e.g. no API key), reset running state
+        if (event.command === 'prompt' && event.success === false) {
+          this.running = false
+          this._stopping = false
+          this._pendingApproval = false
+          this.messages.push({ role: 'system', content: `⚠️ ${event.error || 'Prompt failed'}`, ts: new Date().toISOString() })
+          this.emit('agent_end', { messages: [] })
+        }
         this.emit('response', event)
         break
 
@@ -573,6 +588,7 @@ export class PiProcess extends EventEmitter {
         break
 
       case 'message_update': {
+        this._lastActivity = Date.now()
         const delta = event.assistantMessageEvent
         if (delta) {
           if (delta.type === 'thinking_delta') {
@@ -813,6 +829,14 @@ export class PiManager {
     const now = Date.now()
     for (const pi of this.slots.values()) {
       pi.checkHealth()
+      // Detect stuck turns: running for > 5 min with no streaming activity
+      if (pi.proc && pi.running && !pi._stopping && pi._lastActivity > 0) {
+        const stuckFor = now - pi._lastActivity
+        if (stuckFor > 5 * 60 * 1000) {
+          pi.emit('log', { level: 'warn', msg: `Slot ${pi.slotKey}: turn stuck for ${Math.round(stuckFor/60000)}m with no activity, force-aborting` })
+          pi.abort()
+        }
+      }
       // Reap idle processes (not running a turn, idle > 10 minutes)
       if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
         const idle = now - pi._lastActivity

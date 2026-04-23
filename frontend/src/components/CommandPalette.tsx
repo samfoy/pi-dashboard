@@ -415,7 +415,7 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
   return (
     <>
       {open && <div className="cmdk-overlay" onClick={close} />}
-      <Command.Dialog open={open} onOpenChange={onOpenChange} label="Command palette" className="cmdk-dialog" shouldFilter={true}>
+      <Command.Dialog open={open} onOpenChange={onOpenChange} label="Command palette" className="pidash-cmd-palette cmdk-dialog" shouldFilter={true}>
         <div className="cmdk-input-wrapper">
           <svg className="cmdk-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />

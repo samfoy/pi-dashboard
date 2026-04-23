@@ -558,14 +558,14 @@ export default function ChatPage() {
     const isStreaming = m.role === 'streaming'
     const msgTime = m.ts ? new Date(m.ts).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
     return (
-      <div key={key} className={`flex gap-3 items-start mb-3 mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`}>
+      <div key={key} className={`pidash-msg-card flex gap-3 items-start mb-3 mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`} data-pidash-sender={isUser ? 'user' : 'assistant'} data-pidash-streaming={isStreaming ? 'true' : undefined}>
         {isUser
           ? <div className="w-8 h-8 rounded-md grid place-items-center font-semibold text-sm shrink-0 self-end mb-0.5 bg-accent-subtle text-accent">U</div>
           : <img src="/logo.png" alt="Pi Dashboard" className="w-8 h-8 rounded-md shrink-0 self-end mb-0.5 object-cover" />
         }
         <div className={`flex flex-col gap-0.5 max-w-[min(820px,calc(100%-56px))] ${isUser ? 'items-end' : ''} group/msg relative`}>
           {isUser ? (
-            <div className="msg-content px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text" style={{ overflowWrap: 'anywhere' }}>
+            <div className="pidash-msg-content msg-content px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text" style={{ overflowWrap: 'anywhere' }}>
               {m.content.split('\n').map((line, li) => {
                 const imgMatch = line.match(/^!\[image\]\((data:image\/[^)]+)\)$/)
                 if (imgMatch) {
@@ -605,9 +605,11 @@ export default function ChatPage() {
     )
   }, [messages, pendingApproval, slotRunning, approve, send, handleFileOpen, chatConfig, navigate, planTaskId])
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('mc-chat-sidebar') === '1')
+
   return (
     <div className="flex flex-1 min-h-0 h-full">
-      <ChatSidebar
+      {!sidebarCollapsed && <ChatSidebar
         slots={slots}
         activeSlot={activeSlot}
         unreadSlots={unreadSlots}
@@ -615,7 +617,7 @@ export default function ChatPage() {
         onNewSession={() => { wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
         mobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
-      />
+      />}
 
       {/* Chat pane */}
       <div className={`flex flex-col bg-bg min-w-0 ${splitSlot ? 'flex-[1_1_50%] max-w-[50%]' : panel.isOpen ? 'flex-[1_1_60%]' : 'flex-1'}`} style={{ transition: 'flex 0.2s' }}>
@@ -641,6 +643,10 @@ export default function ChatPage() {
           <>
             <div className="px-3 md:px-5 py-2 md:py-2.5 border-b border-border flex justify-between items-center bg-chrome gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
+                {/* Sidebar toggle (desktop) */}
+                <button className="hidden md:flex w-7 h-7 items-center justify-center bg-transparent border-none text-muted cursor-pointer hover:text-text shrink-0 rounded-md hover:bg-bg-hover transition-colors" onClick={() => setSidebarCollapsed(p => { const next = !p; localStorage.setItem('mc-chat-sidebar', next ? '1' : '0'); return next })} aria-label={sidebarCollapsed ? 'Show sessions' : 'Hide sessions'} title={sidebarCollapsed ? 'Show sessions' : 'Hide sessions'}>
+                  <svg viewBox="0 0 24 24" className={`w-4 h-4 stroke-current fill-none transition-transform ${sidebarCollapsed ? 'rotate-180' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
+                </button>
                 {/* Mobile hamburger */}
                 <button className="md:hidden w-8 h-8 flex items-center justify-center bg-transparent border-none text-muted cursor-pointer hover:text-text shrink-0" onClick={() => setMobileSidebarOpen(true)} aria-label="Open sessions">
                   <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
@@ -866,7 +872,7 @@ export default function ChatPage() {
                 <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={() => setPrefillHint(false)}>✕</button>
               </div>
             )}
-            <div className={`flex flex-col md:flex-row gap-2.5 px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome md:items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
+            <div className={`pidash-compose flex flex-col md:flex-row gap-2.5 px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome md:items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
@@ -889,7 +895,7 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-base md:text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : 'Message Pi…'} rows={1} value={input}
+                <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-base md:text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted overflow-hidden ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : 'Message Pi…'} rows={1} value={input}
                 onPaste={handlePaste}
                 onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
                 onDrop={handleDrop}

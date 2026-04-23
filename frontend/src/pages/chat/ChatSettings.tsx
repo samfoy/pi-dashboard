@@ -68,7 +68,7 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
 
   return (
     <>
-      <button ref={btnRef} className="w-7 h-7 rounded-md border border-border bg-transparent text-muted flex items-center justify-center cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all" onClick={() => setOpen(!open)} title="Chat settings" aria-label="Chat settings">⚙</button>
+      <button ref={btnRef} className="rounded-md border border-border bg-transparent text-muted px-3 py-[5px] text-[13px] font-medium flex items-center justify-center cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all font-body" onClick={() => setOpen(!open)} title="Chat settings" aria-label="Chat settings">⚙</button>
       {open && btnRef.current && createPortal(
         <div ref={popoverRef} className="fixed z-[9999] bg-card border border-border rounded-lg shadow-lg w-[320px] p-3 flex flex-col gap-3 animate-slide-up" style={(() => { const r = btnRef.current!.getBoundingClientRect(); const top = r.bottom + 6; const left = Math.max(8, Math.min(r.left, window.innerWidth - 328)); return { top, left } })()}>
           <div className="text-[13px] font-semibold text-text-strong border-b border-border pb-2">Chat Settings</div>

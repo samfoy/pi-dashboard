@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useRef, useMemo, createContext } from 'react'
+import { useEffect, useState, useCallback, useMemo, createContext } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from './store'
 import { fetchSlots, sseStatus, clearSlotErrors } from './store/dashboardSlice'
 import { fetchNotifications } from './store/notificationsSlice'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useTheme } from './hooks/useTheme'
+import { useCustomStyle } from './hooks/useCustomStyle'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { api } from './api/client'
 import ChatPage from './pages/ChatPage'
@@ -39,10 +40,11 @@ export default function App() {
   const { connected } = useAppSelector(s => s.dashboard)
   const updateAvailable = useAppSelector(s => s.dashboard.status?.update_available)
   const version = useAppSelector(s => s.dashboard.status?.version) || '—'
-  const notifCount = useAppSelector(s => s.notifications.items.filter(n => !n.acked).length)
+
   const location = useLocation()
   const navigate = useNavigate()
-  const { preference, cycle: cycleTheme } = useTheme()
+  useTheme()
+  useCustomStyle()
   const [navCollapsed, setNavCollapsed] = useState(() => localStorage.getItem('mc-nav') === '1')
   const [updating, setUpdating] = useState(false)
   const [changes, setChanges] = useState('')
@@ -103,25 +105,7 @@ export default function App() {
     }).catch(() => {}).finally(() => localStorage.setItem('mc-last-version', version))
   }, [version])
 
-  // Browser tab title badge
-  useEffect(() => {
-    document.title = notifCount > 0 ? `(${notifCount}) Pi Dashboard` : `Pi Dashboard`
-  }, [notifCount])
 
-  // Browser push notification on new notification
-  const prevNotifCount = useRef(0)
-  useEffect(() => {
-    if (notifCount > prevNotifCount.current && prevNotifCount.current >= 0) {
-      if (typeof Notification !== 'undefined') {
-        if (Notification.permission === 'granted') {
-          new Notification(`Pi Dashboard`, { body: `${notifCount} new notification${notifCount > 1 ? 's' : ''}`, icon: '/logo.png' })
-        } else if (Notification.permission === 'default') {
-          Notification.requestPermission()
-        }
-      }
-    }
-    prevNotifCount.current = notifCount
-  }, [notifCount])
 
 
   const handleUpdate = useCallback(async () => {
@@ -157,10 +141,10 @@ export default function App() {
     <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} />
     <SessionPicker open={sessionPickerOpen} onOpenChange={setSessionPickerOpen} />
     <ConnectionOverlay />
-    <div className={`relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
+    <div className={`pidash-root relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
       {/* Topbar */}
-      <header className="topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2">
+      <header className="pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2.5 opacity-100 w-40 transition-all duration-300 ease-in-out">
             <span className="text-xl">🥧</span>
@@ -203,12 +187,7 @@ export default function App() {
               )}
             </div>
           )}
-          <div className="hidden md:inline-flex bg-card border border-border rounded-full px-2.5 py-[5px] text-[13px] text-muted font-body font-mono">
-            v{version}
-          </div>
-          <button className="hidden md:inline-flex bg-card border border-border rounded-full px-2.5 py-1 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all" onClick={cycleTheme}>
-            {preference === 'system' ? '🖥 Auto' : preference === 'light' ? '☀ Light' : '🌙 Dark'}
-          </button>
+
           <button className="hidden md:inline-flex bg-card border border-border rounded-full w-7 h-7 text-[13px] cursor-pointer text-muted font-body hover:border-border-strong hover:text-text hover:scale-105 active:scale-95 transition-all items-center justify-center" onClick={() => { dispatch(fetchSlots()); dispatch(fetchNotifications()); api.status().then(s => dispatch(sseStatus(s))).catch(() => {}) }} title="Refresh">
             🔄
           </button>
@@ -323,7 +302,7 @@ export default function App() {
       )}
 
       {/* Nav */}
-      <aside className={`hidden md:flex overflow-y-auto overflow-x-hidden bg-bg border-r border-border flex-col scrollbar-none transition-[padding] duration-[350ms] ease-in-out ${navCollapsed ? 'px-1.5 pb-4' : 'px-3 pb-4'}`} style={{ scrollbarWidth: 'none' }}>
+      <aside className={`pidash-sidebar hidden md:flex overflow-y-auto overflow-x-hidden bg-bg border-r border-border flex-col scrollbar-none transition-[padding] duration-[350ms] ease-in-out ${navCollapsed ? 'px-1.5 pb-4' : 'px-3 pb-4'}`} style={{ scrollbarWidth: 'none' }}>
         <button className={`flex items-center w-full py-2.5 bg-transparent border-none border-b border-border cursor-pointer text-muted hover:text-text hover:bg-bg-hover transition-colors mb-1 shrink-0 ${navCollapsed ? 'justify-center' : 'justify-end pr-2'}`} onClick={toggleNav} title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           <svg viewBox="0 0 24 24" className={`w-4 h-4 stroke-current fill-none stroke-2 transition-transform duration-[350ms] ease-in-out ${navCollapsed ? 'rotate-180' : ''}`} strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -345,13 +324,13 @@ export default function App() {
               <div key={n.id}
                 className={`relative flex items-center rounded-md cursor-pointer text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out ${navCollapsed ? 'justify-center py-2.5 gap-0' : 'gap-2.5 py-2 px-2.5'} ${activePath === n.path ? 'text-text-strong bg-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover'}`}
                 onClick={() => navigate(n.path)} title={navCollapsed ? n.label : undefined}>
-                {n.id === 'chat' && notifCount > 0 && navCollapsed && <span className="absolute top-1 right-1 w-2 h-2 bg-danger rounded-full" />}
+
                 <span className={`w-4 h-4 flex items-center justify-center shrink-0 transition-opacity ${activePath === n.path ? 'opacity-100 text-accent' : 'opacity-70'}`}>
                   <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">{n.icon}</svg>
                 </span>
                 <span className={`transition-all duration-200 ease-in-out whitespace-nowrap overflow-hidden ${navCollapsed ? 'opacity-0 w-0' : ''}`}>
                   {n.label}
-                  {n.id === 'chat' && notifCount > 0 && <span className="ml-1.5 bg-danger text-white text-[12px] font-bold px-1 py-[2px] rounded-full min-w-[18px] text-center inline-block leading-[12px]">{notifCount}</span>}
+
                 </span>
               </div>
             ))}
@@ -367,7 +346,7 @@ export default function App() {
       </aside>
 
       {/* Content */}
-      <main className={`flex flex-col min-h-0 overflow-x-hidden min-w-0 ${isChat ? 'overflow-hidden p-0' : 'overflow-y-auto'}`}>
+      <main className={`pidash-main flex flex-col min-h-0 overflow-x-hidden min-w-0 ${isChat ? 'overflow-hidden p-0' : 'overflow-y-auto'}`}>
         <ErrorBoundary>
           <Routes>
             <Route path="/chat" element={<ChatPage />} />
@@ -390,9 +369,7 @@ export default function App() {
           >
             <span className="relative">
               <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">{n.icon}</svg>
-              {n.id === 'chat' && notifCount > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 bg-danger text-white text-[10px] font-bold px-1 py-[1px] rounded-full min-w-[16px] text-center leading-[12px]">{notifCount}</span>
-              )}
+
             </span>
             <span className="text-[11px] font-medium">{n.label}</span>
           </button>

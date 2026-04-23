@@ -175,7 +175,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   }
 
   return (
-    <div className={`msg-content bg-card border border-border rounded-md animate-scale-in ${hasDetails ? 'cursor-pointer' : ''}`}>
+    <div className={`pidash-tool-card msg-content bg-card border border-border rounded-md animate-scale-in ${hasDetails ? 'cursor-pointer' : ''}`} data-pidash-tool-name={toolName} data-pidash-tool-status={isError ? 'error' : result ? 'ok' : 'running'}>
       <button
         className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors"
         onClick={() => hasDetails && setExpanded(!expanded)}

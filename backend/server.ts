@@ -7,7 +7,7 @@ import WebSocket, { WebSocketServer } from 'ws'
 import { createServer, IncomingMessage } from 'http'
 import { fileURLToPath } from 'url'
 import { dirname, join, basename } from 'path'
-import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, watch as fsWatch, FSWatcher } from 'fs'
+import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, watch as fsWatch, FSWatcher } from 'fs'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import os from 'os'
 import { execSync } from 'child_process'
@@ -1323,6 +1323,53 @@ app.get('/api/local-file', (req: Request, res: Response) => {
   // Resolve relative paths against process cwd
   if (!resolved.startsWith('/')) resolved = join(process.cwd(), resolved)
   res.sendFile(resolved, { root: '/' }, (err) => { if (err && !res.headersSent) res.status(404).json({ error: 'not found' }) })
+})
+
+// ── Custom Styles ──
+const STYLES_DIR = join(os.homedir(), '.pi', 'dashboard', 'styles')
+mkdirSync(STYLES_DIR, { recursive: true })
+const ACTIVE_STYLE_FILE = join(STYLES_DIR, '.active')
+
+app.get('/api/styles', (_req: Request, res: Response) => {
+  try {
+    const files = readdirSync(STYLES_DIR).filter(f => f.endsWith('.css')).map(f => f.replace(/\.css$/, ''))
+    let active = ''
+    try { active = readFileSync(ACTIVE_STYLE_FILE, 'utf-8').trim() } catch {}
+    res.json({ styles: files, active })
+  } catch { res.json({ styles: [], active: '' }) }
+})
+
+app.get('/api/styles/:name', (req: Request, res: Response) => {
+  const name = req.params.name as string
+  if (!name || /[/\\]/.test(name)) return res.status(400).json({ error: 'invalid name' })
+  try {
+    const css = readFileSync(join(STYLES_DIR, name + '.css'), 'utf-8')
+    res.json({ name, css })
+  } catch { res.status(404).json({ error: 'not found' }) }
+})
+
+app.put('/api/styles/:name', express.json(), async (req: Request, res: Response) => {
+  const name = req.params.name as string
+  if (!name || /[/\\]/.test(name) || name.startsWith('.')) return res.status(400).json({ error: 'invalid name' })
+  const css = req.body?.css
+  if (typeof css !== 'string') return res.status(400).json({ error: 'css required' })
+  await writeFile(join(STYLES_DIR, name + '.css'), css, 'utf-8')
+  res.json({ ok: true })
+})
+
+app.delete('/api/styles/:name', (req: Request, res: Response) => {
+  const name = req.params.name as string
+  if (!name || /[/\\]/.test(name)) return res.status(400).json({ error: 'invalid name' })
+  try { unlinkSync(join(STYLES_DIR, name + '.css')) } catch {}
+  // Clear active if it was this style
+  try { if (readFileSync(ACTIVE_STYLE_FILE, 'utf-8').trim() === name) writeFileSync(ACTIVE_STYLE_FILE, '', 'utf-8') } catch {}
+  res.json({ ok: true })
+})
+
+app.put('/api/styles-active', express.json(), async (req: Request, res: Response) => {
+  const name = req.body?.name ?? ''
+  await writeFile(ACTIVE_STYLE_FILE, name, 'utf-8')
+  res.json({ ok: true })
 })
 
 // ── Static files ──

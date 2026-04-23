@@ -176,6 +176,17 @@ function ChatSidebar({
   // Sidebar-only state
   const [slotFilter, setSlotFilter] = useState('')
 
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try { const s = localStorage.getItem('mc-collapsed-groups'); return s ? new Set(JSON.parse(s)) : new Set() } catch { return new Set() }
+  })
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key); else next.add(key)
+      localStorage.setItem('mc-collapsed-groups', JSON.stringify([...next]))
+      return next
+    })
+  }
   const [editingTagsSlot, setEditingTagsSlot] = useState<string | null>(null)
   const [tagInput, setTagInput] = useState('')
   const tagInputRef = useRef<HTMLInputElement>(null)
@@ -210,7 +221,7 @@ function ChatSidebar({
   return (
     <>
     {mobileOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={onMobileClose} />}
-    <div className={`bg-bg-accent border-r border-border flex-col shrink-0 relative
+    <div className={`pidash-sidebar bg-bg-accent border-r border-border flex-col shrink-0 relative
       fixed top-0 left-0 bottom-0 w-[280px] z-50 transition-transform duration-300
       pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]
       md:relative md:z-auto md:translate-x-0 md:transition-none md:flex md:pt-0 md:pb-0
@@ -226,10 +237,12 @@ function ChatSidebar({
       <div className="flex justify-between items-center px-4 py-3.5 border-b border-border">
         <span className="text-[13px] font-medium text-muted uppercase tracking-[.04em] flex items-center gap-1.5">Sessions <InfoTip text="Each tab is an independent pi session with its own context. Switch agents per tab. Sessions persist to history on close." /></span>
         <div className="flex items-center gap-1.5">
-          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'date' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('date'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'date') }} title="Group by date">🕐</button>
-          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'project' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('project'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'project') }} title="Group by project">📂</button>
-          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'status' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('status'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'status') }} title="Group by status">⚡</button>
-          <button className={`w-6 h-6 rounded-md border text-[11px] cursor-pointer flex items-center justify-center transition-all ${slotsGroupMode === 'tag' ? 'border-accent/40 bg-accent/10 text-accent' : 'border-border bg-transparent text-muted hover:text-text'}`} onClick={() => { setSlotsGroupMode('tag'); localStorage.setItem(SLOTS_GROUP_LS_KEY, 'tag') }} title="Group by tag">🏷</button>
+          <select className="h-6 rounded-md border border-border bg-transparent text-[11px] text-muted cursor-pointer outline-none px-1 hover:border-border-strong hover:text-text transition-all" value={slotsGroupMode} onChange={e => { const v = e.target.value as GroupMode; setSlotsGroupMode(v); localStorage.setItem(SLOTS_GROUP_LS_KEY, v) }}>
+            <option value="date">🕐 Date</option>
+            <option value="project">📂 Project</option>
+            <option value="status">⚡ Status</option>
+            <option value="tag">🏷 Tag</option>
+          </select>
           <button className="w-7 h-7 rounded-md bg-accent text-white border-none text-lg cursor-pointer flex items-center justify-center hover:bg-accent-hover hover:shadow-[0_0_16px_var(--accent-glow)] hover:rotate-90 hover:scale-110 active:scale-95 transition-all" onClick={() => onNewSession ? onNewSession() : dispatch(switchSlot(null))} title="New chat" aria-label="New chat session">+</button>
         </div>
       </div>
@@ -247,8 +260,8 @@ function ChatSidebar({
           const needsHeaders = groups.length > 1 || (groups.length === 1 && groups[0].key !== '')
           return groups.map(g => (
             <div key={g.key || '__ungrouped'}>
-              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5"><span className="text-[10px]">{slotsGroupMode === 'status' ? '⚡' : slotsGroupMode === 'date' ? '🕐' : slotsGroupMode === 'tag' ? '🏷️' : '📂'}</span>{g.key || 'Other'}</div>}
-              {g.items.map(s => {
+              {needsHeaders && <div className="text-[11px] text-muted font-semibold uppercase tracking-wider px-2 pt-2 pb-1 flex items-center gap-1.5 cursor-pointer select-none hover:text-text transition-colors" onClick={() => toggleGroup(g.key || '__ungrouped')}><span className={`text-[10px] transition-transform ${collapsedGroups.has(g.key || '__ungrouped') ? '' : 'rotate-90'}`}>▶</span>{g.key || 'Other'}<span className="text-[10px] opacity-50 font-mono">{g.items.length}</span></div>}
+              {!collapsedGroups.has(g.key || '__ungrouped') && g.items.map(s => {
                 const agentName = 'pi'
                 const agentColor = 'text-accent'
                 const needsAttention = s.pending_approval && !s.stopping
@@ -256,7 +269,8 @@ function ChatSidebar({
                 const hasUnread = unreadSlots.includes(s.key)
                 return (
                   <div key={s.key}>
-                  <div className={`group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${needsAttention ? 'bg-warn-subtle border-warn/40 text-text-strong shadow-[0_0_12px_rgba(245,158,11,.15)]' : activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
+                  <div className={`pidash-slot-item group flex items-start gap-2.5 px-2.5 py-2 rounded-md cursor-pointer text-sm transition-all mb-0.5 border animate-slide-in-left ${needsAttention ? 'bg-warn-subtle border-warn/40 text-text-strong shadow-[0_0_12px_rgba(245,158,11,.15)]' : activeSlot === s.key ? 'text-text-strong bg-accent-subtle border-accent-subtle' : 'text-muted hover:text-text hover:bg-bg-hover border-transparent'}`}
+                    data-pidash-slot-status={needsAttention ? 'attention' : s.running ? 'busy' : 'idle'}
                     role="button"
                     tabIndex={0}
                     onMouseDown={(e) => { e.preventDefault(); if ((e.target as HTMLElement).dataset.close) { dispatch(deleteSlot(s.key)); return }; dispatch(switchSlot(s.key)) }}

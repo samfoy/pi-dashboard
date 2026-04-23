@@ -90,7 +90,21 @@ export function groupToolMessages(messages: ChatMessage[]): ({ type: 'single'; i
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i]
     if (m.role === 'tool') {
-      currentGroup.push({ index: i, message: m })
+      // Never group subagent calls — they're long-running and need individual visibility
+      const toolName = (m.meta?.toolName as string) || ''
+      if (toolName === 'subagent') {
+        if (currentGroup.length > 0) {
+          if (currentGroup.length > 2) {
+            result.push({ type: 'group', tools: currentGroup })
+          } else {
+            for (const t of currentGroup) result.push({ type: 'single', ...t })
+          }
+          currentGroup = []
+        }
+        result.push({ type: 'single', index: i, message: m })
+      } else {
+        currentGroup.push({ index: i, message: m })
+      }
     } else {
       if (currentGroup.length > 0) {
         if (currentGroup.length > 2) {
