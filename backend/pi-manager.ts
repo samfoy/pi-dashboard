@@ -163,6 +163,12 @@ export class PiProcess extends EventEmitter {
   }
 
   start(): void {
+    // Guard: if a process is already running, kill it first to avoid orphans
+    if (this.proc && !this.proc.killed && this.proc.exitCode === null) {
+      console.error(`[pi-manager] ⚠ start() called while process already running (pid=${this.proc.pid}) for slot ${this.slotKey} — killing old process first\n${new Error().stack}`)
+      this.proc.kill('SIGTERM')
+      this.proc = null
+    }
     if (!this.cwd) this.cwd = process.env.HOME || '/tmp'
     const args = ['--mode', 'rpc']
     if (this.sessionFile) {
@@ -198,6 +204,7 @@ export class PiProcess extends EventEmitter {
     // Spawn via node directly so we can pass V8 flags (--no-wasm-tier-up)
     // that are disallowed in NODE_OPTIONS but prevent WASM compiler OOM crashes
     this.proc = spawn(NODE_BIN, [...V8_FLAGS, PI_SCRIPT, ...args], spawnOpts)
+    console.log(`[pi-manager] Spawned slot ${this.slotKey} pid=${this.proc.pid}`)
 
     // Ready promise — resolves when pi responds to get_state (templates loaded)
     this._readyPromise = this.request({ type: 'get_state' }, 15000).then((resp: any) => {
@@ -242,9 +249,13 @@ export class PiProcess extends EventEmitter {
     })
 
     const spawnedProc = this.proc
-    this.proc.on('exit', (code: number | null) => {
+    const spawnedPid = this.proc.pid
+    this.proc.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       // Ignore exit from a stale process (e.g. after /reload killed the old one)
-      if (spawnedProc !== this.proc) return
+      if (spawnedProc !== this.proc) {
+        console.error(`[pi-manager] Ignoring stale exit (pid=${spawnedPid}, code=${code}, signal=${signal}) for slot ${this.slotKey} — current proc pid=${this.proc?.pid}`)
+        return
+      }
       this.ready = false
       this.running = false
       this._stopping = false
@@ -256,7 +267,7 @@ export class PiProcess extends EventEmitter {
         this._startupTimer = null
         this.emit('startup_error', { code, slotKey: this.slotKey, stderr: this._stderrLines.join('\n') })
       }
-      console.error(`[pi-manager] Slot ${this.slotKey} exited with code ${code}${this._stderrLines.length ? ' | last stderr: ' + this._stderrLines.slice(-3).join(' | ') : ''}`)
+      console.error(`[pi-manager] Slot ${this.slotKey} (pid=${spawnedPid}) exited with code ${code} signal=${signal}${this._stderrLines.length ? ' | last stderr: ' + this._stderrLines.slice(-3).join(' | ') : ''}`)
       this.emit('exit', code)
     })
 
@@ -750,6 +761,8 @@ export class PiManager {
     if (!pi) return null
     // Restart if process is missing or dead
     if (!pi.proc || pi.proc.killed || pi.proc.exitCode !== null) {
+      const reason = !pi.proc ? 'proc=null' : pi.proc.killed ? `proc.killed (pid=${pi.proc.pid})` : `exitCode=${pi.proc.exitCode} (pid=${pi.proc.pid})`
+      console.error(`[pi-manager] ensureRunning: starting slot ${key} because ${reason}`)
       pi.proc = null
       pi.running = false
       pi._stopping = false
