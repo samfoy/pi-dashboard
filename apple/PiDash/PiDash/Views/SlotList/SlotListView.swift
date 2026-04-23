@@ -38,6 +38,7 @@ private struct SlotListContent: View {
     @State private var renamingSlot: ChatSlot?
     @State private var renameTitle: String = ""
     @State private var showSessionHistory = false
+    @State private var taggingSlot: ChatSlot?
     @State private var showProjectPicker = false
 
     var body: some View {
@@ -55,6 +56,17 @@ private struct SlotListContent: View {
                 .toolbar { toolbarItems }
                 .task { await viewModel.loadSlashCommands() }
                 .sheet(isPresented: $showSettings) { SettingsView() }
+                .sheet(item: $taggingSlot) { slot in
+                    TagEditorSheet(
+                        slot: slot,
+                        apiClient: appState.apiClient
+                    ) { newTags in
+                        if let i = appState.slots.firstIndex(where: { $0.key == slot.key }) {
+                            appState.slots[i].tags = newTags
+                        }
+                        TagEditorSheet.recordTags(newTags)
+                    }
+                }
                 .sheet(isPresented: $showSessionHistory) {
                     SessionHistoryView { newSlotKey in
                         appState.selectedSlotKey = newSlotKey
@@ -127,6 +139,11 @@ private struct SlotListContent: View {
                                     renamingSlot = slot
                                 } label: {
                                     Label("Rename", systemImage: "pencil")
+                                }
+                                Button {
+                                    taggingSlot = slot
+                                } label: {
+                                    Label("Tags", systemImage: "tag")
                                 }
                                 Button(role: .destructive) {
                                     HapticManager.slotDeleted()

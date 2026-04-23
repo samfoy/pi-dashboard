@@ -61,6 +61,7 @@
 		F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */; };
 		F690BABD60E87BA2D6B2D82F /* FileViewerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */; };
 		F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55A63DAAA5085318A112FC9 /* SlotRow.swift */; };
+		B1C2D3E4F5A60002 /* TagEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60001 /* TagEditorSheet.swift */; };
 		FAB50CB7FFBE6724BAAE8EC2 /* ProjectPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACF277B8CC99355686B1C6F /* ProjectPickerSheet.swift */; };
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
 8E5319679DEEC2A816F70F4A /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 268ED32C4E849718AF8D4303 /* ShareView.swift */; };
@@ -106,6 +107,7 @@ C050F7E97122191AA8F77EB2 /* PiDashShare.appex in Embed App Extensions */ = {isa 
 		A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashApp.swift; sourceTree = "<group>"; };
 		A36737BF7D4BC57735B57ABC /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A55A63DAAA5085318A112FC9 /* SlotRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotRow.swift; sourceTree = "<group>"; };
+		B1C2D3E4F5A60001 /* TagEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagEditorSheet.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
 		AF70333902B6EE893FC3174A /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
@@ -311,6 +313,7 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				D45E6C0B725F939996B74A27 /* SkillsRailView.swift */,
 				39DCB7941AD46363E454E0DA /* SlotListView.swift */,
 				A55A63DAAA5085318A112FC9 /* SlotRow.swift */,
+				B1C2D3E4F5A60001 /* TagEditorSheet.swift */,
 			);
 			path = SlotList;
 			sourceTree = "<group>";
@@ -517,6 +520,7 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				B71D874409F013BB5124C2D1 /* SlotListView.swift in Sources */,
 				A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */,
 				F6E2764CD141CE720434A92B /* SlotRow.swift in Sources */,
+				B1C2D3E4F5A60002 /* TagEditorSheet.swift in Sources */,
 				78F84E31957C3BF31BB704F1 /* SpeechService.swift in Sources */,
 				F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */,
 				1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */,
