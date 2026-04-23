@@ -202,7 +202,7 @@ final class ShareViewModel {
                     let ts = dict["updated_at"] as? String ?? dict["updatedAt"] as? String
                     return SlotInfo(id: key, title: title, updatedAt: ts)
                 }
-                .sorted { ($0.updatedAt ?? "") > ($1.updatedAt ?? "") }
+                .sorted { ($0.updatedAt ?? "") < ($1.updatedAt ?? "") }
             }
         } catch {
             // Non-fatal — just leave slots empty
