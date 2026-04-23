@@ -3,8 +3,9 @@ import { PageHeader, Card, CardTitle, SearchInput, Badge } from '../components/u
 import InfoTip from '../components/InfoTip'
 import { api, j } from '../api/client'
 import { useAppSelector } from '../store'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme, THEMES, type ThemeId } from '../hooks/useTheme'
 import { useCustomStyle, parseVars } from '../hooks/useCustomStyle'
+import { BUILTIN_THEMES } from '../themes'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
 
 type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer'
@@ -81,9 +82,6 @@ function TextRow({ label, hint, value, onChange, placeholder, mono }: { label: s
   )
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="text-[11px] font-semibold uppercase tracking-wider text-muted pt-3 pb-1">{children}</div>
-}
 
 /* ── Pi settings type ── */
 
@@ -624,59 +622,62 @@ function ChatTab() {
 
 /* ── DISPLAY TAB ── */
 function DisplayTab() {
-  const { preference, setTheme } = useTheme()
+  const { theme, preference, setTheme } = useTheme()
   const customStyle = useCustomStyle()
   const [newName, setNewName] = useState('')
   const [editName, setEditName] = useState<string | null>(null)
   const [editCss, setEditCss] = useState('')
 
+  // Build unified theme list: built-in + custom
+  const builtinCards = [
+    { id: 'system', label: '🖥 System', css: BUILTIN_THEMES[theme] || BUILTIN_THEMES.dark, builtin: true },
+    ...THEMES.map(t => ({ id: t.id, label: t.label, css: BUILTIN_THEMES[t.id], builtin: true })),
+  ]
+  const customCards = customStyle.styles.map(name => ({
+    id: `custom:${name}`, label: name, css: customStyle.styleContents[name] || '', builtin: false, name,
+  }))
+  const allCards = [...builtinCards, ...customCards]
+
+  const activeBuiltin = preference
+  const activeCustom = customStyle.active
+
   return (
     <div className="space-y-4">
       <Card>
-        <CardTitle>Appearance</CardTitle>
-        <div className="divide-y divide-border">
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <span className="text-[13px] text-text">Theme</span>
-              <div className="text-[12px] text-muted/60 mt-0.5">Choose a theme for the dashboard</div>
-            </div>
-          </div>
-          <div className="py-3">
-            <SectionLabel>Base</SectionLabel>
-            <div className="grid grid-cols-3 gap-2 mt-1">
-              {([
-                { id: 'system' as const, label: '🖥 System', desc: 'Follow OS preference' },
-                { id: 'dark' as const, label: '🌙 Dark', desc: 'Default dark theme' },
-                { id: 'light' as const, label: '☀️ Light', desc: 'Default light theme' },
-              ] as const).map(t => (
-                <button
-                  key={t.id}
-                  className={`px-3 py-2.5 rounded-lg text-[13px] font-medium border cursor-pointer transition-all text-left ${preference === t.id ? 'bg-accent/10 text-accent border-accent/40 shadow-sm' : 'border-border text-muted bg-transparent hover:text-text hover:border-border-strong'}`}
-                  onClick={() => setTheme(t.id)}
-                >
-                  <div>{t.label}</div>
-                  <div className="text-[11px] text-muted/60 mt-0.5 font-normal">{t.desc}</div>
-                </button>
-              ))}
-            </div>
-            <SectionLabel>Rosé Pine</SectionLabel>
-            <div className="grid grid-cols-3 gap-2 mt-1">
-              {([
-                { id: 'rose-pine' as const, label: '🌸 Rosé Pine', desc: 'Soho vibes dark' },
-                { id: 'rose-pine-moon' as const, label: '🌙 Moon', desc: 'Lighter dark variant' },
-                { id: 'rose-pine-dawn' as const, label: '🌅 Dawn', desc: 'Warm light variant' },
-              ] as const).map(t => (
-                <button
-                  key={t.id}
-                  className={`px-3 py-2.5 rounded-lg text-[13px] font-medium border cursor-pointer transition-all text-left ${preference === t.id ? 'bg-accent/10 text-accent border-accent/40 shadow-sm' : 'border-border text-muted bg-transparent hover:text-text hover:border-border-strong'}`}
-                  onClick={() => setTheme(t.id)}
-                >
-                  <div>{t.label}</div>
-                  <div className="text-[11px] text-muted/60 mt-0.5 font-normal">{t.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+        <CardTitle>Themes</CardTitle>
+        <div className="grid grid-cols-3 gap-2 py-2">
+          {allCards.map(card => {
+            const vars = parseVars(card.css)
+            const bg = vars['bg'] || '#12141a'
+            const accent = vars['accent'] || '#f59e32'
+            const text = vars['text'] || '#e4e4e7'
+            const cardColor = vars['card'] || vars['bg-accent'] || '#181b22'
+            const isActive = card.builtin
+              ? activeBuiltin === card.id && !activeCustom
+              : activeCustom === (card as any).name
+            return (
+              <button
+                key={card.id}
+                className={`group relative px-3 py-2.5 rounded-lg text-[13px] font-medium border cursor-pointer transition-all text-left ${isActive ? 'bg-accent/10 text-accent border-accent/40 shadow-sm' : 'border-border text-muted bg-transparent hover:text-text hover:border-border-strong'}`}
+                onClick={() => {
+                  if (card.builtin) {
+                    setTheme(card.id as ThemeId | 'system')
+                    if (activeCustom) customStyle.activate('')
+                  } else {
+                    customStyle.activate(isActive ? '' : (card as any).name)
+                  }
+                }}
+              >
+                <div className="flex gap-1 mb-1.5">
+                  {[bg, cardColor, accent, text].map((c, i) => (
+                    <span key={i} className="w-3 h-3 rounded-full border border-white/10 shrink-0" style={{ background: c }} />
+                  ))}
+                </div>
+                <div className="text-[12px] truncate">{card.label}</div>
+                {!card.builtin && <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-[10px] text-muted hover:text-danger transition-opacity" onClick={e => { e.stopPropagation(); if (confirm(`Delete "${(card as any).name}"?`)) customStyle.remove((card as any).name) }}>✕</span>}
+              </button>
+            )
+          })}
         </div>
       </Card>
 
@@ -689,34 +690,6 @@ function DisplayTab() {
 
       <Card>
         <CardTitle>Custom Styles</CardTitle>
-        <div className="text-[12px] text-muted/60 mb-2">User themes in <code className="font-mono text-text">~/.pi/dashboard/styles/</code></div>
-        {customStyle.styles.length > 0 && (
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            {customStyle.styles.map(name => {
-              const vars = parseVars(customStyle.styleContents[name] || '')
-              const isActive = customStyle.active === name
-              const bg = vars['bg'] || '#1c1c1e'
-              const accent = vars['accent'] || '#0a84ff'
-              const text = vars['text'] || '#f5f5f7'
-              const card = vars['card'] || vars['bg-accent'] || '#2c2c2e'
-              return (
-                <button
-                  key={name}
-                  className={`group relative px-3 py-2.5 rounded-lg text-[13px] font-medium border cursor-pointer transition-all text-left ${isActive ? 'bg-accent/10 text-accent border-accent/40 shadow-sm' : 'border-border text-muted bg-transparent hover:text-text hover:border-border-strong'}`}
-                  onClick={() => customStyle.activate(isActive ? '' : name)}
-                >
-                  <div className="flex gap-1 mb-1.5">
-                    {[bg, card, accent, text].map((c, i) => (
-                      <span key={i} className="w-3 h-3 rounded-full border border-white/10 shrink-0" style={{ background: c }} />
-                    ))}
-                  </div>
-                  <div className="text-[12px] truncate">{name}</div>
-                  <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-[10px] text-muted hover:text-danger transition-opacity" onClick={e => { e.stopPropagation(); if (confirm(`Delete "${name}"?`)) customStyle.remove(name) }}>✕</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
         <div className="divide-y divide-border">
           {customStyle.active && (
             <div className="py-2">
