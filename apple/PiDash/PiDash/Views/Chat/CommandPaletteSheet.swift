@@ -49,7 +49,7 @@ struct CommandPaletteSheet: View {
     @State private var showRename = false
     @State private var renameText = ""
 
-    private let desktopOnly = Set(["/lsp", "/bemol", "/reload", "/mcp", "/lsp-config", "/lsp-lombok"])
+    private let desktopOnly = Set(["/lsp", "/bemol", "/mcp", "/lsp-config", "/lsp-lombok"])
 
     var body: some View {
         NavigationStack {
