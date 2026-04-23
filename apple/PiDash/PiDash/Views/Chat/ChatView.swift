@@ -115,8 +115,10 @@ private struct ChatContentView: View {
     let scrollToMessageId: UUID?
     @State private var isAtBottom = true
     @State private var showCommandPalette = false
+    @State private var showTagEditor = false
     @State private var showModelPickerFromToolbar = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
     private let healthService = HealthKitService.shared
     private let calendarService = CalendarService.shared
@@ -232,8 +234,22 @@ private struct ChatContentView: View {
                     onStop: { Task { await viewModel.stop() } }
                 )
                 .sheet(isPresented: $showCommandPalette) {
-                    CommandPaletteSheet(commands: viewModel.slashCommands) { cmd in
-                        Task { await viewModel.sendCommand(cmd.name) }
+                    CommandPaletteSheet(
+                        commands: viewModel.slashCommands,
+                        onSelect: { cmd in Task { await viewModel.sendCommand(cmd.name) } },
+                        viewModel: viewModel,
+                        onTagsTapped: { showTagEditor = true }
+                    )
+                }
+                .sheet(isPresented: $showTagEditor) {
+                    TagEditorSheet(
+                        slot: viewModel.slot,
+                        apiClient: appState.apiClient
+                    ) { newTags in
+                        if let i = appState.slots.firstIndex(where: { $0.key == viewModel.slot.key }) {
+                            appState.slots[i].tags = newTags
+                        }
+                        TagEditorSheet.recordTags(newTags)
                     }
                 }
                 .sheet(isPresented: $showModelPickerFromToolbar) {
