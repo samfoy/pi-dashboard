@@ -80,7 +80,7 @@ export function parseSessionMessages(sessionPath: string, limit: number = 200): 
         const ts: string | undefined = msg.timestamp ? new Date(msg.timestamp).toISOString() : undefined
 
         if (role === 'user') {
-          const text = extractText(msg.content)
+          const text = stripInjectedBlocks(extractText(msg.content))
           if (text) messages.push({ role: 'user', content: text, ts })
         } else if (role === 'assistant') {
           // Extract thinking blocks
@@ -158,6 +158,22 @@ export function extractText(content: string | ContentPart[] | null | undefined, 
   return ''
 }
 
+/** Strip platform-injected blocks (implicitInstruction, context entries, etc.) from user messages */
+const IMPLICIT_RE = /\s*<implicitInstruction>[\s\S]*?<\/implicitInstruction>\s*/g
+const CONTEXT_ENTRY_RE = /\s*--- CONTEXT ENTRY BEGIN ---[\s\S]*?--- CONTEXT ENTRY END ---\s*/g
+const USER_MSG_RE = /--- USER MESSAGE BEGIN ---\s*([\s\S]*?)\s*--- USER MESSAGE END ---/
+
+export function stripInjectedBlocks(text: string): string {
+  // Remove implicit instruction blocks
+  let cleaned = text.replace(IMPLICIT_RE, '')
+  // Remove context entry blocks
+  cleaned = cleaned.replace(CONTEXT_ENTRY_RE, '')
+  // If wrapped in USER MESSAGE markers, extract just the user message
+  const match = cleaned.match(USER_MSG_RE)
+  if (match) cleaned = match[1]
+  return cleaned.trim()
+}
+
 // ── Find session file by key ──
 
 export function findSessionFile(key: string): string | null {
@@ -200,7 +216,9 @@ export function parseSessionTree(sessionPath: string): { entries: SessionTreeEnt
         }
         if (obj.type === 'message' && obj.message) {
           entry.role = obj.message.role
-          const rawText = extractText(obj.message.content)
+          const rawText = obj.message.role === 'user'
+            ? stripInjectedBlocks(extractText(obj.message.content))
+            : extractText(obj.message.content)
           entry.text = rawText.slice(0, 200)
           if (obj.message.role === 'user') entry.fullText = rawText
           // For assistant, check for tool calls
