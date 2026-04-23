@@ -244,7 +244,7 @@ export class PiProcess extends EventEmitter {
     const spawnedProc = this.proc
     this.proc.on('exit', (code: number | null) => {
       // Ignore exit from a stale process (e.g. after /reload killed the old one)
-      if (this.proc !== spawnedProc && this.proc !== null) return
+      if (spawnedProc !== this.proc) return
       this.ready = false
       this.running = false
       this._stopping = false
@@ -322,6 +322,9 @@ export class PiProcess extends EventEmitter {
       // Kill and restart the process to pick up new extensions/skills/config.
       if (cmd === 'reload') {
         if (this.proc) {
+          // Clear startup timer BEFORE killing so the old exit handler
+          // doesn't falsely emit startup_error for the new process
+          if (this._startupTimer) { clearTimeout(this._startupTimer); this._startupTimer = null }
           this.kill()
           this.proc = null
           this.ready = false
