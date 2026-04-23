@@ -307,7 +307,7 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
     return (
       <>
         {open && <div className="cmdk-overlay" onClick={close} />}
-        <Command.Dialog open={open} onOpenChange={onOpenChange} label="Pick theme" className="cmdk-dialog" shouldFilter={true}>
+        <Command.Dialog key="theme" open={open} onOpenChange={onOpenChange} label="Pick theme" className="cmdk-dialog" shouldFilter={true}>
           <div className="cmdk-input-wrapper">
             <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
             <Command.Input ref={inputRef} placeholder="Switch theme…" className="cmdk-input" />
