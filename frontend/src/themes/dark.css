@@ -1,0 +1,50 @@
+/* Dark — default pi-dashboard theme */
+:root {
+  --bg:#12141a;--bg-accent:#14161d;--bg-elevated:#1a1d25;--bg-hover:#262a35;
+  --card:#181b22;--card-fg:#f4f4f5;--card-hl:rgba(255,255,255,.05);
+  --panel:#12141a;--panel-strong:#1a1d25;
+  --chrome:rgba(18,20,26,.95);
+  --text:#e4e4e7;--text-strong:#fafafa;--muted:#71717a;--muted-strong:#52525b;
+  --border:#27272a;--border-strong:#3f3f46;--border-hover:#52525b;
+  --accent:#f59e32;--accent-hover:#fbb860;--accent-subtle:rgba(245,158,50,.15);
+  --accent-glow:rgba(245,158,50,.25);--ring:#f59e32;
+  --ok:#22c55e;--ok-subtle:rgba(34,197,94,.12);
+  --warn:#f59e0b;--warn-subtle:rgba(245,158,11,.12);
+  --danger:#ef4444;--danger-subtle:rgba(239,68,68,.12);
+  --info:#3b82f6;
+  --aim:#a78bfa;--aim-subtle:rgba(167,139,250,.15);
+  --clarify:#f59e0b;--clarify-subtle:rgba(245,158,11,.05);
+  --diff-add:rgba(46,160,67,.15);--diff-add-text:#7ee787;
+  --diff-del:rgba(248,81,73,.15);--diff-del-text:#ffa198;
+  --diff-hunk:rgba(56,139,253,.15);--diff-hunk-text:#79c0ff;
+  --diff-meta-text:#e6edf3;
+  --font-body:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.2);
+  --shadow-md:0 4px 12px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.03);
+  --shadow-lg:0 12px 28px rgba(0,0,0,.35);
+  --radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-xl:16px;
+  color-scheme:dark;
+}
+
+body::before {
+  background:radial-gradient(ellipse at 20% 50%,rgba(245,158,50,.03) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 20%,rgba(59,130,246,.02) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 80%,rgba(34,197,94,.02) 0%,transparent 50%) !important;
+}
+
+.msg-content :not(pre)>code{background:rgba(0,0,0,.15)}
+.msg-content pre{background:rgba(0,0,0,.15)}
+
+.hljs-keyword,.hljs-selector-tag,.hljs-built_in,.hljs-name,.hljs-tag{color:#c678dd}
+.hljs-string,.hljs-title.class_.inherited__,.hljs-attr,.hljs-template-variable,.hljs-template-tag,.hljs-addition{color:#98c379}
+.hljs-comment,.hljs-quote{color:var(--muted);font-style:italic}
+.hljs-number,.hljs-literal,.hljs-variable,.hljs-regexp{color:#d19a66}
+.hljs-title,.hljs-title.function_{color:#61afef}
+.hljs-type,.hljs-params{color:#e5c07b}
+.hljs-meta,.hljs-meta .hljs-keyword{color:#e06c75}
+.hljs-section{color:var(--accent)}
+.hljs-deletion{color:var(--diff-del-text)}
+.hljs-subst{color:var(--text)}
+.hljs-property{color:#56b6c2}
+.hljs-punctuation,.hljs-operator{color:#abb2bf}

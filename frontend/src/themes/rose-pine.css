@@ -1,0 +1,37 @@
+/* Rosé Pine */
+:root {
+  --bg:#191724;--bg-accent:#1f1d2e;--bg-elevated:#26233a;--bg-hover:#2a2740;
+  --card:#1f1d2e;--card-fg:#e0def4;--card-hl:rgba(224,222,244,.05);
+  --panel:#191724;--panel-strong:#1f1d2e;
+  --chrome:rgba(25,23,36,.95);
+  --text:#e0def4;--text-strong:#e0def4;--muted:#908caa;--muted-strong:#6e6a86;
+  --border:#26233a;--border-strong:#393552;--border-hover:#524f67;
+  --accent:#c4a7e7;--accent-hover:#d4bff7;--accent-subtle:rgba(196,167,231,.15);
+  --accent-glow:rgba(196,167,231,.25);--ring:#c4a7e7;
+  --ok:#9ccfd8;--ok-subtle:rgba(156,207,216,.12);
+  --warn:#f6c177;--warn-subtle:rgba(246,193,119,.12);
+  --danger:#eb6f92;--danger-subtle:rgba(235,111,146,.12);
+  --info:#31748f;
+  --aim:#c4a7e7;--aim-subtle:rgba(196,167,231,.15);
+  --clarify:#f6c177;--clarify-subtle:rgba(246,193,119,.05);
+  --diff-add:rgba(156,207,216,.15);--diff-add-text:#9ccfd8;
+  --diff-del:rgba(235,111,146,.15);--diff-del-text:#eb6f92;
+  --diff-hunk:rgba(49,116,143,.15);--diff-hunk-text:#31748f;
+  --diff-meta-text:#e0def4;
+  --font-body:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow-md:0 4px 12px rgba(0,0,0,.35),0 0 0 1px rgba(224,222,244,.03);
+  --shadow-lg:0 12px 28px rgba(0,0,0,.45);
+  --radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-xl:16px;
+  color-scheme:dark;
+}
+
+body::before {
+  background:radial-gradient(ellipse at 20% 50%,rgba(196,167,231,.04) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 20%,rgba(49,116,143,.03) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 80%,rgba(156,207,216,.03) 0%,transparent 50%) !important;
+}
+
+.msg-content :not(pre)>code{background:rgba(224,222,244,.08)}
+.msg-content pre{background:rgba(224,222,244,.06)}

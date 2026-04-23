@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { BUILTIN_THEMES } from '../themes'
 
 export const THEMES = [
   { id: 'dark', label: '🌙 Dark', group: 'base' },
@@ -11,15 +12,27 @@ export const THEMES = [
 export type ThemeId = typeof THEMES[number]['id']
 
 const LS_KEY = 'mc-theme'
+const STYLE_ID = 'pidash-theme'
 
 function getSystemScheme(): 'dark' | 'light' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-/** Resolve 'system' to a concrete theme id */
 function resolve(pref: ThemeId | 'system'): ThemeId {
   if (pref === 'system') return getSystemScheme()
   return pref
+}
+
+function injectTheme(themeId: ThemeId) {
+  let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = STYLE_ID
+    document.head.appendChild(el)
+  }
+  el.textContent = BUILTIN_THEMES[themeId] || BUILTIN_THEMES.dark
+  // Keep data-theme for any remaining selectors (tailwind config, etc.)
+  document.documentElement.dataset.theme = themeId
 }
 
 export function useTheme() {
@@ -28,11 +41,8 @@ export function useTheme() {
   )
   const [resolved, setResolved] = useState<ThemeId>(() => resolve(preference))
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = resolved
-  }, [resolved])
+  useEffect(() => { injectTheme(resolved) }, [resolved])
 
-  // Listen for system theme changes when preference is 'system'
   useEffect(() => {
     if (preference !== 'system') return
     const mql = window.matchMedia('(prefers-color-scheme: dark)')
@@ -47,7 +57,6 @@ export function useTheme() {
     setResolved(resolve(pref))
   }, [])
 
-  // Cycle through: system → dark → light → rose-pine → rose-pine-moon → rose-pine-dawn → system
   const cycle = useCallback(() => {
     const order: (ThemeId | 'system')[] = ['system', ...THEMES.map(t => t.id)]
     const idx = order.indexOf(preference)

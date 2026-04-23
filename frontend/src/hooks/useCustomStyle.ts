@@ -19,9 +19,10 @@ function inject(css: string) {
   if (!el) {
     el = document.createElement('style')
     el.id = STYLE_ID
-    document.head.appendChild(el)
   }
   el.textContent = sanitize(css)
+  // Always append last so custom styles win over theme styles
+  document.head.appendChild(el)
 }
 
 export function useCustomStyle() {

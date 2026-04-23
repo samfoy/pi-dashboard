@@ -1,0 +1,37 @@
+/* Rosé Pine Dawn */
+:root {
+  --bg:#faf4ed;--bg-accent:#f2e9e1;--bg-elevated:#fffaf3;--bg-hover:#f0e6dd;
+  --card:#fffaf3;--card-fg:#575279;--card-hl:rgba(87,82,121,.04);
+  --panel:#faf4ed;--panel-strong:#f2e9e1;
+  --chrome:rgba(250,244,237,.95);
+  --text:#575279;--text-strong:#26233a;--muted:#9893a5;--muted-strong:#797593;
+  --border:#dfdad9;--border-strong:#cecacd;--border-hover:#9893a5;
+  --accent:#907aa9;--accent-hover:#a08dbd;--accent-subtle:rgba(144,122,169,.12);
+  --accent-glow:rgba(144,122,169,.15);--ring:#907aa9;
+  --ok:#56949f;--ok-subtle:rgba(86,148,159,.1);
+  --warn:#ea9d34;--warn-subtle:rgba(234,157,52,.1);
+  --danger:#b4637a;--danger-subtle:rgba(180,99,122,.1);
+  --info:#286983;
+  --aim:#907aa9;--aim-subtle:rgba(144,122,169,.12);
+  --clarify:#ea9d34;--clarify-subtle:rgba(234,157,52,.06);
+  --diff-add:rgba(86,148,159,.12);--diff-add-text:#56949f;
+  --diff-del:rgba(180,99,122,.12);--diff-del-text:#b4637a;
+  --diff-hunk:rgba(40,105,131,.12);--diff-hunk-text:#286983;
+  --diff-meta-text:#575279;
+  --font-body:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 0 0 1px rgba(0,0,0,.04);
+  --shadow-lg:0 12px 28px rgba(0,0,0,.12);
+  --radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-xl:16px;
+  color-scheme:light;
+}
+
+body::before {
+  background:radial-gradient(ellipse at 20% 50%,rgba(144,122,169,.05) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 20%,rgba(40,105,131,.04) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 80%,rgba(86,148,159,.04) 0%,transparent 50%) !important;
+}
+
+.msg-content :not(pre)>code{background:rgba(87,82,121,.07)}
+.msg-content pre{background:rgba(87,82,121,.05)}
