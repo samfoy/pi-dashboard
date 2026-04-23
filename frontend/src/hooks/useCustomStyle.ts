@@ -1,5 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 
+/** Extract CSS custom property values from a CSS string */
+export function parseVars(css: string): Record<string, string> {
+  const vars: Record<string, string> = {}
+  for (const m of css.matchAll(/--(\w[\w-]*)\s*:\s*([^;]+)/g)) {
+    vars[m[1]] = m[2].trim()
+  }
+  return vars
+}
+
 const STYLE_ID = 'pidash-custom-style'
 
 /** Sanitize user CSS — block @import, url() (except data:/# ), expression(), </style breakout */
@@ -29,6 +38,7 @@ export function useCustomStyle() {
   const [active, setActive] = useState('')
   const [styles, setStyles] = useState<string[]>([])
   const [css, setCss] = useState('')
+  const [styleContents, setStyleContents] = useState<Record<string, string>>({})
 
   // Skip injection if ?reset-css=true
   const resetCss = new URLSearchParams(window.location.search).get('reset-css') === 'true'
@@ -39,10 +49,18 @@ export function useCustomStyle() {
       const d = await r.json()
       setStyles(d.styles || [])
       setActive(d.active || '')
+      // Fetch all style contents for preview
+      const contents: Record<string, string> = {}
+      await Promise.all((d.styles || []).map(async (name: string) => {
+        try {
+          const r2 = await fetch(`/api/styles/${encodeURIComponent(name)}`)
+          const d2 = await r2.json()
+          contents[name] = d2.css || ''
+        } catch {}
+      }))
+      setStyleContents(contents)
       if (d.active && !resetCss) {
-        const r2 = await fetch(`/api/styles/${encodeURIComponent(d.active)}`)
-        const d2 = await r2.json()
-        setCss(d2.css || '')
+        setCss(contents[d.active] || '')
       } else {
         setCss('')
       }
@@ -67,5 +85,5 @@ export function useCustomStyle() {
     await refresh()
   }, [refresh])
 
-  return { active, styles, css, activate, save, remove, refresh }
+  return { active, styles, css, styleContents, activate, save, remove, refresh }
 }

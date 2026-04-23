@@ -4,7 +4,7 @@ import InfoTip from '../components/InfoTip'
 import { api, j } from '../api/client'
 import { useAppSelector } from '../store'
 import { useTheme } from '../hooks/useTheme'
-import { useCustomStyle } from '../hooks/useCustomStyle'
+import { useCustomStyle, parseVars } from '../hooks/useCustomStyle'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
 
 type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer'
@@ -689,18 +689,38 @@ function DisplayTab() {
 
       <Card>
         <CardTitle>Custom Styles</CardTitle>
-        <div className="text-[12px] text-muted/60 mb-2">Override CSS variables and target <code className="font-mono text-text">pidash-*</code> classes. Styles are stored in <code className="font-mono text-text">~/.pi/dashboard/styles/</code></div>
-        <div className="divide-y divide-border">
-          <div className="flex items-center gap-2 py-2">
-            <select className="flex-1 bg-bg-elevated border border-border rounded-md px-3 py-1.5 text-[13px] text-text font-body outline-none cursor-pointer focus-ring" value={customStyle.active} onChange={e => customStyle.activate(e.target.value)}>
-              <option value="">None (default)</option>
-              {customStyle.styles.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            {customStyle.active && <button className="text-[12px] text-muted hover:text-danger cursor-pointer bg-transparent border-none" onClick={() => { if (confirm(`Delete style "${customStyle.active}"?`)) customStyle.remove(customStyle.active) }}>🗑</button>}
+        <div className="text-[12px] text-muted/60 mb-2">User themes in <code className="font-mono text-text">~/.pi/dashboard/styles/</code></div>
+        {customStyle.styles.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {customStyle.styles.map(name => {
+              const vars = parseVars(customStyle.styleContents[name] || '')
+              const isActive = customStyle.active === name
+              const bg = vars['bg'] || '#1c1c1e'
+              const accent = vars['accent'] || '#0a84ff'
+              const text = vars['text'] || '#f5f5f7'
+              const card = vars['card'] || vars['bg-accent'] || '#2c2c2e'
+              return (
+                <button
+                  key={name}
+                  className={`group relative px-3 py-2.5 rounded-lg text-[13px] font-medium border cursor-pointer transition-all text-left ${isActive ? 'bg-accent/10 text-accent border-accent/40 shadow-sm' : 'border-border text-muted bg-transparent hover:text-text hover:border-border-strong'}`}
+                  onClick={() => customStyle.activate(isActive ? '' : name)}
+                >
+                  <div className="flex gap-1 mb-1.5">
+                    {[bg, card, accent, text].map((c, i) => (
+                      <span key={i} className="w-3 h-3 rounded-full border border-white/10 shrink-0" style={{ background: c }} />
+                    ))}
+                  </div>
+                  <div className="text-[12px] truncate">{name}</div>
+                  <span className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-[10px] text-muted hover:text-danger transition-opacity" onClick={e => { e.stopPropagation(); if (confirm(`Delete "${name}"?`)) customStyle.remove(name) }}>✕</span>
+                </button>
+              )
+            })}
           </div>
+        )}
+        <div className="divide-y divide-border">
           {customStyle.active && (
             <div className="py-2">
-              <button className="text-[12px] text-accent cursor-pointer bg-transparent border-none hover:underline" onClick={() => { setEditName(customStyle.active); fetch(`/api/styles/${encodeURIComponent(customStyle.active)}`).then(r => r.json()).then(d => setEditCss(d.css || '')) }}>{editName === customStyle.active ? '▾ Close editor' : '▸ Edit CSS'}</button>
+              <button className="text-[12px] text-accent cursor-pointer bg-transparent border-none hover:underline" onClick={() => { if (editName === customStyle.active) { setEditName(null) } else { setEditName(customStyle.active); setEditCss(customStyle.styleContents[customStyle.active] || '') } }}>{editName === customStyle.active ? '▾ Close editor' : '▸ Edit CSS'}</button>
               {editName === customStyle.active && (
                 <div className="mt-2">
                   <textarea className="w-full h-48 bg-bg-elevated border border-border rounded-md px-3 py-2 text-[13px] font-mono text-text outline-none resize-y focus-ring" value={editCss} onChange={e => setEditCss(e.target.value)} />
@@ -710,8 +730,8 @@ function DisplayTab() {
             </div>
           )}
           <div className="flex items-center gap-2 py-2">
-            <input className="flex-1 bg-bg-elevated border border-border rounded-md px-3 py-1.5 text-[13px] text-text font-body outline-none focus-ring" placeholder="New style name…" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) { customStyle.save(newName.trim(), `/* ${newName.trim()} */\n/* Override pidash-* classes and CSS variables here */\n`); customStyle.activate(newName.trim()); setNewName('') } }} />
-            <button className="px-3 py-1.5 rounded-md text-[13px] font-medium border border-accent text-accent bg-transparent cursor-pointer hover:bg-accent hover:text-white transition-all disabled:opacity-30" disabled={!newName.trim()} onClick={() => { if (newName.trim()) { customStyle.save(newName.trim(), `/* ${newName.trim()} */\n/* Override pidash-* classes and CSS variables here */\n`); customStyle.activate(newName.trim()); setNewName('') } }}>Create</button>
+            <input className="flex-1 bg-bg-elevated border border-border rounded-md px-3 py-1.5 text-[13px] text-text font-body outline-none focus-ring" placeholder="New style name…" value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newName.trim()) { customStyle.save(newName.trim(), `/* ${newName.trim()} */\n:root {\n  /* Override CSS variables here */\n}\n`); customStyle.activate(newName.trim()); setNewName('') } }} />
+            <button className="px-3 py-1.5 rounded-md text-[13px] font-medium border border-accent text-accent bg-transparent cursor-pointer hover:bg-accent hover:text-white transition-all disabled:opacity-30" disabled={!newName.trim()} onClick={() => { if (newName.trim()) { customStyle.save(newName.trim(), `/* ${newName.trim()} */\n:root {\n  /* Override CSS variables here */\n}\n`); customStyle.activate(newName.trim()); setNewName('') } }}>Create</button>
           </div>
           <div className="py-2 text-[11px] text-muted/50">Tip: add <code className="font-mono">?reset-css=true</code> to the URL to disable custom styles if they break the UI.</div>
         </div>
