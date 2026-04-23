@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '../store'
 import { switchSlot, resumeFromHistory } from '../store/chatSlice'
 import { fetchSlots } from '../store/dashboardSlice'
-import { useTheme } from '../hooks/useTheme'
+import { useTheme, THEMES, type ThemeId } from '../hooks/useTheme'
+import { useCustomStyle, parseVars } from '../hooks/useCustomStyle'
+import { BUILTIN_THEMES } from '../themes'
 import { api } from '../api/client'
 
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high']
 
-type Mode = 'root' | 'model' | 'thinking' | 'rename' | 'tag' | 'session-search' | 'system-prompt'
+type Mode = 'root' | 'model' | 'thinking' | 'rename' | 'tag' | 'session-search' | 'system-prompt' | 'theme'
 
 interface SessionResult {
   id: string
@@ -33,7 +35,8 @@ interface CommandPaletteProps {
 export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: CommandPaletteProps) {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { cycle: cycleTheme } = useTheme()
+  const { theme, preference, setTheme } = useTheme()
+  const customStyle = useCustomStyle()
   const inputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<Mode>('root')
   const [models, setModels] = useState<{ id: string; name: string; provider: string }[]>([])
@@ -294,6 +297,62 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
     )
   }
 
+  // Sub-mode: Theme picker
+  if (mode === 'theme') {
+    const builtins = [
+      { id: 'system', label: '🖥 System' },
+      ...THEMES.map(t => ({ id: t.id, label: t.label })),
+    ]
+    const customs = customStyle.styles.map(name => ({ id: `custom:${name}`, label: name, name }))
+    return (
+      <>
+        {open && <div className="cmdk-overlay" onClick={close} />}
+        <Command.Dialog open={open} onOpenChange={onOpenChange} label="Pick theme" className="cmdk-dialog" shouldFilter={true}>
+          <div className="cmdk-input-wrapper">
+            <span className="cmdk-search-icon cursor-pointer text-[14px] hover:text-accent" onClick={goBack} title="Back">←</span>
+            <Command.Input ref={inputRef} placeholder="Switch theme…" className="cmdk-input" />
+            <kbd className="cmdk-badge">ESC</kbd>
+          </div>
+          <Command.List className="cmdk-list">
+            <Command.Empty className="cmdk-empty">No themes found.</Command.Empty>
+            <Command.Group heading="Built-in" className="cmdk-group">
+              {builtins.map(t => {
+                const vars = t.id === 'system' ? parseVars(BUILTIN_THEMES[theme]) : parseVars(BUILTIN_THEMES[t.id as ThemeId])
+                const isCurrent = preference === t.id && !customStyle.active
+                return (
+                  <Command.Item key={t.id} value={t.label} onSelect={() => { setTheme(t.id as ThemeId | 'system'); if (customStyle.active) customStyle.activate(''); close() }} className="cmdk-item">
+                    <span className="cmdk-item-icon flex gap-0.5">
+                      {[vars['bg'], vars['accent'], vars['text']].map((c, i) => <span key={i} className="w-2.5 h-2.5 rounded-full border border-white/10" style={{ background: c || '#888' }} />)}
+                    </span>
+                    <span className="cmdk-item-label">{t.label}</span>
+                    {isCurrent && <span className="text-[11px] text-accent ml-auto">✓</span>}
+                  </Command.Item>
+                )
+              })}
+            </Command.Group>
+            {customs.length > 0 && (
+              <Command.Group heading="Custom" className="cmdk-group">
+                {customs.map(t => {
+                  const vars = parseVars(customStyle.styleContents[t.name] || '')
+                  const isCurrent = customStyle.active === t.name
+                  return (
+                    <Command.Item key={t.id} value={t.label} onSelect={() => { customStyle.activate(isCurrent ? '' : t.name); close() }} className="cmdk-item">
+                      <span className="cmdk-item-icon flex gap-0.5">
+                        {[vars['bg'], vars['accent'], vars['text']].map((c, i) => <span key={i} className="w-2.5 h-2.5 rounded-full border border-white/10" style={{ background: c || '#888' }} />)}
+                      </span>
+                      <span className="cmdk-item-label">{t.label}</span>
+                      {isCurrent && <span className="text-[11px] text-accent ml-auto">✓</span>}
+                    </Command.Item>
+                  )
+                })}
+              </Command.Group>
+            )}
+          </Command.List>
+        </Command.Dialog>
+      </>
+    )
+  }
+
   // Sub-mode: Model picker
   if (mode === 'model') {
     return (
@@ -490,9 +549,9 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
               <span className="cmdk-item-label">New Session</span>
               <kbd className="cmdk-kbd">Ctrl+N</kbd>
             </Command.Item>
-            <Command.Item value="Toggle theme dark light" onSelect={() => run(cycleTheme)} className="cmdk-item">
+            <Command.Item value="Theme picker" onSelect={() => setMode('theme')} className="cmdk-item">
               <span className="cmdk-item-icon">🎨</span>
-              <span className="cmdk-item-label">Toggle Theme</span>
+              <span className="cmdk-item-label">Theme</span>
             </Command.Item>
             <Command.Item value="Toggle sidebar" onSelect={() => run(onToggleSidebar)} className="cmdk-item">
               <span className="cmdk-item-icon">📐</span>
