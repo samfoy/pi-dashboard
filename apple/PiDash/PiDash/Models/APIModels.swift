@@ -117,7 +117,8 @@ struct MessageDTO: Decodable {
                     toolCallId: $0.toolCallId,
                     toolArgs: $0.args,
                     toolResult: $0.result,
-                    isError: $0.isError
+                    isError: $0.isError,
+                    customType: $0.customType
                 )
             }
         )
@@ -143,12 +144,13 @@ struct MessageMetaDTO: Decodable {
     let args: String?         // JSON string
     let result: String?
     let isError: Bool?
+    // System/custom message fields
+    let customType: String?
 
     enum CodingKeys: String, CodingKey {
-        case thinking, model, args, result
+        case thinking, model, args, result, customType
         case inputTokens = "input_tokens"
         case outputTokens = "output_tokens"
-        // API sends camelCase for these
         case toolName, toolCallId, isError
     }
 
@@ -163,6 +165,7 @@ struct MessageMetaDTO: Decodable {
         toolName = try c.decodeIfPresent(String.self, forKey: .toolName)
         toolCallId = try c.decodeIfPresent(String.self, forKey: .toolCallId)
         isError = try c.decodeIfPresent(Bool.self, forKey: .isError)
+        customType = try c.decodeIfPresent(String.self, forKey: .customType)
     }
 }
 

@@ -31,7 +31,7 @@ const NODE_BIN = (() => {
 })()
 
 // V8 flags that must be passed as CLI args (not allowed in NODE_OPTIONS)
-const V8_FLAGS = ['--no-wasm-tier-up']
+const V8_FLAGS = ['--no-wasm-tier-up', '--liftoff-only', '--wasm-lazy-compilation']
 
 const IMAGE_DIR = join(os.tmpdir(), 'pi-dashboard-images')
 mkdirSync(IMAGE_DIR, { recursive: true })
