@@ -777,13 +777,16 @@ app.get('/api/sessions/context', (_req: Request, res: Response) => res.json({}))
 app.get('/api/sessions/usage', (_req: Request, res: Response) => res.json({}))
 app.post('/api/sessions/restart', (_req: Request, res: Response) => {
   res.json({ ok: true })
-  console.log('🔄 Restart requested via API — persisting state and exiting...')
+  console.log('🔄 Restart requested via API — persisting state and gracefully shutting down...')
   // Give the response time to flush, then gracefully exit
   setTimeout(() => {
     persistSlots()
-    manager.shutdown()
-    shutdownPty()
-    process.exit(0) // run.sh auto-restart loop will bring us back
+    manager.gracefulShutdown(55000).finally(() => {
+      shutdownPty()
+      process.exit(0) // run.sh auto-restart loop will bring us back
+    })
+    // Hard deadline
+    setTimeout(() => { shutdownPty(); process.exit(0) }, 60000).unref()
   }, 500)
 })
 
@@ -1752,8 +1755,18 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
   console.log()
 })
 
-process.on('SIGINT', () => { saveSlotStateSync(manager.slots as any); manager.shutdown(); shutdownPty(); process.exit(0) })
-process.on('SIGTERM', () => { saveSlotStateSync(manager.slots as any); manager.shutdown(); shutdownPty(); process.exit(0) })
+process.on('SIGINT', () => {
+  saveSlotStateSync(manager.slots as any)
+  // Graceful shutdown — let pi processes consolidate memory
+  manager.gracefulShutdown(55000).finally(() => { shutdownPty(); process.exit(0) })
+  // Hard deadline: exit after 60s no matter what
+  setTimeout(() => { shutdownPty(); process.exit(0) }, 60000).unref()
+})
+process.on('SIGTERM', () => {
+  saveSlotStateSync(manager.slots as any)
+  manager.gracefulShutdown(55000).finally(() => { shutdownPty(); process.exit(0) })
+  setTimeout(() => { shutdownPty(); process.exit(0) }, 60000).unref()
+})
 process.on('uncaughtException', (err: any) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`❌ Port ${PORT} already in use — exiting so systemd can retry`)

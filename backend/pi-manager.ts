@@ -241,7 +241,10 @@ export class PiProcess extends EventEmitter {
       }
     })
 
+    const spawnedProc = this.proc
     this.proc.on('exit', (code: number | null) => {
+      // Ignore exit from a stale process (e.g. after /reload killed the old one)
+      if (this.proc !== spawnedProc && this.proc !== null) return
       this.ready = false
       this.running = false
       this._stopping = false
@@ -325,6 +328,7 @@ export class PiProcess extends EventEmitter {
           this.running = false
           this.buffer = ''
         }
+        this._stderrLines = []
         this.start()
         this.messages.push({ role: 'system', content: '🔄 Reloaded extensions, skills, prompts, and themes.', ts: new Date().toISOString() })
         this.emit('agent_end', { messages: [] })
@@ -435,6 +439,50 @@ export class PiProcess extends EventEmitter {
     return this.request({ type: 'get_state' })
   }
 
+  /**
+   * Gracefully shut down the pi process by closing stdin.
+   * This triggers pi's session_shutdown lifecycle (memory consolidation, etc.)
+   * and waits for the process to exit naturally.
+   * Returns a promise that resolves when the process exits or the timeout fires.
+   */
+  gracefulShutdown(timeoutMs: number = 60000): Promise<void> {
+    return new Promise<void>((resolve) => {
+      if (!this.proc || this.proc.killed || this.proc.exitCode !== null) {
+        this._rejectPendingRequests()
+        return resolve()
+      }
+
+      // Mark as stopping so health check / idle reaper don't interfere
+      this._stopping = true
+
+      // Listen for exit
+      const onExit = () => {
+        clearTimeout(watchdog)
+        resolve()
+      }
+      this.proc.once('exit', onExit)
+
+      // Watchdog: force-kill if graceful shutdown takes too long
+      const watchdog = setTimeout(() => {
+        this.proc?.removeListener('exit', onExit)
+        console.error(`[pi-manager] Slot ${this.slotKey}: graceful shutdown timed out after ${timeoutMs}ms, force-killing`)
+        this.kill()
+        resolve()
+      }, timeoutMs)
+
+      // Close stdin — triggers pi's onInputEnd → shutdown() → session_shutdown → dispose
+      try {
+        this.proc.stdin!.end()
+      } catch {
+        // stdin already closed or errored — fall back to kill
+        clearTimeout(watchdog)
+        this.proc?.removeListener('exit', onExit)
+        this.kill()
+        resolve()
+      }
+    })
+  }
+
   kill(): void {
     if (this.proc) {
       this.proc.kill('SIGTERM')
@@ -442,6 +490,10 @@ export class PiProcess extends EventEmitter {
         if (this.proc && !this.proc.killed) this.proc.kill('SIGKILL')
       }, 3000)
     }
+    this._rejectPendingRequests()
+  }
+
+  private _rejectPendingRequests(): void {
     // Reject pending requests
     for (const [id, { resolve, timer }] of this._pendingRequests) {
       clearTimeout(timer)
@@ -711,9 +763,10 @@ export class PiManager {
   deleteSlot(key: string): void {
     const pi = this.slots.get(key)
     if (pi) {
-      pi.kill()
       this.slots.delete(key)
       this._save()
+      // Graceful shutdown in background — lets pi-memory consolidate
+      pi.gracefulShutdown().catch(() => {})
     }
   }
 
@@ -837,13 +890,12 @@ export class PiManager {
           pi.abort()
         }
       }
-      // Reap idle processes (not running a turn, idle > 10 minutes)
+      // Reap idle processes (not running a turn, idle > 30 minutes)
       if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
         const idle = now - pi._lastActivity
         if (idle > 30 * 60 * 1000) {
-          pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, stopping process` })
-          pi.kill()
-          pi.proc = null
+          pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
+          pi.gracefulShutdown().then(() => { pi.proc = null })
         }
       }
     }
@@ -857,6 +909,18 @@ export class PiManager {
     for (const pi of this.slots.values()) {
       pi.kill()
     }
+    this.slots.clear()
+  }
+
+  /** Graceful shutdown — gives each pi process time to consolidate memory */
+  async gracefulShutdown(timeoutMs: number = 60000): Promise<void> {
+    if (this._healthInterval) {
+      clearInterval(this._healthInterval)
+      this._healthInterval = null
+    }
+    // Shut down all slots in parallel, each with its own timeout
+    const promises = Array.from(this.slots.values()).map(pi => pi.gracefulShutdown(timeoutMs))
+    await Promise.all(promises)
     this.slots.clear()
   }
 }
