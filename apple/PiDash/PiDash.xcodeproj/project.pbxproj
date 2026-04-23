@@ -12,6 +12,7 @@
 		11503C4F14838E3B211E4B4A /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5F0C47E4102AE435A1B98D /* HealthKitService.swift */; };
 		1238378409A980AA1988538F /* AssistantMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4D7D6C4DB561619D00CAD4 /* AssistantMessageContent.swift */; };
 		1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 238BF8BF39C77ED440301D70 /* ToolCallView.swift */; };
+		A1B2C3D4E5F60002 /* SystemMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60001 /* SystemMessageView.swift */; };
 		24806DB610F98A80FC3BE0E9 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F28C3416B9C8AAD81CB7E8DB /* SearchResultsView.swift */; };
 		24E8F6F70F26BC3FBE4A8BDF /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E132D16CAF28DCB3B174F28 /* CalendarService.swift */; };
 		2573911977348401137DDA96 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AAA3212B4C4B2DC1AD5C559 /* LocalNotificationService.swift */; };
@@ -75,6 +76,7 @@ C050F7E97122191AA8F77EB2 /* PiDashShare.appex in Embed App Extensions */ = {isa 
 		1DEF0C100C668F368D19E82F /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		22694B85988C36300067EA53 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		238BF8BF39C77ED440301D70 /* ToolCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60001 /* SystemMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMessageView.swift; sourceTree = "<group>"; };
 		25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTheme.swift; sourceTree = "<group>"; };
 		28946A6701DF563BB721914B /* BackgroundRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshService.swift; sourceTree = "<group>"; };
 		2C952B932891A69081772B14 /* AskPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPiIntent.swift; sourceTree = "<group>"; };
@@ -237,6 +239,7 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				A6C0956DDB33362A723DD498 /* MessageBubble.swift */,
 				85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */,
 				238BF8BF39C77ED440301D70 /* ToolCallView.swift */,
+				A1B2C3D4E5F60001 /* SystemMessageView.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -517,6 +520,7 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				78F84E31957C3BF31BB704F1 /* SpeechService.swift in Sources */,
 				F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */,
 				1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */,
+				A1B2C3D4E5F60002 /* SystemMessageView.swift in Sources */,
 				63904453439371641F247790 /* WebSocketManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

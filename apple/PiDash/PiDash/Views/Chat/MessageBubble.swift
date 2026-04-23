@@ -150,13 +150,10 @@ struct MessageBubble: View {
             )
 
         case .system:
-            Text(message.content)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(theme.cardBg)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            SystemMessageView(
+                content: message.content,
+                customType: message.meta?.customType
+            )
         }
     }
 }
