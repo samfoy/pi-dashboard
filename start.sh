@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Source user env vars (DAILY_LOG_DIR, etc.) — launchd doesn't source .zshenv
+[[ -f ~/.zshenv ]] && source ~/.zshenv
+
 cd "$(dirname "$0")"
 
 # Kill anything holding our port before starting

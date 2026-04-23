@@ -941,7 +941,12 @@ app.get('/api/chat/slots/:key/system-prompt', async (req: Request, res: Response
     let memoryBlock = ''
     let memoryStats = { semantic: 0, lessons: 0 }
     try {
-      const piMemoryPkg = join(os.homedir(), 'scratch', 'pi-memory')
+      // Check common locations for pi-memory package
+      const piMemoryCandidates = [
+        join(os.homedir(), 'Projects', 'pi-memory'),
+        join(os.homedir(), 'scratch', 'pi-memory'),
+      ]
+      const piMemoryPkg = piMemoryCandidates.find(p => { try { statSync(join(p, 'package.json')); return true } catch { return false } }) || piMemoryCandidates[0]
       // pi-memory uses node:sqlite (CJS dist) — require() from its directory
       const Module = await import('module')
       const req = Module.default.createRequire(join(piMemoryPkg, 'package.json'))
