@@ -1,27 +1,115 @@
 import SwiftUI
 
+// MARK: - DirFrequencyStore
+
+/// Tracks how often each working directory is used for sessions.
+/// Persisted to UserDefaults (App Group). Sorted by frequency then recency.
+@Observable
+final class DirFrequencyStore {
+    struct Entry: Identifiable {
+        let path: String
+        var count: Int
+        var lastUsed: Date
+        var id: String { path }
+    }
+
+    private(set) var entries: [Entry] = []
+
+    private static let storeKey = "dirFrequency.store"
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = ServerConfig.sharedDefaults) {
+        self.defaults = defaults
+        load()
+        migratePinnedDirs()
+    }
+
+    /// Record a directory being used (session created or cwd changed).
+    func record(_ path: String) {
+        if let i = entries.firstIndex(where: { $0.path == path }) {
+            entries[i].count += 1
+            entries[i].lastUsed = Date()
+        } else {
+            entries.append(Entry(path: path, count: 1, lastUsed: Date()))
+        }
+        sort()
+        save()
+    }
+
+    /// Remove a directory from tracking.
+    func remove(_ path: String) {
+        entries.removeAll { $0.path == path }
+        save()
+    }
+
+    /// Sorted by frequency (descending), then recency.
+    private func sort() {
+        entries.sort { a, b in
+            if a.count != b.count { return a.count > b.count }
+            return a.lastUsed > b.lastUsed
+        }
+    }
+
+    // MARK: - Persistence
+
+    private struct Stored: Codable {
+        let path: String
+        let count: Int
+        let lastUsed: Double // timeIntervalSince1970
+    }
+
+    private func load() {
+        guard let data = defaults.data(forKey: Self.storeKey),
+              let stored = try? JSONDecoder().decode([Stored].self, from: data) else { return }
+        entries = stored.map {
+            Entry(path: $0.path, count: $0.count, lastUsed: Date(timeIntervalSince1970: $0.lastUsed))
+        }
+        sort()
+    }
+
+    private func save() {
+        let stored = entries.map {
+            Stored(path: $0.path, count: $0.count, lastUsed: $0.lastUsed.timeIntervalSince1970)
+        }
+        if let data = try? JSONEncoder().encode(stored) {
+            defaults.set(data, forKey: Self.storeKey)
+        }
+    }
+
+    /// One-time migration from old pinned projects.
+    private static let migratedKey = "dirFrequency.migratedPinned"
+    private static let pinnedKey = "projectPicker.pinnedProjects"
+
+    private func migratePinnedDirs() {
+        guard !defaults.bool(forKey: Self.migratedKey) else { return }
+        let pinned = defaults.stringArray(forKey: Self.pinnedKey) ?? []
+        let existingPaths = Set(entries.map(\.path))
+        for path in pinned where !existingPaths.contains(path) {
+            entries.append(Entry(path: path, count: 1, lastUsed: Date()))
+        }
+        sort()
+        save()
+        defaults.set(true, forKey: Self.migratedKey)
+    }
+}
+
 // MARK: - ProjectPickerSheet
 
 /// Sheet for picking a working directory when creating or switching the cwd of a chat slot.
-/// Sections: direct path input, Home, Recent Projects, Pinned Projects, Browse.
+/// Sections: direct path input, Frequent Projects, Recent (from active slots), Browse.
 struct ProjectPickerSheet: View {
     let slots: [ChatSlot]
     let apiClient: APIClient
     let onSelect: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
-
-    // Pinned projects — stored in App Group UserDefaults
-    @State private var pinnedProjects: [String] = []
+    @State private var dirFreq = DirFrequencyStore()
 
     // Direct-path field
     @State private var pathText: String = ""
 
     // Browse state
     @State private var showBrowse = false
-
-    // Keyed from App Group UserDefaults
-    private static let pinnedKey = "projectPicker.pinnedProjects"
 
     var body: some View {
         NavigationStack {
@@ -59,36 +147,40 @@ struct ProjectPickerSheet: View {
                     .foregroundStyle(.primary)
                 }
 
-                // Pinned projects
-                if !pinnedProjects.isEmpty {
-                    Section("Pinned") {
-                        ForEach(pinnedProjects, id: \.self) { path in
-                            ProjectRow(path: path, icon: "star.fill", iconColor: .yellow) {
-                                pick(path)
+                // Frequent directories
+                if !dirFreq.entries.isEmpty {
+                    Section("Frequent") {
+                        ForEach(dirFreq.entries.prefix(15)) { entry in
+                            ProjectRow(
+                                path: entry.path,
+                                icon: "flame.fill",
+                                iconColor: .orange,
+                                badge: "\(entry.count)"
+                            ) {
+                                pick(entry.path)
                             }
-                        }
-                        .onDelete { offsets in
-                            pinnedProjects.remove(atOffsets: offsets)
-                            savePins()
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    dirFreq.remove(entry.path)
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                            }
                         }
                     }
                 }
 
-                // Recent projects from existing slots
+                // Recent projects from active slots (not already in frequent)
                 let recents = recentProjects
                 if !recents.isEmpty {
-                    Section("Recent") {
+                    Section("From Active Sessions") {
                         ForEach(recents, id: \.self) { path in
-                            ProjectRow(path: path, icon: "clock", iconColor: .secondary) {
+                            ProjectRow(
+                                path: path,
+                                icon: "clock",
+                                iconColor: .secondary
+                            ) {
                                 pick(path)
-                            }
-                            .swipeActions(edge: .leading) {
-                                Button {
-                                    pin(path)
-                                } label: {
-                                    Label("Pin", systemImage: "star")
-                                }
-                                .tint(.yellow)
                             }
                         }
                     }
@@ -108,7 +200,6 @@ struct ProjectPickerSheet: View {
                 })
             }
         }
-        .onAppear { loadPins() }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -116,10 +207,11 @@ struct ProjectPickerSheet: View {
     // MARK: - Helpers
 
     private var recentProjects: [String] {
-        let seen = Set(pinnedProjects)
+        let frequentPaths = Set(dirFreq.entries.map(\.path))
         var unique: [String] = []
         for slot in slots.sorted(by: { $0.updatedAt > $1.updatedAt }) {
-            guard let cwd = slot.cwd, !cwd.isEmpty, !seen.contains(cwd),
+            guard let cwd = slot.cwd, !cwd.isEmpty,
+                  !frequentPaths.contains(cwd),
                   !unique.contains(cwd) else { continue }
             unique.append(cwd)
         }
@@ -127,6 +219,7 @@ struct ProjectPickerSheet: View {
     }
 
     private func pick(_ path: String) {
+        dirFreq.record(path)
         onSelect(path)
         dismiss()
     }
@@ -136,21 +229,6 @@ struct ProjectPickerSheet: View {
         guard !trimmed.isEmpty else { return }
         pick(trimmed)
     }
-
-    private func pin(_ path: String) {
-        guard !pinnedProjects.contains(path) else { return }
-        pinnedProjects.insert(path, at: 0)
-        savePins()
-    }
-
-    private func loadPins() {
-        let defaults = ServerConfig.sharedDefaults
-        pinnedProjects = defaults.stringArray(forKey: Self.pinnedKey) ?? []
-    }
-
-    private func savePins() {
-        ServerConfig.sharedDefaults.set(pinnedProjects, forKey: Self.pinnedKey)
-    }
 }
 
 // MARK: - ProjectRow
@@ -159,6 +237,7 @@ private struct ProjectRow: View {
     let path: String
     let icon: String
     let iconColor: Color
+    var badge: String? = nil
     let action: () -> Void
 
     private var displayName: String {
@@ -181,6 +260,15 @@ private struct ProjectRow: View {
                         .lineLimit(1)
                 }
                 Spacer()
+                if let badge {
+                    Text(badge)
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.secondary.opacity(0.12))
+                        .clipShape(Capsule())
+                }
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
