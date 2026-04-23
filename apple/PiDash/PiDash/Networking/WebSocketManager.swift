@@ -33,6 +33,7 @@ enum ServerEvent {
     case toolCall(slot: String, tool: String, id: String, args: AnyCodable?)
     case toolResult(slot: String, tool: String, id: String, result: String?, isError: Bool)
     case slotTitle(key: String, title: String)
+    case slotTags(key: String, tags: [String])
     case contextUsage(slot: String, tokens: Int?, percent: Double?)
     case notification(kind: String, title: String, body: String?, slot: String?, ts: String)
     case chatError(slot: String, message: String)
@@ -206,6 +207,10 @@ final class WebSocketManager: ObservableObject {
         case "slot_title":
             if let e = try? dec.decode(WSSlotTitleEvent.self, from: rawData) {
                 return .slotTitle(key: e.data.key, title: e.data.title)
+            }
+        case "slot_tags":
+            if let raw = try? dec.decode(WSSlotTagsEvent.self, from: rawData) {
+                return .slotTags(key: raw.data.key, tags: raw.data.tags)
             }
         case "context_usage":
             if let e = try? dec.decode(WSContextUsageEvent.self, from: rawData) {

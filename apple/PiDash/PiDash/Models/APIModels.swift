@@ -56,8 +56,10 @@ struct SlotDTO: Decodable {
     let createdAt: String?   // ISO8601 from server
     let updatedAt: String?   // ISO8601 from server
 
+    let tags: [String]?
+
     enum CodingKeys: String, CodingKey {
-        case key, title, messages, running, stopping, model, cwd
+        case key, title, messages, running, stopping, model, cwd, tags
         case pendingApproval = "pending_approval"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -75,7 +77,8 @@ struct SlotDTO: Decodable {
             lastMessage: nil,
             isStreaming: running ?? false,
             model: model,
-            cwd: cwd
+            cwd: cwd,
+            tags: tags ?? []
         )
     }
 }
@@ -268,6 +271,16 @@ struct WSSlotTitleEvent: Decodable {
     let data: WSSlotTitleData
 }
 
+struct WSSlotTagsData: Decodable {
+    let key: String
+    let tags: [String]
+}
+
+struct WSSlotTagsEvent: Decodable {
+    let type: String
+    let data: WSSlotTagsData
+}
+
 struct WSContextUsageEvent: Decodable {
     let type: String
     let data: WSContextUsageData
@@ -319,6 +332,10 @@ struct SetThinkingRequest: Encodable {
     let level: String
 }
 
+struct SetTagsRequest: Encodable {
+    let tags: [String]
+}
+
 // MARK: - Notifications
 
 struct NotificationDTO: Decodable, Identifiable {
@@ -367,6 +384,47 @@ struct SessionsResponse: Decodable {
     }
 }
 
+// MARK: - Session Search
+
+struct SessionSearchResult: Decodable, Identifiable {
+    let resultId: String  // renamed from `id` to avoid Identifiable conflict
+    let name: String
+    let file: String
+    let cwd: String?
+    let startedAt: String?
+    let projectSlug: String?
+    let summary: String?
+    let userMessageCount: Int?
+    let assistantMessageCount: Int?
+    let models: [String]?
+
+    var id: String { resultId }
+
+    enum CodingKeys: String, CodingKey {
+        case resultId = "id"
+        case name, file, cwd, startedAt, projectSlug, summary
+        case userMessageCount, assistantMessageCount, models
+    }
+
+    var startedDate: Date? {
+        guard let s = startedAt else { return nil }
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = f.date(from: s) { return d }
+        f.formatOptions = [.withInternetDateTime]
+        return f.date(from: s)
+    }
+
+    var messageCount: Int {
+        (userMessageCount ?? 0) + (assistantMessageCount ?? 0)
+    }
+}
+
+struct SessionSearchResponse: Decodable {
+    let results: [SessionSearchResult]
+    let error: String?
+}
+
 struct ResumeResponse: Decodable {
     let ok: Bool
     let key: String
@@ -401,6 +459,12 @@ struct AckNotificationRequest: Encodable {
 
 struct ResumeSessionRequest: Encodable {
     let key: String
+    let file: String?
+
+    init(key: String, file: String? = nil) {
+        self.key = key
+        self.file = file
+    }
 }
 
 struct ModelsResponse: Decodable {

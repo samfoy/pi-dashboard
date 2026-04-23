@@ -156,6 +156,16 @@ actor APIClient {
         _ = try await post(url: url, body: body)
     }
 
+    /// `PATCH /api/chat/slots/:key/tags` — set tags for a slot
+    func setTags(slot: String, tags: [String]) async throws -> [String] {
+        let url = try requireURL(path: "/chat/slots/\(slot)/tags")
+        let body = SetTagsRequest(tags: tags)
+        let data = try await patch(url: url, body: body)
+        struct TagsResponse: Decodable { let tags: [String] }
+        let response = try decoder.decode(TagsResponse.self, from: data)
+        return response.tags
+    }
+
     /// `GET /api/status` — for settings connection test
     func fetchStatus() async throws -> String {
         let url = try requireURL(path: "/status")
@@ -250,13 +260,33 @@ actor APIClient {
     }
 
     /// `POST /api/chat/slots/:key/resume` → creates a new slot resuming the given session key
-    func resumeSession(key: String) async throws -> String {
+    func resumeSession(key: String, file: String? = nil) async throws -> String {
         let url = try requireURL(path: "/chat/slots/\(key)/resume")
-        let body = ResumeSessionRequest(key: key)
+        let body = ResumeSessionRequest(key: key, file: file)
         let data = try await post(url: url, body: body)
         do {
             let response = try decoder.decode(ResumeResponse.self, from: data)
             return response.key
+        } catch {
+            throw APIError.decodingError(error)
+        }
+    }
+
+    /// `GET /api/sessions/search?q=&limit=` → search past sessions via FTS5
+    func searchSessions(query: String, limit: Int = 20) async throws -> [SessionSearchResult] {
+        guard var components = URLComponents(url: try requireURL(path: "/sessions/search"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        var items = [URLQueryItem(name: "limit", value: "\(limit)")]
+        if !query.isEmpty {
+            items.append(URLQueryItem(name: "q", value: query))
+        }
+        components.queryItems = items
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        do {
+            let response = try decoder.decode(SessionSearchResponse.self, from: data)
+            return response.results
         } catch {
             throw APIError.decodingError(error)
         }

@@ -211,6 +211,10 @@ final class AppState {
             if let i = slots.firstIndex(where: { $0.key == key }) {
                 slots[i].title = title
             }
+        case .slotTags(let key, let tags):
+            if let i = slots.firstIndex(where: { $0.key == key }) {
+                slots[i].tags = tags
+            }
         case .chatDone(let slotKey):
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].isStreaming = false

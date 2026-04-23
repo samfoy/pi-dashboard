@@ -37,6 +37,19 @@ struct SlotRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if !slot.tags.isEmpty {
+                HStack(spacing: 4) {
+                    ForEach(slot.tags, id: \.self) { tag in
+                        Text(tag)
+                            .font(.caption2)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(theme.accent.opacity(0.15))
+                            .foregroundStyle(theme.accent)
+                            .clipShape(Capsule())
+                    }
+                }
+            }
         }
         .padding(.vertical, 2)
     }
