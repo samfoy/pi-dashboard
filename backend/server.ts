@@ -1655,16 +1655,18 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     }
   })
 
-  pi.on('exit', () => {
+  pi.on('exit', (code: number | null) => {
     _stopStallDetector()
     if (midTurn) {
       midTurn = false
       streamBuf = ''
       _partialTextMsg = null
       _partialThinkMsg = null
+      const stderr = (pi as any)._stderrLines?.slice(-5)?.join('\n') || ''
+      const detail = `Exit code: ${code}${stderr ? '\n' + stderr : ''}`
       broadcast('chat_error', {
         slot: slotKey,
-        message: 'Pi process exited unexpectedly during generation.',
+        message: `Pi process exited unexpectedly during generation.\n${detail}`,
       })
     } else {
       broadcast('chat_done', { slot: slotKey })
@@ -1699,7 +1701,7 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
   console.log(`   Local:    http://localhost:${PORT}`)
   console.log(`   Network:  http://${hostname}:${PORT}`)
   console.log(`   Custom:   http://pi.dash:${PORT}`)
-  console.log(`   Tailscale: http://100.103.130.31:${PORT}`)
+  if (process.env.TAILSCALE_IP) console.log(`   Tailscale: http://${process.env.TAILSCALE_IP}:${PORT}`)
   console.log()
 })
 

@@ -10,15 +10,28 @@ import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
 
 // Resolve pi binary path at startup (avoids ENOENT in launchd)
-const PI_BIN = (() => {
+// Resolve pi script path at startup (avoids ENOENT in launchd)
+const PI_SCRIPT = (() => {
   try { return execSync('which pi', { encoding: 'utf-8' }).trim() } catch {}
-  // Fallback to common locations
   const candidates = ['/opt/homebrew/bin/pi', '/usr/local/bin/pi']
   for (const c of candidates) {
     try { execSync(`test -x ${c}`); return c } catch {}
   }
-  return 'pi' // last resort — rely on PATH
+  return 'pi'
 })()
+
+// Resolve node binary path
+const NODE_BIN = (() => {
+  try { return execSync('which node', { encoding: 'utf-8' }).trim() } catch {}
+  const candidates = ['/opt/homebrew/bin/node', '/usr/local/bin/node']
+  for (const c of candidates) {
+    try { execSync(`test -x ${c}`); return c } catch {}
+  }
+  return 'node'
+})()
+
+// V8 flags that must be passed as CLI args (not allowed in NODE_OPTIONS)
+const V8_FLAGS = ['--no-wasm-tier-up']
 
 const IMAGE_DIR = join(os.tmpdir(), 'pi-dashboard-images')
 mkdirSync(IMAGE_DIR, { recursive: true })
@@ -171,11 +184,13 @@ export class PiProcess extends EventEmitter {
       cwd?: string
     } = {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, PI_RUNTIME: 'dashboard', PI_DASH_PORT: String(process.env.PI_DASH_PORT || 7777) },
+      env: { ...process.env, PI_RUNTIME: 'dashboard', PI_DASH_PORT: String(process.env.PI_DASH_PORT || 7777), NODE_OPTIONS: [process.env.NODE_OPTIONS?.replace(/--no-wasm-tier-up/g, '').trim(), '--max-old-space-size=4096'].filter(Boolean).join(' ') },
     }
     if (this.cwd) spawnOpts.cwd = this.cwd
 
-    this.proc = spawn(PI_BIN, args, spawnOpts)
+    // Spawn via node directly so we can pass V8 flags (--no-wasm-tier-up)
+    // that are disallowed in NODE_OPTIONS but prevent WASM compiler OOM crashes
+    this.proc = spawn(NODE_BIN, [...V8_FLAGS, PI_SCRIPT, ...args], spawnOpts)
 
     // Ready promise — resolves when pi responds to get_state (templates loaded)
     this._readyPromise = this.request({ type: 'get_state' }, 15000).then((resp: any) => {
@@ -231,6 +246,7 @@ export class PiProcess extends EventEmitter {
         this._startupTimer = null
         this.emit('startup_error', { code, slotKey: this.slotKey, stderr: this._stderrLines.join('\n') })
       }
+      console.error(`[pi-manager] Slot ${this.slotKey} exited with code ${code}${this._stderrLines.length ? ' | last stderr: ' + this._stderrLines.slice(-3).join(' | ') : ''}`)
       this.emit('exit', code)
     })
 

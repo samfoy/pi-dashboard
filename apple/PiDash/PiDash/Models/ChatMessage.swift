@@ -76,4 +76,6 @@ struct MessageMeta: Codable, Equatable {
     var toolArgs: String?      // JSON string of args
     var toolResult: String?
     var isError: Bool?
+    // System/custom message metadata
+    var customType: String?
 }
