@@ -17,6 +17,7 @@ enum ShareState: Equatable {
 struct SlotInfo: Identifiable, Hashable {
     let id: String   // slot key, e.g. "chat-1-1713456000000"
     let title: String
+    let updatedAt: Date?
 }
 
 enum SharedContent {
@@ -198,8 +199,19 @@ final class ShareViewModel {
                     let title = (dict["title"] as? String)
                         ?? (dict["label"] as? String)
                         ?? key
-                    return SlotInfo(id: key, title: title)
+                    var updated: Date?
+                    if let ts = dict["updated_at"] as? String ?? dict["updatedAt"] as? String {
+                        let fmt = ISO8601DateFormatter()
+                        fmt.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                        updated = fmt.date(from: ts)
+                        if updated == nil {
+                            fmt.formatOptions = [.withInternetDateTime]
+                            updated = fmt.date(from: ts)
+                        }
+                    }
+                    return SlotInfo(id: key, title: title, updatedAt: updated)
                 }
+                .sorted { ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast) }
             }
         } catch {
             // Non-fatal — just leave slots empty
