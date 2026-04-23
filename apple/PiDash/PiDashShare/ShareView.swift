@@ -62,13 +62,35 @@ struct ShareView: View {
 
             // Chat picker
             Section("Send to") {
-                Picker("Chat", selection: $viewModel.selectedSlotID) {
-                    Text("New Chat").tag(String?.none)
-                    ForEach(viewModel.availableSlots) { slot in
-                        Text(slot.title).tag(String?.some(slot.id))
+                Button {
+                    viewModel.selectedSlotID = nil
+                } label: {
+                    HStack {
+                        Label("New Chat", systemImage: "plus.bubble")
+                        Spacer()
+                        if viewModel.selectedSlotID == nil {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color.accentColor)
+                        }
                     }
                 }
-                .pickerStyle(.menu)
+                .foregroundStyle(.primary)
+                ForEach(viewModel.availableSlots) { slot in
+                    Button {
+                        viewModel.selectedSlotID = slot.id
+                    } label: {
+                        HStack {
+                            Text(slot.title)
+                                .lineLimit(1)
+                            Spacer()
+                            if viewModel.selectedSlotID == slot.id {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.accentColor)
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
             }
 
             // Send button
