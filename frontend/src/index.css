@@ -325,14 +325,14 @@ html.is-standalone .standalone-pad [role="button"]{-webkit-app-region:no-drag}
 }
 
 .cmdk-kbd {
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-mono, ui-monospace, monospace);
   color: var(--muted);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 5px;
-  padding: 2px 6px;
-  line-height: 1;
+  padding: 3px 7px;
+  line-height: 1.2;
   margin-left: auto;
   white-space: nowrap;
 }

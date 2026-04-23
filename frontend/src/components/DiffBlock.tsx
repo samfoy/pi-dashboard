@@ -1,10 +1,13 @@
 import { memo, useState, useMemo } from 'react'
+import { diffWords } from 'diff'
 
 interface DiffLine {
   type: 'add' | 'del' | 'context' | 'hunk' | 'meta'
   content: string
   oldNum?: number
   newNum?: number
+  oldContent?: string
+  newContent?: string
 }
 
 function parseDiffLines(code: string): DiffLine[] {
@@ -88,7 +91,15 @@ function buildSideBySide(lines: DiffLine[]): { left: DiffLine | null; right: Dif
       while (i < lines.length && lines[i].type === 'add') { adds.push(lines[i]); i++ }
       const max = Math.max(dels.length, adds.length)
       for (let j = 0; j < max; j++) {
-        pairs.push({ left: dels[j] || null, right: adds[j] || null })
+        const d = dels[j] || null
+        const a = adds[j] || null
+        if (d && a) {
+          d.oldContent = d.content
+          d.newContent = a.content
+          a.oldContent = d.content
+          a.newContent = a.content
+        }
+        pairs.push({ left: d, right: a })
       }
     } else if (l.type === 'add') {
       pairs.push({ left: null, right: l })
@@ -96,6 +107,23 @@ function buildSideBySide(lines: DiffLine[]): { left: DiffLine | null; right: Dif
     } else { i++ }
   }
   return pairs
+}
+
+function WordDiffSpans({ oldText, newText, type }: { oldText: string; newText: string; type: 'add' | 'del' }) {
+  const parts = useMemo(() => diffWords(oldText, newText), [oldText, newText])
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (type === 'add' ? part.removed : part.added) return null
+        const highlight = type === 'add' ? part.added : part.removed
+        return (
+          <span key={i} className={highlight ? (type === 'add' ? 'bg-green-500/30 rounded-sm' : 'bg-red-500/30 rounded-sm') : ''}>
+            {part.value}
+          </span>
+        )
+      })}
+    </>
+  )
 }
 
 const CTX_COLLAPSE_THRESHOLD = 20
@@ -149,12 +177,20 @@ export default memo(function DiffBlock({ code, complete }: { code: string; compl
                 <div className={`w-1/2 flex overflow-hidden border-r border-border/30 ${left ? BG[lType] : ''}`}>
                   {hasLineNums && <span className="select-none text-muted/50 text-right w-[3.5ch] shrink-0 pr-1 border-r border-border/30">{left?.oldNum ?? ''}</span>}
                   <span className={`select-none w-[2ch] text-center shrink-0 ${left ? FG[lType] : 'text-muted'}`}>{left ? (SIGN[lType] || ' ') : ' '}</span>
-                  <span className={`px-2 flex-1 whitespace-pre ${left ? FG[lType] : 'text-muted'}`}>{left?.content || ' '}</span>
+                  <span className={`px-2 flex-1 whitespace-pre ${left ? FG[lType] : 'text-muted'}`}>
+                    {left && left.oldContent != null && left.newContent != null
+                      ? <WordDiffSpans oldText={left.oldContent} newText={left.newContent} type="del" />
+                      : (left?.content || ' ')}
+                  </span>
                 </div>
                 <div className={`w-1/2 flex overflow-hidden ${right ? BG[rType] : ''}`}>
                   {hasLineNums && <span className="select-none text-muted/50 text-right w-[3.5ch] shrink-0 pr-1 border-r border-border/30">{right?.newNum ?? ''}</span>}
                   <span className={`select-none w-[2ch] text-center shrink-0 ${right ? FG[rType] : 'text-muted'}`}>{right ? (SIGN[rType] || ' ') : ' '}</span>
-                  <span className={`px-2 flex-1 whitespace-pre ${right ? FG[rType] : 'text-muted'}`}>{right?.content || ' '}</span>
+                  <span className={`px-2 flex-1 whitespace-pre ${right ? FG[rType] : 'text-muted'}`}>
+                    {right && right.oldContent != null && right.newContent != null
+                      ? <WordDiffSpans oldText={right.oldContent} newText={right.newContent} type="add" />
+                      : (right?.content || ' ')}
+                  </span>
                 </div>
               </div>
             )

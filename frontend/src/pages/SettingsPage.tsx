@@ -7,8 +7,9 @@ import { useTheme, THEMES, type ThemeId } from '../hooks/useTheme'
 import { useCustomStyle, parseVars } from '../hooks/useCustomStyle'
 import { BUILTIN_THEMES } from '../themes'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
+import { ACTIONS, formatKey, setShortcut, resetShortcut, resetAllShortcuts, hasCustomShortcuts, subscribeShortcuts, eventToKeyString, type ActionCategory } from '../shortcuts'
 
-type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer'
+type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer' | 'shortcuts'
 
 /* ── Shared form components ── */
 
@@ -1024,6 +1025,100 @@ function DeveloperTab() {
   )
 }
 
+/* ── SHORTCUTS TAB ── */
+function ShortcutsTab() {
+  const [, setTick] = useState(0)
+  const [recording, setRecording] = useState<string | null>(null)
+
+  useEffect(() => subscribeShortcuts(() => setTick(t => t + 1)), [])
+
+  useEffect(() => {
+    if (!recording) return
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const keys = eventToKeyString(e)
+      if (!keys) return
+      if (keys === 'Escape') { setRecording(null); return }
+      setShortcut(recording, keys)
+      setRecording(null)
+    }
+    document.addEventListener('keydown', handler, true)
+    return () => document.removeEventListener('keydown', handler, true)
+  }, [recording])
+
+  const categories: { id: ActionCategory; label: string }[] = [
+    { id: 'general', label: 'General' },
+    { id: 'navigation', label: 'Navigation' },
+    { id: 'editing', label: 'Editing' },
+  ]
+
+  return (
+    <div className="space-y-4">
+      {hasCustomShortcuts() && (
+        <div className="flex justify-end">
+          <button
+            className="px-3 py-1.5 rounded-md text-[12px] font-medium border border-danger/30 text-danger bg-transparent cursor-pointer hover:bg-danger-subtle transition-all"
+            onClick={() => { if (confirm('Reset all shortcuts to defaults?')) resetAllShortcuts() }}
+          >
+            Reset All to Defaults
+          </button>
+        </div>
+      )}
+
+      {categories.map(cat => {
+        const actions = Object.values(ACTIONS).filter(a => a.category === cat.id)
+        if (!actions.length) return null
+        return (
+          <Card key={cat.id}>
+            <CardTitle>{cat.label}</CardTitle>
+            <div className="divide-y divide-border">
+              {actions.map(a => {
+                const isRecording = recording === a.id
+                const isCustom = a.keys !== a.defaultKeys
+                return (
+                  <div key={a.id} className="flex items-center justify-between py-2.5 gap-3">
+                    <div className="min-w-0">
+                      <span className="text-[13px] text-text">{a.description}</span>
+                      {isCustom && a.defaultKeys && (
+                        <div className="text-[11px] text-muted/50 mt-0.5">default: <span className="font-mono">{formatKey(a.defaultKeys)}</span></div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        className={`min-w-[80px] px-2.5 py-1.5 rounded-md text-[12px] font-mono text-center border cursor-pointer transition-all ${
+                          isRecording
+                            ? 'border-accent bg-accent-subtle text-accent animate-pulse'
+                            : 'border-border bg-bg-elevated text-muted hover:border-border-strong hover:text-text'
+                        }`}
+                        onClick={() => setRecording(isRecording ? null : a.id)}
+                        title={isRecording ? 'Press a key combo (Esc to cancel)' : 'Click to rebind'}
+                      >
+                        {isRecording ? 'Press keys…' : a.keys ? formatKey(a.keys) : '—'}
+                      </button>
+                      {isCustom && (
+                        <button
+                          className="px-1.5 py-1.5 rounded text-[11px] text-muted hover:text-text bg-transparent border-none cursor-pointer transition-colors"
+                          onClick={() => resetShortcut(a.id)}
+                          title="Reset to default"
+                        >↺</button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )
+      })}
+
+      <div className="text-[12px] text-muted/50 text-center pt-2">
+        Click a binding to record a new key combo · Press Esc to cancel · Customizations are stored in your browser
+      </div>
+    </div>
+  )
+}
+
 /* ── SETTINGS PAGE ── */
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>('model')
@@ -1036,6 +1131,7 @@ export default function SettingsPage() {
     { id: 'chat', label: 'Chat', icon: '💬' },
     { id: 'general', label: 'Packages', icon: '📦' },
     { id: 'skills', label: 'Skills', icon: '🛠' },
+    { id: 'shortcuts', label: 'Shortcuts', icon: '⌨' },
     { id: 'vault', label: 'Vault', icon: '📁' },
     { id: 'developer', label: 'Developer', icon: '🔧' },
   ]
@@ -1064,6 +1160,7 @@ export default function SettingsPage() {
           {tab === 'skills' && <SkillsTab />}
           {tab === 'chat' && <ChatTab />}
           {tab === 'display' && <DisplayTab />}
+          {tab === 'shortcuts' && <ShortcutsTab />}
           {tab === 'vault' && <VaultTab />}
           {tab === 'developer' && <DeveloperTab />}
         </div>

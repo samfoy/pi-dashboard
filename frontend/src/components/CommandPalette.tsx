@@ -8,6 +8,7 @@ import { useTheme, THEMES, type ThemeId } from '../hooks/useTheme'
 import { useCustomStyle, parseVars } from '../hooks/useCustomStyle'
 import { BUILTIN_THEMES } from '../themes'
 import { api } from '../api/client'
+import { ACTIONS, formatKey } from '../shortcuts'
 
 const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high']
 
@@ -492,22 +493,22 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
             <Command.Item value="Go to Chat" onSelect={() => run(() => navigate('/chat'))} className="cmdk-item">
               <span className="cmdk-item-icon">💬</span>
               <span className="cmdk-item-label">Go to Chat</span>
-              <kbd className="cmdk-kbd">Ctrl+1</kbd>
+              <kbd className="cmdk-kbd">{formatKey(ACTIONS.goChat.keys!)}</kbd>
             </Command.Item>
             <Command.Item value="Go to System" onSelect={() => run(() => navigate('/system'))} className="cmdk-item">
               <span className="cmdk-item-icon">🖥</span>
               <span className="cmdk-item-label">Go to System</span>
-              <kbd className="cmdk-kbd">Ctrl+2</kbd>
+              <kbd className="cmdk-kbd">{formatKey(ACTIONS.goSystem.keys!)}</kbd>
             </Command.Item>
             <Command.Item value="Go to Logs" onSelect={() => run(() => navigate('/logs'))} className="cmdk-item">
               <span className="cmdk-item-icon">📄</span>
               <span className="cmdk-item-label">Go to Logs</span>
-              <kbd className="cmdk-kbd">Ctrl+3</kbd>
+              <kbd className="cmdk-kbd">{formatKey(ACTIONS.goLogs.keys!)}</kbd>
             </Command.Item>
             <Command.Item value="Go to Settings" onSelect={() => run(() => navigate('/settings'))} className="cmdk-item">
               <span className="cmdk-item-icon">⚙</span>
               <span className="cmdk-item-label">Go to Settings</span>
-              <kbd className="cmdk-kbd">Ctrl+4</kbd>
+              <kbd className="cmdk-kbd">{formatKey(ACTIONS.goSettings.keys!)}</kbd>
             </Command.Item>
           </Command.Group>
 
@@ -539,24 +540,27 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
             <Command.Item value="Show system prompt instructions context" onSelect={() => enterMode('system-prompt')} className="cmdk-item">
               <span className="cmdk-item-icon">🥧</span>
               <span className="cmdk-item-label">Show System Prompt</span>
+              {ACTIONS.systemPrompt.keys && <kbd className="cmdk-kbd">{formatKey(ACTIONS.systemPrompt.keys)}</kbd>}
             </Command.Item>
             <Command.Item value="Resume session search history" onSelect={() => enterMode('session-search')} className="cmdk-item">
               <span className="cmdk-item-icon">📜</span>
               <span className="cmdk-item-label">Resume Session…</span>
+              {ACTIONS.resumeSession.keys && <kbd className="cmdk-kbd">{formatKey(ACTIONS.resumeSession.keys)}</kbd>}
             </Command.Item>
             <Command.Item value="New session /new" onSelect={() => run(() => { dispatch(switchSlot(null)); navigate('/chat') })} className="cmdk-item">
               <span className="cmdk-item-icon">✨</span>
               <span className="cmdk-item-label">New Session</span>
-              <kbd className="cmdk-kbd">Ctrl+N</kbd>
+              <kbd className="cmdk-kbd">{formatKey(ACTIONS.newSession.keys!)}</kbd>
             </Command.Item>
             <Command.Item value="Theme picker" onSelect={() => setMode('theme')} className="cmdk-item">
               <span className="cmdk-item-icon">🎨</span>
               <span className="cmdk-item-label">Theme</span>
+              {ACTIONS.themePicker.keys && <kbd className="cmdk-kbd">{formatKey(ACTIONS.themePicker.keys)}</kbd>}
             </Command.Item>
             <Command.Item value="Toggle sidebar" onSelect={() => run(onToggleSidebar)} className="cmdk-item">
               <span className="cmdk-item-icon">📐</span>
               <span className="cmdk-item-label">Toggle Sidebar</span>
-              <kbd className="cmdk-kbd">Ctrl+\</kbd>
+              <kbd className="cmdk-kbd">{formatKey(ACTIONS.toggleSidebar.keys!)}</kbd>
             </Command.Item>
             <Command.Item value="Refresh reload" onSelect={() => run(() => { dispatch(fetchSlots()) })} className="cmdk-item">
               <span className="cmdk-item-icon">🔄</span>

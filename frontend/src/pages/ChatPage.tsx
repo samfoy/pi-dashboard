@@ -21,7 +21,7 @@ import SlashCommandMenu from '../components/SlashCommandMenu'
 import PathCompleteMenu from '../components/PathCompleteMenu'
 import { usePanelState, detectFileType } from '../hooks/usePanelState'
 import { WsContext } from '../App'
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { registerAction } from '../shortcuts'
 import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage, SystemMessage } from './chat'
 import ChatSidebar from './ChatSidebar'
 
@@ -505,14 +505,17 @@ export default function ChatPage() {
     }).catch(() => {})
   }, [panel.filePath, panel.comments, panel.selectedVersion, panel.versions, send])
 
-  // Chat keyboard shortcuts
-  useKeyboardShortcuts(useMemo(() => [
-    { key: 'n', ctrl: true, label: 'New session', action: () => { wantsNewSession.current = true; dispatch(switchSlot(null)) } },
-    { key: 'l', ctrl: true, label: 'Focus input', action: () => inputRef.current?.focus() },
-    { key: 'f', ctrl: true, label: 'Search messages', action: () => setShowSearch(s => !s) },
-    { key: 'Escape', label: 'Stop / Close search', action: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } },
-    { key: 'w', ctrl: true, label: 'Close session', action: () => { if (activeSlot) dispatch(deleteSlot(activeSlot)) } },
-  ], [activeSlot, slotRunning, showSearch, dispatch]))
+  // Chat keyboard shortcuts — register into centralized action registry
+  useEffect(() => {
+    const unsubs = [
+      registerAction('newSession',      { callback: () => { wantsNewSession.current = true; dispatch(switchSlot(null)) } }),
+      registerAction('focusInput',      { callback: () => inputRef.current?.focus() }),
+      registerAction('searchMessages',  { callback: () => setShowSearch(s => !s) }),
+      registerAction('escape',          { callback: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } }),
+      registerAction('closeSession',    { callback: () => { if (activeSlot) dispatch(deleteSlot(activeSlot)) } }),
+    ]
+    return () => unsubs.forEach(fn => fn())
+  }, [activeSlot, slotRunning, showSearch, dispatch])
 
   // Clear split pane if the slot was deleted
   useEffect(() => {

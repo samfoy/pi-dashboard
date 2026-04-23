@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, createContext } from 'react'
+import { useEffect, useState, useCallback, createContext } from 'react'
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from './store'
 import { fetchSlots, sseStatus, clearSlotErrors } from './store/dashboardSlice'
@@ -6,7 +6,7 @@ import { fetchNotifications } from './store/notificationsSlice'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useTheme } from './hooks/useTheme'
 import { useCustomStyle } from './hooks/useCustomStyle'
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useShortcutListener, registerAction, formatKey, getShortcutsByCategory } from './shortcuts'
 import { api } from './api/client'
 import ChatPage from './pages/ChatPage'
 import MarkdownRenderer from './components/MarkdownRenderer'
@@ -117,20 +117,27 @@ export default function App() {
 
   const toggleNav = () => setNavCollapsed(prev => { const next = !prev; localStorage.setItem('mc-nav', next ? '1' : '0'); return next })
 
-  // Global keyboard shortcuts
-  const shortcuts = useMemo(() => [
-    { key: '1', ctrl: true, label: 'Go to Chat', action: () => navigate('/chat') },
-    { key: '2', ctrl: true, label: 'Go to System', action: () => navigate('/system') },
-    { key: '3', ctrl: true, label: 'Go to Logs', action: () => navigate('/logs') },
-    { key: '4', ctrl: true, label: 'Go to Settings', action: () => navigate('/settings') },
-    { key: '\\', ctrl: true, label: 'Toggle sidebar', action: () => toggleNav() },
-    { key: '/', ctrl: false, label: 'Show shortcuts', action: () => setShowShortcuts(s => !s) },
-    { key: 'p', ctrl: true, shift: true, label: 'Command palette', action: () => setCommandPaletteOpen(s => !s) },
-    { key: 'p', ctrl: true, label: 'Session picker', action: () => setSessionPickerOpen(s => !s) },
-    { key: 'Escape', label: 'Close dialog', action: () => { setShowShortcuts(false); setShowChangelog(false); setCommandPaletteOpen(false); setSessionPickerOpen(false) } },
-    { key: 'w', ctrl: true, label: 'Close session (prevent tab close)', action: () => { const onChat = location.pathname === '/chat' || location.pathname === '/'; if (!onChat) navigate('/chat') } },
-  ], [navigate, location.pathname])
-  useKeyboardShortcuts(shortcuts)
+  // Global keyboard shortcuts via centralized registry
+  useShortcutListener()
+
+  useEffect(() => {
+    const unsubs = [
+      registerAction('goChat',          { callback: () => navigate('/chat') }),
+      registerAction('goSystem',        { callback: () => navigate('/system') }),
+      registerAction('goLogs',          { callback: () => navigate('/logs') }),
+      registerAction('goSettings',      { callback: () => navigate('/settings') }),
+      registerAction('toggleSidebar',   { callback: () => toggleNav() }),
+      registerAction('showShortcuts',   { callback: () => setShowShortcuts(s => !s) }),
+      registerAction('commandPalette',  { callback: () => setCommandPaletteOpen(s => !s) }),
+      registerAction('sessionPicker',   { callback: () => setSessionPickerOpen(s => !s) }),
+      registerAction('escape',          { callback: () => { setShowShortcuts(false); setShowChangelog(false); setCommandPaletteOpen(false); setSessionPickerOpen(false) } }),
+      registerAction('closeSession',    { callback: () => { const onChat = location.pathname === '/chat' || location.pathname === '/'; if (!onChat) navigate('/chat') } }),
+      registerAction('themePicker',     { callback: () => setCommandPaletteOpen(true) }),
+      registerAction('systemPrompt',    { callback: () => setCommandPaletteOpen(true) }),
+      registerAction('resumeSession',   { callback: () => setCommandPaletteOpen(true) }),
+    ]
+    return () => unsubs.forEach(fn => fn())
+  }, [navigate, location.pathname])
 
   const activePath = location.pathname
   const isChat = activePath === '/chat' || activePath === '/'
@@ -200,50 +207,37 @@ export default function App() {
         </div>
       </header>
 
-      {/* Keyboard shortcuts modal */}
-      {showShortcuts && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/60 backdrop-blur-sm animate-rise" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={() => setShowShortcuts(false)}>
-          <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-sm font-bold text-text-strong">⌨ Keyboard Shortcuts</div>
-              <button className="text-muted text-[13px] cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => setShowShortcuts(false)}>✕</button>
-            </div>
-            <div className="space-y-1">
-              {[
-                { keys: ['Ctrl', 'K'], label: 'Command palette' },
-                { keys: ['Ctrl', '1'], label: 'Go to Chat' },
-                { keys: ['Ctrl', '2'], label: 'Go to System' },
-                { keys: ['Ctrl', '3'], label: 'Go to Logs' },
-                { keys: ['Ctrl', '4'], label: 'Go to Settings' },
-                { keys: ['Ctrl', '\\'], label: 'Toggle sidebar' },
-                { keys: ['/'], label: 'Show shortcuts' },
-                { keys: ['Esc'], label: 'Close dialog / Stop generation' },
-                { keys: ['Ctrl', 'N'], label: 'New session', section: 'Chat' },
-                { keys: ['Ctrl', 'W'], label: 'Close session' },
-                { keys: ['Ctrl', 'L'], label: 'Focus input' },
-                { keys: ['Enter'], label: 'Send message' },
-                { keys: ['Shift', 'Enter'], label: 'New line' },
-                { keys: ['/'], label: 'Slash commands (in input)' },
-              ].map((s, i) => (
-                <div key={i}>
-                  {s.section && <div className="text-[11px] text-muted font-medium uppercase tracking-wider mt-3 mb-1">{s.section}</div>}
-                  <div className="flex items-center justify-between py-1.5">
-                    <span className="text-[13px] text-text">{s.label}</span>
-                    <div className="flex gap-1">
-                      {s.keys.map(k => (
-                        <kbd key={k} className="px-1.5 py-0.5 rounded text-[12px] font-mono bg-bg-elevated border border-border text-muted min-w-[24px] text-center">{k}</kbd>
-                      ))}
-                    </div>
+      {/* Keyboard shortcuts modal — driven by registry */}
+      {showShortcuts && (() => {
+        const byCategory = getShortcutsByCategory()
+        const categoryLabels: Record<string, string> = { navigation: 'Navigation', general: 'General', editing: 'Editing' }
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/60 backdrop-blur-sm animate-rise" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={() => setShowShortcuts(false)}>
+            <div className="bg-card border border-border rounded-xl p-6 w-full max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <div className="text-sm font-bold text-text-strong">⌨ Keyboard Shortcuts</div>
+                <button className="text-muted text-[13px] cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => setShowShortcuts(false)}>✕</button>
+              </div>
+              <div className="space-y-1">
+                {Object.entries(byCategory).map(([cat, actions]) => actions.length > 0 && (
+                  <div key={cat}>
+                    <div className="text-[11px] text-muted font-medium uppercase tracking-wider mt-3 mb-1">{categoryLabels[cat] || cat}</div>
+                    {actions.map(a => (
+                      <div key={a.id} className="flex items-center justify-between py-1.5">
+                        <span className="text-[13px] text-text">{a.description}</span>
+                        {a.keys && <kbd className="px-1.5 py-0.5 rounded text-[12px] font-mono bg-bg-elevated border border-border text-muted min-w-[24px] text-center">{formatKey(a.keys)}</kbd>}
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-3 border-t border-border text-[12px] text-muted text-center">
-              Ctrl = ⌘ on Mac
+                ))}
+              </div>
+              <div className="mt-4 pt-3 border-t border-border text-[12px] text-muted text-center">
+                Ctrl = ⌘ on Mac
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Changelog modal */}
       {showChangelog && !updating && (
