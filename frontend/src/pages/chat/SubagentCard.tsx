@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { truncate, parseToolArgs } from './cardHelpers'
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
 export default function SubagentCard({ meta }: Props) {
   const args = meta?.args as string | undefined
   const result = meta?.result as string | undefined
+  const partialResult = meta?.partialResult as string | undefined
   const isError = meta?.isError as boolean | undefined
 
   const parsed = parseToolArgs(args)
@@ -19,6 +20,8 @@ export default function SubagentCard({ meta }: Props) {
   const [elapsed, setElapsed] = useState(0)
   const [expanded, setExpanded] = useState(false)
   const running = !result
+  const liveOutput = running ? partialResult : result
+  const scrollRef = useRef<HTMLPreElement>(null)
 
   useEffect(() => {
     if (!running) return
@@ -26,14 +29,28 @@ export default function SubagentCard({ meta }: Props) {
     return () => clearInterval(t)
   }, [running])
 
+  // Auto-scroll live output to bottom
+  useEffect(() => {
+    if (running && expanded && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [partialResult, running, expanded])
+
   const fmtElapsed = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`
+
+  // Show last few lines of live output as a preview in the header
+  const livePreview = running && partialResult
+    ? partialResult.trim().split('\n').filter(Boolean).slice(-1)[0]
+    : undefined
+
+  const canExpand = !!(liveOutput)
 
   return (
     <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
       <button
         className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
-        onClick={() => result && setExpanded(!expanded)}
-        disabled={!result}
+        onClick={() => canExpand && setExpanded(!expanded)}
+        disabled={!canExpand}
       >
         {/* spinner or status icon */}
         {running ? (
@@ -50,26 +67,36 @@ export default function SubagentCard({ meta }: Props) {
           <span className="text-text text-[12px] shrink-0">{id}</span>
         )}
 
-        {task && (
+        {/* Live preview line while running, otherwise task description */}
+        {running && livePreview ? (
+          <span className="text-muted/70 text-[12px] font-normal truncate flex-1 italic">{truncate(livePreview, 70)}</span>
+        ) : task ? (
           <span className="text-muted text-[12px] font-normal truncate flex-1">{truncate(task, 60)}</span>
-        )}
+        ) : null}
 
         <span className="text-muted/50 text-[11px] shrink-0 ml-auto">
           {running ? fmtElapsed(elapsed) : model ? truncate(model.split('/').pop() ?? model, 20) : ''}
         </span>
 
-        {result && (
+        {canExpand && (
           <span className={`text-[11px] transition-transform shrink-0 ${expanded ? 'rotate-90' : ''}`}>▶</span>
         )}
       </button>
 
-      {expanded && result && (
+      {expanded && liveOutput && (
         <div className="px-3 pb-3 border-t border-border">
-          <div className={`text-[11px] font-medium uppercase tracking-wider mt-2 mb-1 ${isError ? 'text-danger' : 'text-muted'}`}>
-            {isError ? 'Error' : 'Result'}
+          <div className={`text-[11px] font-medium uppercase tracking-wider mt-2 mb-1 ${
+            isError ? 'text-danger' : running ? 'text-accent' : 'text-muted'
+          }`}>
+            {isError ? 'Error' : running ? 'Live output' : 'Result'}
           </div>
-          <pre className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${isError ? 'text-danger' : 'text-muted'}`}>
-            {result}
+          <pre
+            ref={scrollRef}
+            className={`bg-bg-hover rounded-md px-3 py-2 text-[13px] font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto ${
+              isError ? 'text-danger' : running ? 'text-text/80' : 'text-muted'
+            }`}
+          >
+            {liveOutput}
           </pre>
         </div>
       )}

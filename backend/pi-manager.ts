@@ -194,6 +194,7 @@ export class PiProcess extends EventEmitter {
         ...process.env,
         PI_RUNTIME: 'dashboard',
         PI_DASH_PORT: String(process.env.PI_DASH_PORT || 7777),
+        PI_SLOT_KEY: this.slotKey,
         NODE_OPTIONS: [process.env.NODE_OPTIONS?.replace(/--no-wasm-tier-up/g, '').trim(), '--max-old-space-size=4096'].filter(Boolean).join(' '),
         // If AWS_PROFILE isn't set, fall back to PI_BEDROCK_PROFILE so bedrock sessions work
         ...((!process.env.AWS_PROFILE && process.env.PI_BEDROCK_PROFILE) ? { AWS_PROFILE: process.env.PI_BEDROCK_PROFILE } : {}),

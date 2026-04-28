@@ -22,7 +22,7 @@ import PathCompleteMenu from '../components/PathCompleteMenu'
 import { usePanelState, detectFileType } from '../hooks/usePanelState'
 import { WsContext } from '../App'
 import { registerAction } from '../shortcuts'
-import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage, SystemMessage } from './chat'
+import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage, SystemMessage, SubagentDock } from './chat'
 import ChatSidebar from './ChatSidebar'
 
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
@@ -69,6 +69,7 @@ export default function ChatPage() {
     })
   }, [activeSlot])
   const [pendingImages, setPendingImages] = useState<{data: string; mimeType: string; preview: string}[]>([])
+  const [pendingFiles, setPendingFiles] = useState<{name: string; path: string}[]>([])
   const pendingInput = useAppSelector(s => s.chat.pendingInput)
 
   const [chatConfig, setChatConfig] = useState<ChatConfig>(loadChatConfig)
@@ -310,13 +311,47 @@ export default function ChatPage() {
     setUploading(false)
   }, [])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation(); setDragOver(false)
-    const names = Array.from(e.dataTransfer.files).map(f => f.name)
-    if (names.length) {
-      setInput(prev => (prev ? prev + '\n' : '') + names.join('\n'))
-      inputRef.current?.focus()
+    const files = Array.from(e.dataTransfer.files)
+    if (!files.length) return
+
+    const imageFiles: File[] = []
+    const docFiles: File[] = []
+    for (const f of files) {
+      if (f.type.startsWith('image/')) imageFiles.push(f)
+      else docFiles.push(f)
     }
+
+    // Images → existing pendingImages pipeline
+    for (const file of imageFiles) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        const base64 = dataUrl.split(',')[1]
+        setPendingImages(prev => [...prev, { data: base64, mimeType: file.type, preview: dataUrl }])
+      }
+      reader.readAsDataURL(file)
+    }
+
+    // Documents → upload to backend, get paths
+    if (docFiles.length) {
+      setUploading(true)
+      try {
+        const toUpload = await Promise.all(docFiles.map(f => new Promise<{ name: string; data: string }>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve({ name: f.name, data: (reader.result as string).split(',')[1] })
+          reader.onerror = reject
+          reader.readAsDataURL(f)
+        })))
+        const { paths } = await api.uploadFiles(toUpload)
+        if (paths?.length) {
+          setPendingFiles(prev => [...prev, ...paths.map((p, i) => ({ name: docFiles[i].name, path: p }))])
+        }
+      } catch { /* upload failed */ }
+      setUploading(false)
+    }
+    inputRef.current?.focus()
   }, [])
 
   const scrollBottom = useCallback(() => {
@@ -417,8 +452,14 @@ export default function ChatPage() {
     setPendingImages(prev => prev.filter((_, i) => i !== idx))
   }, [])
 
+  const removeFile = useCallback((idx: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== idx))
+  }, [])
+
   const send = useCallback(async (optionText?: string) => {
-    const txt = (optionText || input).trim()
+    const filePaths = pendingFiles.map(f => f.path)
+    const filePrefix = filePaths.length ? filePaths.join('\n') + '\n\n' : ''
+    const txt = (filePrefix + (optionText || input)).trim()
     const images = pendingImages.map(img => ({ type: 'image' as const, data: img.data, mimeType: img.mimeType }))
     if (!txt && images.length === 0) return
     const isSlashCmd = txt.startsWith('/')
@@ -439,6 +480,7 @@ export default function ChatPage() {
     }
     if (!optionText) setInput('')
     setPendingImages([])
+    setPendingFiles([])
     if (inputRef.current) inputRef.current.style.height = 'auto'
     if (!isSlashCmd) {
       // Show user message with image previews (skip for slash commands)
@@ -481,7 +523,7 @@ export default function ChatPage() {
       }
     }
     inputRef.current?.focus()
-  }, [input, pendingImages, pendingModel, pendingCwd, activeSlot, dispatch, scrollBottom])
+  }, [input, pendingImages, pendingFiles, pendingModel, pendingCwd, activeSlot, dispatch, scrollBottom])
 
   const approve = useCallback(async (action: string) => { if (activeSlot) await api.approveChatSlot(activeSlot, action) }, [activeSlot])
 
@@ -869,16 +911,22 @@ export default function ChatPage() {
               </div>
             )}
             {tokenStats && <SessionCostBar stats={tokenStats} />}
+            <SubagentDock />
             {prefillHint && (
               <div className="flex items-center gap-2 px-5 py-2 bg-accent/10 border-t border-accent/30">
                 <span className="text-accent text-[13px]">📋 Plan pre-filled below — add your context then press Send</span>
                 <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={() => setPrefillHint(false)}>✕</button>
               </div>
             )}
-            <div className={`pidash-compose flex flex-col md:flex-row gap-2.5 px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome md:items-end transition-colors ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
+            <div className={`pidash-compose flex flex-col md:flex-row gap-2.5 px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome md:items-end transition-colors relative ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
+              {dragOver && (
+                <div className="absolute inset-0 flex items-center justify-center bg-accent/10 border-2 border-dashed border-accent rounded-lg z-10 pointer-events-none">
+                  <span className="text-accent font-semibold text-sm">Drop files here — images, PDFs, documents</span>
+                </div>
+              )}
               {isMac && <button className="hidden md:flex w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={pickFiles} disabled={uploading} title="Attach file or folder">
                 {uploading ? <span className="text-[13px] animate-pulse">⏳</span> : <span className="text-base">📎</span>}
               </button>}
@@ -898,7 +946,18 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-base md:text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted overflow-hidden ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : 'Message Pi…'} rows={1} value={input}
+                {pendingFiles.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {pendingFiles.map((f, i) => (
+                      <div key={i} className="relative group flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-elevated text-sm text-text">
+                        <span className="text-base">📄</span>
+                        <span className="max-w-[200px] truncate">{f.name}</span>
+                        <button className="w-4 h-4 rounded-full bg-danger text-white text-[10px] border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shrink-0" onClick={() => removeFile(i)}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-base md:text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted overflow-hidden ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : pendingFiles.length > 0 ? 'Add a message about the file(s)…' : 'Message Pi…'} rows={1} value={input}
                 onPaste={handlePaste}
                 onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
                 onDrop={handleDrop}
@@ -910,7 +969,7 @@ export default function ChatPage() {
                 onKeyDown={e => { if (e.key === 'Tab' && !e.shiftKey && !input.startsWith('/')) { e.preventDefault(); setPathMenuOpen(true); setCursorPos(inputRef.current?.selectionStart ?? 0) } else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; const cap = prefillHint ? 320 : 140; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, cap) + 'px' }} />
               </div>
-              <button className="btn-sweep bg-accent text-white border-none rounded-lg w-full md:w-auto px-5 h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0) || slotStopping}>Send</button>
+              <button className="btn-sweep bg-accent text-white border-none rounded-lg w-full md:w-auto px-5 h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0) || slotStopping}>Send</button>
             </div>
           </div></>}
             </div>

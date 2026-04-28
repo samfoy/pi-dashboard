@@ -3,7 +3,7 @@ import { useAppDispatch } from '../store'
 import { store } from '../store'
 import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread, addSlotError } from '../store/dashboardSlice'
 import { addNotification, ackNotificationByTs } from '../store/notificationsSlice'
-import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus } from '../store/chatSlice'
+import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget } from '../store/chatSlice'
 import type { StatusData, ChatSlot, Notification } from '../types'
 
 type LogCallback = ((data: { level: string; msg: string }) => void) | null
@@ -119,6 +119,12 @@ export function useWebSocket() {
               meta: { toolName: data.tool, toolCallId: data.id, args: typeof data.args === 'string' ? data.args : JSON.stringify(data.args || {}, null, 2) },
             }))
             break
+          case 'tool_update':
+            dispatch(sseChatMessage({
+              slot: data.slot, role: '_tool_update',
+              content: '', meta: { toolCallId: data.id, partialResult: data.partial },
+            }))
+            break
           case 'tool_result': {
             // Update the matching tool message with its result
             const state = store.getState()
@@ -161,6 +167,10 @@ export function useWebSocket() {
             break
           case 'extension_status':
             dispatch(setExtensionStatus({ slot: data.slot, key: data.key, text: data.text }))
+            break
+          case 'extension_widget':
+            console.log('[WS extension_widget]', JSON.stringify(data))
+            dispatch(setExtensionWidget({ slot: data.slot, key: data.key, lines: data.lines }))
             break
           case 'log':
             logCbRef.current?.(data)

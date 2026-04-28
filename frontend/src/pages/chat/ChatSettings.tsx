@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../api/client'
 
@@ -21,7 +21,7 @@ export function saveChatConfig(cfg: ChatConfig) {
   localStorage.setItem(LS_KEY, JSON.stringify(cfg))
 }
 
-const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high']
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh']
 
 interface Props {
   config: ChatConfig
@@ -33,9 +33,42 @@ interface Props {
 
 export default function ChatSettings({ config, onChange, activeSlot, currentModel, models }: Props) {
   const [open, setOpen] = useState(false)
-  const [thinkingLevel, setThinkingLevel] = useState('medium')
+  const [showAllModels, setShowAllModels] = useState(false)
+  const [enabledModels, setEnabledModels] = useState<string[]>([])
+  const isOpus = useMemo(() => currentModel ? /opus/i.test(currentModel) : false, [currentModel])
+  const [thinkingLevel, setThinkingLevel] = useState(isOpus ? 'xhigh' : 'medium')
   const btnRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
+
+  // Fetch enabledModels from pi settings
+  useEffect(() => {
+    fetch('/api/pi/settings').then(r => r.json()).then(s => {
+      if (s?.enabledModels) setEnabledModels(s.enabledModels)
+    }).catch(() => {})
+  }, [])
+
+  const { pinnedModels, otherModels } = useMemo(() => {
+    if (!models) return { pinnedModels: [], otherModels: [] }
+    if (enabledModels.length === 0) return { pinnedModels: models, otherModels: [] }
+    const pinned: typeof models = []
+    const other: typeof models = []
+    for (const m of models) {
+      const fullId = `${m.provider}/${m.id}`
+      if (enabledModels.some(e => fullId === e || m.id === e || m.id === e.split('/').pop())) {
+        pinned.push(m)
+      } else {
+        other.push(m)
+      }
+    }
+    return { pinnedModels: pinned, otherModels: other }
+  }, [models, enabledModels])
+
+  // Auto-adjust thinking level when model changes
+  useEffect(() => {
+    const newDefault = isOpus ? 'xhigh' : 'medium'
+    setThinkingLevel(newDefault)
+    if (activeSlot) api.setSlotThinking(activeSlot, newDefault)
+  }, [isOpus]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return
@@ -78,8 +111,18 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
               <span className="text-[12px] text-muted">Model</span>
               <select className="bg-bg-elevated border border-border rounded-md px-2 py-1.5 text-[13px] text-text outline-none cursor-pointer font-mono" value={currentModel || ''} onChange={e => handleModelChange(e.target.value)}>
                 {!currentModel && <option value="">—</option>}
-                {models.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{m.name || m.id}</option>)}
+                {pinnedModels.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{m.name || m.id}</option>)}
+                {showAllModels && otherModels.length > 0 && (
+                  <optgroup label="All Models">
+                    {otherModels.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{m.name || m.id}</option>)}
+                  </optgroup>
+                )}
               </select>
+              {otherModels.length > 0 && (
+                <button className="text-[11px] text-muted hover:text-accent cursor-pointer text-left" onClick={() => setShowAllModels(!showAllModels)}>
+                  {showAllModels ? '▾ Hide other models' : `▸ Show all models (${otherModels.length} more)`}
+                </button>
+              )}
             </div>
           )}
 

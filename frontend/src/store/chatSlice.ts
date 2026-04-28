@@ -42,6 +42,7 @@ interface ChatState {
   contextUsage: ContextUsage | null
   tokenStats: TokenStats | null
   extensionStatuses: Record<string, string>
+  extensionWidgets: Record<string, string[]>
   _lastChunkSeq: number
   slotSwitching: boolean
 }
@@ -63,6 +64,7 @@ const initialState: ChatState = {
   contextUsage: null,
   tokenStats: null,
   extensionStatuses: {},
+  extensionWidgets: {},
   _lastChunkSeq: -1,
   slotSwitching: false,
 }
@@ -187,6 +189,11 @@ const chatSlice = createSlice({
       if (action.payload.text) state.extensionStatuses[action.payload.key] = action.payload.text
       else delete state.extensionStatuses[action.payload.key]
     },
+    setExtensionWidget(state, action: PayloadAction<{ slot: string; key: string; lines?: string[] }>) {
+      if (action.payload.slot !== state.activeSlot) return
+      if (action.payload.lines) state.extensionWidgets[action.payload.key] = action.payload.lines
+      else delete state.extensionWidgets[action.payload.key]
+    },
     clearMessages(state) { state.messages = []; state.slotHasMore = false; state.slotOldestIndex = 0 },
     /** Handle chat messages pushed via global SSE/WS (works after refresh). */
     sseChatMessage(state, action: PayloadAction<{ slot: string; role: string; content: string; ts?: string; cls?: string; meta?: Record<string, unknown>; seq?: number }>) {
@@ -235,6 +242,20 @@ const chatSlice = createSlice({
           state.slotRunning = false
         }
         state.slotStopping = false
+        return
+      }
+      // Tool update — patch partialResult on matching tool message
+      if (role === '_tool_update') {
+        const toolCallId = meta?.toolCallId
+        if (toolCallId) {
+          for (let i = state.messages.length - 1; i >= 0; i--) {
+            const m = state.messages[i]
+            if (m.role === 'tool' && (m.meta as any)?.toolCallId === toolCallId) {
+              m.meta = { ...m.meta, partialResult: meta?.partialResult }
+              break
+            }
+          }
+        }
         return
       }
       // Tool result — attach result to matching tool message
@@ -317,6 +338,7 @@ const chatSlice = createSlice({
           state.contextUsage = null
           state.tokenStats = null
           state.extensionStatuses = {}
+          state.extensionWidgets = {}
         }
       })
       .addCase(switchSlot.fulfilled, (state, action) => {
@@ -414,6 +436,6 @@ const chatSlice = createSlice({
 
 export const {
   setActiveSlot, setPendingInput, clearResendQueued, promoteQueued, appendMessage, updateStreamingMessage, finalizeAssistant,
-  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, clearMessages, sseChatMessage,
+  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, clearMessages, sseChatMessage,
 } = chatSlice.actions
 export default chatSlice.reducer

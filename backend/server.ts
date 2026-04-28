@@ -983,6 +983,26 @@ app.get('/api/chat/slots/:key/system-prompt', async (req: Request, res: Response
 })
 
 // Spawn, Approvals (stubs)
+app.get('/api/subagents/status', (req: Request, res: Response) => {
+  const slot = (req.query as any).slot || 'default'
+  try {
+    const data = readFileSync(`/tmp/pi-subagents-${slot}.json`, 'utf-8')
+    res.json(JSON.parse(data))
+  } catch {
+    res.json([])
+  }
+})
+
+app.get('/api/subagents/:id/log', (req: Request, res: Response) => {
+  try {
+    const id = (req.params as any).id.replace(/[^a-zA-Z0-9_-]/g, '')
+    const log = readFileSync(`/tmp/subagent-${id}-live.log`, 'utf-8')
+    res.type('text/plain').send(log)
+  } catch {
+    res.type('text/plain').send('')
+  }
+})
+
 app.get('/api/spawn', (_req: Request, res: Response) => res.json([]))
 app.get('/api/approvals', (_req: Request, res: Response) => res.json([]))
 
@@ -1253,6 +1273,23 @@ app.post('/api/save-image', async (req: Request, res: Response) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message })
   }
+})
+
+// Upload dropped files (documents, PDFs, etc.) — saves to temp dir, returns paths
+app.post('/api/upload-files', async (req: Request, res: Response) => {
+  const { files } = req.body as { files: { name: string; data: string }[] }
+  if (!files?.length) return res.status(400).json({ error: 'files required' })
+  const uploadDir = join(os.tmpdir(), 'pi-dashboard-uploads')
+  await mkdir(uploadDir, { recursive: true })
+  const paths: string[] = []
+  for (const f of files) {
+    const safeName = basename(f.name) // strip any path traversal
+    const name = `${Date.now()}-${safeName}`
+    const filePath = join(uploadDir, name)
+    await writeFile(filePath, Buffer.from(f.data, 'base64'))
+    paths.push(filePath)
+  }
+  res.json({ ok: true, paths })
 })
 
 app.post('/api/file-write', async (req: Request, res: Response) => {
@@ -1598,6 +1635,24 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     // Add partial tool message
     pi.messages.push({ role: 'tool', content: `🔧 ${toolName}`, ts: new Date().toISOString(), _partial: true, meta: { toolName, toolCallId, args: typeof args === 'string' ? args : JSON.stringify(args || {}, null, 2) } })
     broadcast('tool_call', { slot: slotKey, tool: toolName, id: toolCallId, args })
+  })
+
+  pi.on('tool_update', (event: any) => {
+    const partial = event.result?.content?.[0]?.text || ''
+    // Update in-memory partial result
+    for (let i = pi.messages.length - 1; i >= 0; i--) {
+      const m = pi.messages[i]
+      if (m.role === 'tool' && m.meta?.toolCallId === event.toolCallId) {
+        m.meta = { ...m.meta, partialResult: partial.slice(0, 5000) }
+        break
+      }
+    }
+    broadcast('tool_update', {
+      slot: slotKey,
+      tool: event.toolName,
+      id: event.toolCallId,
+      partial: partial.slice(0, 5000),
+    })
   })
 
   pi.on('tool_end', (event: any) => {

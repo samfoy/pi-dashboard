@@ -189,6 +189,7 @@ export const api = {
   applyUpdate: () => post('/api/update').then(j),
   setAutoUpdate: (enabled: boolean) => post('/api/update/auto', { enabled }).then(j),
   pickFiles: () => post('/api/upload').then(j) as Promise<{ paths: string[] }>,
+  uploadFiles: (files: { name: string; data: string }[]) => post('/api/upload-files', { files }).then(j) as Promise<{ ok: boolean; paths: string[] }>,
   saveImage: (data: string, mimeType: string, path: string) => post('/api/save-image', { data, mimeType, path }).then(j) as Promise<{ ok: boolean; path: string }>,
   screenshot: () => post('/api/screenshot').then(j) as Promise<{ path: string }>,
 }

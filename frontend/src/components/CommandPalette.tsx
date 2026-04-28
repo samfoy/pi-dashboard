@@ -10,7 +10,7 @@ import { BUILTIN_THEMES } from '../themes'
 import { api } from '../api/client'
 import { ACTIONS, formatKey } from '../shortcuts'
 
-const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high']
+const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh']
 
 type Mode = 'root' | 'model' | 'thinking' | 'rename' | 'tag' | 'session-search' | 'system-prompt' | 'theme'
 

@@ -134,6 +134,7 @@ interface PiSettings {
     low?: number
     medium?: number
     high?: number
+    xhigh?: number
   }
   markdown?: {
     codeBlockIndent?: string
@@ -256,6 +257,7 @@ function ModelTab() {
           <NumberRow label="Low" hint="Tokens for 'low' thinking" value={settings.thinkingBudgets?.low} onChange={v => setNested('thinkingBudgets', 'low', v)} placeholder="2048" />
           <NumberRow label="Medium" hint="Tokens for 'medium' thinking" value={settings.thinkingBudgets?.medium} onChange={v => setNested('thinkingBudgets', 'medium', v)} placeholder="4096" />
           <NumberRow label="High" hint="Tokens for 'high' thinking" value={settings.thinkingBudgets?.high} onChange={v => setNested('thinkingBudgets', 'high', v)} placeholder="8192" />
+          <NumberRow label="Extra High" hint="Tokens for 'xhigh' thinking" value={settings.thinkingBudgets?.xhigh} onChange={v => setNested('thinkingBudgets', 'xhigh', v)} placeholder="16384" />
         </div>
       </Card>
 
