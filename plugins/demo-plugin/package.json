@@ -1,0 +1,25 @@
+{
+  "name": "demo-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "demo-plugin",
+    "name": "Demo Plugin",
+    "description": "Demonstrates the pi-dashboard plugin system",
+    "client": "src/client.tsx",
+    "claims": [
+      {
+        "slot": "settings-section",
+        "componentName": "DemoSettings",
+        "tab": "general",
+        "priority": 100
+      },
+      {
+        "slot": "tool-renderer",
+        "componentName": "DemoToolRenderer",
+        "toolName": "DashboardDemo",
+        "priority": 50
+      }
+    ]
+  }
+}
