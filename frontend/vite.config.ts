@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite'
 /// <reference types="vitest" />
 import react from '@vitejs/plugin-react'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { dashboardPluginsPlugin } from './vite-plugins/dashboard-plugins'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const repoRoot = path.resolve(__dirname, '..')
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [dashboardPluginsPlugin(repoRoot), react()],
+  resolve: {
+    alias: {
+      '@shared': path.resolve(__dirname, '../shared/src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

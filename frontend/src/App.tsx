@@ -20,6 +20,7 @@ import CommandPalette from './components/CommandPalette'
 import SessionPicker from './components/SessionPicker'
 import { PluginContextProvider } from './plugins'
 import { createSlotRegistry } from './plugins/slot-registry'
+import { PLUGIN_REGISTRY } from './generated/plugin-registry'
 
 import type { FileChangeCallback, ExtUiSelectCallback } from './hooks/useWebSocket'
 type LogSubscribeFn = (cb: ((data: { level: string; msg: string }) => void) | null) => void
@@ -148,7 +149,15 @@ export default function App() {
   const activePath = location.pathname
   const isChat = activePath === '/chat' || activePath === '/'
   const groups = [...new Set(NAV_ITEMS.map(n => n.group))]
-  const pluginRegistry = useMemo(() => createSlotRegistry(), [])
+  const pluginRegistry = useMemo(() => {
+    const registry = createSlotRegistry()
+    for (const entry of PLUGIN_REGISTRY) {
+      for (const claim of entry.claims) {
+        registry.addClaim(claim)
+      }
+    }
+    return registry
+  }, [])
 
   return (
     <PluginContextProvider registry={pluginRegistry}>
