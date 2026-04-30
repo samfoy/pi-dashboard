@@ -50,9 +50,9 @@ export function createSlotRegistry(): SlotRegistry {
     },
 
     removeClaims(pluginId: string): void {
-      for (const [, claims] of store.entries()) {
+      for (const [slotId, claims] of store.entries()) {
         const filtered = claims.filter(c => c.pluginId !== pluginId)
-        store.set(claims[0]?.slot ?? 'tool-renderer', filtered)
+        store.set(slotId, filtered)
       }
     },
   }
