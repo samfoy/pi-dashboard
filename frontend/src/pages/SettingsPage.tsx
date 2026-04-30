@@ -7,6 +7,7 @@ import { useTheme, THEMES, type ThemeId } from '../hooks/useTheme'
 import { useCustomStyle, parseVars } from '../hooks/useCustomStyle'
 import { BUILTIN_THEMES } from '../themes'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
+import { SettingsSectionSlot } from '../plugins/slot-consumers'
 import { ACTIONS, formatKey, setShortcut, resetShortcut, resetAllShortcuts, hasCustomShortcuts, subscribeShortcuts, eventToKeyString, type ActionCategory } from '../shortcuts'
 
 type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer' | 'shortcuts'
@@ -591,6 +592,9 @@ function GeneralTab() {
           </div>
         )}
       </Card>
+
+      {/* Plugin-contributed settings sections */}
+      <SettingsSectionSlot tab="general" />
     </div>
   )
 }

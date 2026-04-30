@@ -3,6 +3,9 @@ import DiffBlock from '../../components/DiffBlock'
 import ResizableImage from '../../components/ResizableImage'
 import SubagentCard from './SubagentCard'
 import ProcessCard from './ProcessCard'
+import { useSlotRegistryOrNull } from '../../plugins'
+import { forToolName } from '../../plugins/slot-registry'
+import { ToolRendererSlot } from '../../plugins/slot-consumers'
 import { generateEditDiff, parseEditArgs, parseWriteArgs, langFromPath } from './toolUtils'
 
 /** Expandable tool call block with args and result — shows diff view for edit tool, code preview for write */
@@ -46,9 +49,19 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   const [writeExpanded, setWriteExpanded] = useState(false)
   const [readExpanded, setReadExpanded] = useState(false)
 
+  // Check if a plugin claims this tool
+  const registry = useSlotRegistryOrNull()
+  const pluginClaimed = registry ? forToolName(registry.getClaims('tool-renderer'), toolName).length > 0 : false
+
   // Early returns AFTER all hooks (Rules of Hooks compliance)
   if (toolName === 'subagent') return <SubagentCard meta={meta} />
   if (toolName === 'process') return <ProcessCard meta={meta} />
+
+  // If a plugin claims this tool, render via ToolRendererSlot
+  if (pluginClaimed) {
+    const toolInput = args ? (() => { try { return JSON.parse(args) } catch { return {} } })() : {}
+    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} sessionId="" />
+  }
 
   if (isEdit) {
     return (
