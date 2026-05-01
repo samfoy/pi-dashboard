@@ -1,0 +1,16 @@
+{
+  "name": "pi-autoresearch-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-autoresearch",
+    "name": "Pi Autoresearch",
+    "description": "Rich rendering for autoresearch experiment tools — init, run, and log",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "InitExperimentRenderer", "toolName": "init_experiment", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "RunExperimentRenderer", "toolName": "run_experiment", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "LogExperimentRenderer", "toolName": "log_experiment", "priority": 50 }
+    ]
+  }
+}
