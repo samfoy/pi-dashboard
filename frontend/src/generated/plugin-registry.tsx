@@ -3,6 +3,7 @@
 import type { ClaimEntry, PluginManifest } from '@shared/plugin-types'
 
 import { InitExperimentRenderer, RunExperimentRenderer, LogExperimentRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-autoresearch/src/client.tsx"
+import { DailyLogRenderer, OncallLogRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-daily-log/src/client.tsx"
 import { GraphQueryRenderer, GraphPathRenderer, GraphIngestRenderer, GraphVisualizeRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-graph-search/src/client.tsx"
 import { KnowledgeSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-knowledge-search/src/client.tsx"
 import { DiagnosticsRenderer, HoverRenderer, DefinitionRenderer, ReferencesRenderer, SymbolsRenderer, CompletionsRenderer, AstSearchRenderer, CodeRewriteRenderer, CodeOverviewRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-lsp/src/client.tsx"
@@ -12,6 +13,7 @@ import { NoteRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-scratchp
 import { SessionSearchRenderer, SessionListRenderer, SessionReadRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-session-search/src/client.tsx"
 import { SlackSearchRenderer, SlackPostRenderer, SlackHistoryRenderer, SlackThreadRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-slack/src/client.tsx"
 import { TaskeiListRenderer, TaskeiGetRenderer, TaskeiUpdateRenderer, TaskeiCreateRenderer, TaskeiRoomsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-taskei/src/client.tsx"
+import { KiroSearchRenderer, ReadInternalRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-web/src/client.tsx"
 
 export interface RegistryEntry {
   manifest: PluginManifest
@@ -50,6 +52,32 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "init_experiment", Component: InitExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "run_experiment", Component: RunExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "log_experiment", Component: LogExperimentRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-daily-log",
+        "name": "Pi Daily & Oncall Log",
+        "description": "Rich rendering for daily_log and oncall_log tools",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "DailyLogRenderer",
+                "toolName": "daily_log",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "OncallLogRenderer",
+                "toolName": "oncall_log",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-daily-log", priority: 50, slot: "tool-renderer", toolName: "daily_log", Component: DailyLogRenderer },
+      { pluginId: "pi-daily-log", priority: 50, slot: "tool-renderer", toolName: "oncall_log", Component: OncallLogRenderer },
     ],
   },
   {
@@ -431,6 +459,32 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiUpdateTask", Component: TaskeiUpdateRenderer },
       { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiCreateTask", Component: TaskeiCreateRenderer },
       { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiGetRooms", Component: TaskeiRoomsRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-web",
+        "name": "Pi Web",
+        "description": "Rich rendering for web search and fetch tools",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "KiroSearchRenderer",
+                "toolName": "kiro_search",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "ReadInternalRenderer",
+                "toolName": "ReadInternalWebsites",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-web", priority: 50, slot: "tool-renderer", toolName: "kiro_search", Component: KiroSearchRenderer },
+      { pluginId: "pi-web", priority: 50, slot: "tool-renderer", toolName: "ReadInternalWebsites", Component: ReadInternalRenderer },
     ],
   },
 ]

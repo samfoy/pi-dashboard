@@ -1,0 +1,15 @@
+{
+  "name": "pi-web-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-web",
+    "name": "Pi Web",
+    "description": "Rich rendering for web search and fetch tools",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "KiroSearchRenderer", "toolName": "kiro_search", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "ReadInternalRenderer", "toolName": "ReadInternalWebsites", "priority": 50 }
+    ]
+  }
+}

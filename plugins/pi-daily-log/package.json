@@ -1,0 +1,15 @@
+{
+  "name": "pi-daily-log-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-daily-log",
+    "name": "Pi Daily & Oncall Log",
+    "description": "Rich rendering for daily_log and oncall_log tools",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "DailyLogRenderer", "toolName": "daily_log", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "OncallLogRenderer", "toolName": "oncall_log", "priority": 50 }
+    ]
+  }
+}
