@@ -1,0 +1,19 @@
+{
+  "name": "pi-lsp-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-lsp",
+    "name": "Pi LSP",
+    "description": "Rich rendering for LSP tool results — diagnostics, hover, definition, references, symbols, completions",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "DiagnosticsRenderer", "toolName": "lsp_diagnostics", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "HoverRenderer", "toolName": "lsp_hover", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "DefinitionRenderer", "toolName": "lsp_definition", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "ReferencesRenderer", "toolName": "lsp_references", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "SymbolsRenderer", "toolName": "lsp_symbols", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "CompletionsRenderer", "toolName": "lsp_completions", "priority": 50 }
+    ]
+  }
+}

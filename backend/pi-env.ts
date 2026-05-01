@@ -16,6 +16,8 @@ const DASH_CONFIG_PATH = join(HOME, '.pi', 'dashboard.json')
 
 // ── Interfaces ──
 
+import type { Lesson, Fact, Skill } from '@shared/types.js'
+
 interface VaultDirs {
   daily: string
   tasks: string
@@ -40,22 +42,6 @@ interface MemoryStats {
   events: number
 }
 
-interface Lesson {
-  id: string
-  rule: string
-  category: string
-  negative: number
-  created_at: string
-}
-
-interface Fact {
-  key: string
-  value: string
-  confidence: number
-  source: string
-  updated_at: string
-}
-
 interface SessionSummary {
   key: string
   title: string
@@ -63,11 +49,6 @@ interface SessionSummary {
   created: string
   modified: string
   size: number
-}
-
-interface Skill {
-  name: string
-  description: string
 }
 
 interface Extension {

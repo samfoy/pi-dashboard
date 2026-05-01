@@ -1,0 +1,18 @@
+{
+  "name": "pi-memory-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-memory",
+    "name": "Pi Memory",
+    "description": "Rich rendering for memory_search, memory_remember, memory_forget, memory_lessons, and memory_stats tool results",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "MemorySearchRenderer", "toolName": "memory_search", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "MemoryRememberRenderer", "toolName": "memory_remember", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "MemoryForgetRenderer", "toolName": "memory_forget", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "MemoryLessonsRenderer", "toolName": "memory_lessons", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "MemoryStatsRenderer", "toolName": "memory_stats", "priority": 50 }
+    ]
+  }
+}

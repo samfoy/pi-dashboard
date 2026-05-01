@@ -17,6 +17,8 @@ import { handlePtyConnection, shutdownAll as shutdownPty } from './pty-manager.j
 import * as piEnv from './pi-env.js'
 import { saveSlotState, saveSlotStateSync, loadSlotState, findSessionFile, parseSessionMessages, parseSessionTree, ChatMessage } from './session-store.js'
 import { DatabaseSync } from 'node:sqlite'
+import type { Notification } from '@shared/types.js'
+import { getFileDiffs } from './session-diff.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = parseInt(process.env.PI_DASH_PORT || '7777', 10)
@@ -117,15 +119,7 @@ function listRecentSessions(limit: number): SessionSearchResult[] {
     .slice(0, limit)
 }
 
-// ── Notifications ──
-interface Notification {
-  kind: string
-  title: string
-  body: string
-  ts: string
-  acked: boolean
-  slot?: string
-}
+// ── Notifications ── (imported from @shared/types)
 
 const notifications: Notification[] = []
 const NOTIF_MAX = 200

@@ -12,6 +12,7 @@ export type SlotId =
   | 'tool-renderer'
   | 'settings-section'
   | 'command-route'
+  | 'sidebar-panel'
   | 'session-card-badge'
   | 'content-header'
 
@@ -31,7 +32,7 @@ export interface ClaimEntry {
   predicate?: (props: unknown) => boolean
   /** The resolved React component (set at registration time by generated code). */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  Component?: React.ComponentType<any>
+  Component?: any
 }
 
 // ── Plugin manifest ──────────────────────────────────────────────────────────

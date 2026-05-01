@@ -1,0 +1,16 @@
+{
+  "name": "pi-session-search-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-session-search",
+    "name": "Pi Session Search",
+    "description": "Rich rendering for session_search, session_list, and session_read tool results",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "SessionSearchRenderer", "toolName": "session_search", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "SessionListRenderer", "toolName": "session_list", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "SessionReadRenderer", "toolName": "session_read", "priority": 50 }
+    ]
+  }
+}

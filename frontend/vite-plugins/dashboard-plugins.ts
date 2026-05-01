@@ -65,7 +65,7 @@ function discoverPlugins(repoRoot: string): PluginEntry[] {
   return entries
 }
 
-const VALID_SLOTS: SlotId[] = ['tool-renderer', 'settings-section', 'command-route', 'session-card-badge', 'content-header']
+const VALID_SLOTS: SlotId[] = ['tool-renderer', 'settings-section', 'command-route', 'sidebar-panel', 'session-card-badge', 'content-header']
 
 /** Generate the plugin-registry.tsx content with named imports per claim. */
 function generateRegistryContent(entries: PluginEntry[]): string {

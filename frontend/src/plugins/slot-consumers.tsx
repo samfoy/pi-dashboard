@@ -36,32 +36,38 @@ function renderClaim(
 export function ToolRendererSlot({
   toolName,
   toolInput,
+  toolResult,
+  isError,
   sessionId,
   FallbackComponent,
 }: {
   toolName: string
   toolInput: Record<string, unknown>
+  toolResult?: string
+  isError?: boolean
   sessionId: string
   FallbackComponent?: React.ComponentType<{
     toolName: string
     toolInput: Record<string, unknown>
+    toolResult?: string
+    isError?: boolean
     sessionId: string
   }>
 }) {
   const registry = useSlotRegistryOrNull()
   if (!registry) {
     return FallbackComponent
-      ? <FallbackComponent toolName={toolName} toolInput={toolInput} sessionId={sessionId} />
+      ? <FallbackComponent toolName={toolName} toolInput={toolInput} toolResult={toolResult} isError={isError} sessionId={sessionId} />
       : null
   }
   const claims = forToolName(registry.getClaims('tool-renderer'), toolName)
   if (!claims.length) {
     return FallbackComponent
-      ? <FallbackComponent toolName={toolName} toolInput={toolInput} sessionId={sessionId} />
+      ? <FallbackComponent toolName={toolName} toolInput={toolInput} toolResult={toolResult} isError={isError} sessionId={sessionId} />
       : null
   }
   const claim = claims[0]
-  return renderClaim(claim, 'tool-renderer', { toolName, toolInput, sessionId })
+  return renderClaim(claim, 'tool-renderer', { toolName, toolInput, toolResult, isError, sessionId })
 }
 
 export function SettingsSectionSlot({ tab = 'general' }: { tab?: string }) {
@@ -92,4 +98,16 @@ export function CommandRouteSlot({
   if (!claims.length) return null
   const claim = claims[0]
   return renderClaim(claim, 'command-route', { routeParams, onClose })
+}
+
+export function SidebarPanelSlot() {
+  const registry = useSlotRegistryOrNull()
+  if (!registry) return null
+  const claims = registry.getClaims('sidebar-panel')
+  if (!claims.length) return null
+  return (
+    <aside className="flex-[0_0_280px] border-l border-border bg-bg overflow-y-auto">
+      {claims.map(c => renderClaim(c, 'sidebar-panel', {}))}
+    </aside>
+  )
 }

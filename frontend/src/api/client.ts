@@ -192,4 +192,18 @@ export const api = {
   uploadFiles: (files: { name: string; data: string }[]) => post('/api/upload-files', { files }).then(j) as Promise<{ ok: boolean; paths: string[] }>,
   saveImage: (data: string, mimeType: string, path: string) => post('/api/save-image', { data, mimeType, path }).then(j) as Promise<{ ok: boolean; path: string }>,
   screenshot: () => post('/api/screenshot').then(j) as Promise<{ path: string }>,
+  // Graph
+  graphStats: () => fetch('/api/graph/stats').then(j),
+  graphSearch: (q: string, type?: string, limit = 20) =>
+    fetch('/api/graph/search?q=' + encodeURIComponent(q) + (type ? '&type=' + type : '') + '&limit=' + limit).then(j),
+  graphEntity: (id: string) => fetch('/api/graph/entity/' + encodeURIComponent(id)).then(j),
+  graphNeighbors: (id: string, depth = 1, limit = 50) =>
+    fetch('/api/graph/neighbors?id=' + encodeURIComponent(id) + '&depth=' + depth + '&limit=' + limit).then(j),
+  graphPath: (from: string, to: string, maxDepth = 4) =>
+    fetch('/api/graph/path?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to) + '&maxDepth=' + maxDepth).then(j),
+  graphTop: (type?: string, limit = 20) =>
+    fetch('/api/graph/top?' + (type ? 'type=' + type + '&' : '') + 'limit=' + limit).then(j),
+  // Session diff
+  slotDiff: (slot: string, paths: string[]) =>
+    post('/api/chat/slots/' + encodeURIComponent(slot) + '/diff', { paths }).then(j) as Promise<{ files: { path: string; gitDiff?: string }[]; isGitRepo: boolean }>,
 }

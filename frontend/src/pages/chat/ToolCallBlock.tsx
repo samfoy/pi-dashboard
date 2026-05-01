@@ -60,7 +60,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   // If a plugin claims this tool, render via ToolRendererSlot
   if (pluginClaimed) {
     const toolInput = args ? (() => { try { return JSON.parse(args) } catch { return {} } })() : {}
-    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} sessionId="" />
+    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} toolResult={result} isError={isError} sessionId="" />
   }
 
   if (isEdit) {

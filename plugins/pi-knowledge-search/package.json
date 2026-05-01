@@ -1,0 +1,14 @@
+{
+  "name": "pi-knowledge-search-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-knowledge-search",
+    "name": "Pi Knowledge Search",
+    "description": "Rich rendering for knowledge_search tool results",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "KnowledgeSearchRenderer", "toolName": "knowledge_search", "priority": 50 }
+    ]
+  }
+}

@@ -3,6 +3,10 @@
 import type { ClaimEntry, PluginManifest } from '@shared/plugin-types'
 
 import { DemoSettings, DemoToolRenderer } from "/local/home/samfp/pi-dashboard/plugins/demo-plugin/src/client.tsx"
+import { KnowledgeSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-knowledge-search/src/client.tsx"
+import { DiagnosticsRenderer, HoverRenderer, DefinitionRenderer, ReferencesRenderer, SymbolsRenderer, CompletionsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-lsp/src/client.tsx"
+import { MemorySearchRenderer, MemoryRememberRenderer, MemoryForgetRenderer, MemoryLessonsRenderer, MemoryStatsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-memory/src/client.tsx"
+import { SessionSearchRenderer, SessionListRenderer, SessionReadRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-session-search/src/client.tsx"
 
 export interface RegistryEntry {
   manifest: PluginManifest
@@ -34,6 +38,159 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
     claims: [
       { pluginId: "demo-plugin", priority: 100, slot: "settings-section", tab: "general", Component: DemoSettings },
       { pluginId: "demo-plugin", priority: 50, slot: "tool-renderer", toolName: "DashboardDemo", Component: DemoToolRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-knowledge-search",
+        "name": "Pi Knowledge Search",
+        "description": "Rich rendering for knowledge_search tool results",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "KnowledgeSearchRenderer",
+                "toolName": "knowledge_search",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-knowledge-search", priority: 50, slot: "tool-renderer", toolName: "knowledge_search", Component: KnowledgeSearchRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-lsp",
+        "name": "Pi LSP",
+        "description": "Rich rendering for LSP tool results — diagnostics, hover, definition, references, symbols, completions",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "DiagnosticsRenderer",
+                "toolName": "lsp_diagnostics",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "HoverRenderer",
+                "toolName": "lsp_hover",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "DefinitionRenderer",
+                "toolName": "lsp_definition",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "ReferencesRenderer",
+                "toolName": "lsp_references",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "SymbolsRenderer",
+                "toolName": "lsp_symbols",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "CompletionsRenderer",
+                "toolName": "lsp_completions",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_diagnostics", Component: DiagnosticsRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_hover", Component: HoverRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_definition", Component: DefinitionRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_references", Component: ReferencesRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_symbols", Component: SymbolsRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_completions", Component: CompletionsRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-memory",
+        "name": "Pi Memory",
+        "description": "Rich rendering for memory_search, memory_remember, memory_forget, memory_lessons, and memory_stats tool results",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "MemorySearchRenderer",
+                "toolName": "memory_search",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "MemoryRememberRenderer",
+                "toolName": "memory_remember",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "MemoryForgetRenderer",
+                "toolName": "memory_forget",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "MemoryLessonsRenderer",
+                "toolName": "memory_lessons",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "MemoryStatsRenderer",
+                "toolName": "memory_stats",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_search", Component: MemorySearchRenderer },
+      { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_remember", Component: MemoryRememberRenderer },
+      { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_forget", Component: MemoryForgetRenderer },
+      { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_lessons", Component: MemoryLessonsRenderer },
+      { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_stats", Component: MemoryStatsRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-session-search",
+        "name": "Pi Session Search",
+        "description": "Rich rendering for session_search, session_list, and session_read tool results",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "SessionSearchRenderer",
+                "toolName": "session_search",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "SessionListRenderer",
+                "toolName": "session_list",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "SessionReadRenderer",
+                "toolName": "session_read",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-session-search", priority: 50, slot: "tool-renderer", toolName: "session_search", Component: SessionSearchRenderer },
+      { pluginId: "pi-session-search", priority: 50, slot: "tool-renderer", toolName: "session_list", Component: SessionListRenderer },
+      { pluginId: "pi-session-search", priority: 50, slot: "tool-renderer", toolName: "session_read", Component: SessionReadRenderer },
     ],
   },
 ]

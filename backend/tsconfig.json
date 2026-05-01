@@ -4,13 +4,16 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "../dist/backend",
-    "rootDir": ".",
+    "rootDir": "..",
     "strict": true,
     "esModuleInterop": true,
     "declaration": true,
     "sourceMap": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@shared/*": ["../shared/src/*"]
+    }
   },
-  "include": ["./**/*.ts"],
+  "include": ["./**/*.ts", "../shared/src/**/*.ts"],
   "exclude": ["__tests__"]
 }

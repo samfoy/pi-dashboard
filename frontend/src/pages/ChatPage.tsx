@@ -32,6 +32,7 @@ import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
 import SessionCostBar from './chat/SessionCostBar'
 import SplitPane from './chat/SplitPane'
+import { SidebarPanelSlot } from '../plugins'
 import type { ChatMessage } from '../types'
 
 
@@ -976,6 +977,7 @@ export default function ChatPage() {
           </>
         )}
       </div>
+      <SidebarPanelSlot />
       {splitSlot && slots.some(s => s.key === splitSlot) && (
         <SplitPane slotKey={splitSlot} onClose={() => setSplitSlot(null)} onFileOpen={handleFileOpen} />
       )}

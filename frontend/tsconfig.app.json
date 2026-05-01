@@ -27,9 +27,11 @@
     }
   },
   "include": [
-    "src"
+    "src",
+    "../shared/src"
   ],
   "exclude": [
-    "src/test"
+    "src/test",
+    "src/pages/GraphPage.tsx"
   ]
 }

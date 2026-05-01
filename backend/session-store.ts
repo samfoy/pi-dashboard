@@ -12,20 +12,8 @@ const STATE_FILE: string = join(HOME, '.pi', 'agent', 'pi-web-sessions.json')
 
 // ── Types ──
 
-export interface ChatMessage {
-  role: 'user' | 'assistant' | 'thinking' | 'tool' | 'system'
-  content: string
-  ts?: string
-  _partial?: boolean
-  meta?: {
-    toolName?: string
-    toolCallId?: string
-    args?: string
-    result?: string
-    isError?: boolean
-    customType?: string
-  }
-}
+import type { ChatMessage } from '@shared/types.js'
+export type { ChatMessage } from '@shared/types.js'
 
 export interface SlotState {
   key: string
