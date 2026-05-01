@@ -6,6 +6,8 @@ import { DemoSettings, DemoToolRenderer } from "/local/home/samfp/pi-dashboard/p
 import { KnowledgeSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-knowledge-search/src/client.tsx"
 import { DiagnosticsRenderer, HoverRenderer, DefinitionRenderer, ReferencesRenderer, SymbolsRenderer, CompletionsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-lsp/src/client.tsx"
 import { MemorySearchRenderer, MemoryRememberRenderer, MemoryForgetRenderer, MemoryLessonsRenderer, MemoryStatsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-memory/src/client.tsx"
+import { NoteRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-scratchpad/src/client.tsx"
+import { SessionDiffPanel } from "/local/home/samfp/pi-dashboard/plugins/pi-session-diff/src/client.tsx"
 import { SessionSearchRenderer, SessionListRenderer, SessionReadRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-session-search/src/client.tsx"
 
 export interface RegistryEntry {
@@ -158,6 +160,43 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_forget", Component: MemoryForgetRenderer },
       { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_lessons", Component: MemoryLessonsRenderer },
       { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_stats", Component: MemoryStatsRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-scratchpad",
+        "name": "Pi Scratchpad",
+        "description": "Sidebar panel showing session scratchpad notes, plus rich rendering for note tool results",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "NoteRenderer",
+                "toolName": "note",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-scratchpad", priority: 50, slot: "tool-renderer", toolName: "note", Component: NoteRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-session-diff",
+        "name": "Pi Session Diff",
+        "description": "Sidebar panel showing files modified in the current session",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "sidebar-panel",
+                "componentName": "SessionDiffPanel",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-session-diff", priority: 50, slot: "sidebar-panel", Component: SessionDiffPanel },
     ],
   },
   {

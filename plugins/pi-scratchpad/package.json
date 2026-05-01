@@ -1,0 +1,14 @@
+{
+  "name": "pi-scratchpad-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-scratchpad",
+    "name": "Pi Scratchpad",
+    "description": "Sidebar panel showing session scratchpad notes, plus rich rendering for note tool results",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "NoteRenderer", "toolName": "note", "priority": 50 }
+    ]
+  }
+}
