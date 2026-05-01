@@ -1,0 +1,14 @@
+{
+  "name": "pi-context-prune-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-context-prune",
+    "name": "Pi Context Prune",
+    "description": "Rich rendering for context_prune tool results",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "ContextPruneRenderer", "toolName": "context_prune", "priority": 50 }
+    ]
+  }
+}

@@ -3,6 +3,7 @@
 import type { ClaimEntry, PluginManifest } from '@shared/plugin-types'
 
 import { InitExperimentRenderer, RunExperimentRenderer, LogExperimentRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-autoresearch/src/client.tsx"
+import { ContextPruneRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-context-prune/src/client.tsx"
 import { DailyLogRenderer, OncallLogRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-daily-log/src/client.tsx"
 import { GraphQueryRenderer, GraphPathRenderer, GraphIngestRenderer, GraphVisualizeRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-graph-search/src/client.tsx"
 import { KnowledgeSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-knowledge-search/src/client.tsx"
@@ -52,6 +53,25 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "init_experiment", Component: InitExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "run_experiment", Component: RunExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "log_experiment", Component: LogExperimentRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-context-prune",
+        "name": "Pi Context Prune",
+        "description": "Rich rendering for context_prune tool results",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "ContextPruneRenderer",
+                "toolName": "context_prune",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-context-prune", priority: 50, slot: "tool-renderer", toolName: "context_prune", Component: ContextPruneRenderer },
     ],
   },
   {
