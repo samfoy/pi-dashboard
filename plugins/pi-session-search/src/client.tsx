@@ -3,6 +3,7 @@
  * Pi Session Search plugin — rich rendering for session search/list/read tool results.
  */
 import { useState } from 'react'
+import MarkdownRenderer from '../../../frontend/src/components/MarkdownRenderer'
 
 interface ToolProps {
   toolName: string
@@ -11,6 +12,8 @@ interface ToolProps {
   isError?: boolean
   sessionId: string
 }
+
+const mdStyles = '[&_p]:my-1 [&_code]:text-accent [&_code]:text-[11px] [&_pre]:bg-bg-hover [&_pre]:rounded [&_pre]:p-2 [&_pre]:text-[11px] [&_h1]:text-[13px] [&_h2]:text-[12px] [&_h3]:text-[12px] [&_ul]:pl-4 [&_ol]:pl-4 [&_li]:my-0.5 [&_a]:text-accent [&_a]:underline'
 
 function CardShell({ icon, title, subtitle, children, isError }: { icon: string; title: string; subtitle?: string; children: React.ReactNode; isError?: boolean }) {
   return (
@@ -91,7 +94,7 @@ export function SessionSearchRenderer({ toolInput, toolResult, isError }: ToolPr
                   {r.date && <div className="text-[11px] text-muted">📅 {r.date}</div>}
                   {r.cwd && <div className="text-[11px] text-muted font-mono">📁 {r.cwd}</div>}
                   {r.file && <div className="text-[11px] text-muted font-mono">📄 {r.file}</div>}
-                  {r.summary && <p className="text-[12px] text-text/80 mt-1">{r.summary}</p>}
+                  {r.summary && <div className={`text-[12px] text-text/80 mt-1 ${mdStyles}`}><MarkdownRenderer content={r.summary} /></div>}
                 </div>
               )}
             </div>
@@ -185,9 +188,9 @@ export function SessionReadRenderer({ toolInput, toolResult, isError }: ToolProp
             {expanded ? '▼ Collapse' : '▶ Show conversation'} ({lineCount} lines)
           </button>
           {expanded && (
-            <pre className="bg-bg-hover rounded-md px-3 py-2 text-[12px] font-mono overflow-x-auto whitespace-pre-wrap max-h-[400px] overflow-y-auto text-text/80">
-              {toolResult}
-            </pre>
+            <div className={`text-[12px] text-text/80 leading-relaxed max-h-[400px] overflow-y-auto ${mdStyles}`}>
+              <MarkdownRenderer content={toolResult || ''} />
+            </div>
           )}
         </>
       )}

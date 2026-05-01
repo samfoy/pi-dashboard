@@ -3,6 +3,7 @@
  * Pi Knowledge Search plugin — rich rendering for knowledge_search tool results.
  */
 import { useState } from 'react'
+import MarkdownRenderer from '../../../frontend/src/components/MarkdownRenderer'
 
 interface ToolProps {
   toolName: string
@@ -28,8 +29,6 @@ function parseKnowledgeResults(text: string): { results: KnowledgeResult[]; head
   let current: Partial<KnowledgeResult> | null = null
 
   for (const line of lines.slice(1)) {
-    // "### 1. ~/path/to/file.md > Section Heading (85.2% match)"
-    // "### 2. s3://bucket/key [KB Label] (72.1% match)"
     const titleMatch = line.match(/^###\s+\d+\.\s+(.+?)\s+\((\d+\.?\d*%?)\s*match\)/)
     if (titleMatch) {
       if (current?.path) results.push(current as KnowledgeResult)
@@ -54,7 +53,6 @@ function parseKnowledgeResults(text: string): { results: KnowledgeResult[]; head
 }
 
 function shortenPath(p: string): string {
-  // Show last 2-3 segments
   const parts = p.replace(/^~\//, '').split('/')
   if (parts.length <= 3) return p
   return '…/' + parts.slice(-3).join('/')
@@ -67,10 +65,12 @@ function scoreColor(score: string): string {
   return 'text-muted'
 }
 
+const mdStyles = '[&_p]:my-1 [&_code]:text-accent [&_code]:text-[11px] [&_pre]:bg-bg-hover [&_pre]:rounded [&_pre]:p-2 [&_pre]:text-[11px] [&_h1]:text-[13px] [&_h2]:text-[12px] [&_h3]:text-[12px] [&_ul]:pl-4 [&_ol]:pl-4 [&_li]:my-0.5 [&_a]:text-accent [&_a]:underline'
+
 export function KnowledgeSearchRenderer({ toolInput, toolResult, isError }: ToolProps) {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(0)
   const query = toolInput.query as string || ''
-  const { results, header } = parseKnowledgeResults(toolResult || '')
+  const { results } = parseKnowledgeResults(toolResult || '')
 
   return (
     <div className={`bg-card border rounded-lg overflow-hidden animate-scale-in ${isError ? 'border-danger/30' : 'border-border'}`}>
@@ -103,7 +103,9 @@ export function KnowledgeSearchRenderer({ toolInput, toolResult, isError }: Tool
                   <div className="px-3 pb-2.5 space-y-1.5 border-t border-border/50 bg-bg-hover/30">
                     <div className="text-[11px] text-muted font-mono truncate">{r.path}</div>
                     {r.heading && <div className="text-[11px] text-accent font-medium">§ {r.heading}</div>}
-                    <p className="text-[12px] text-text/80 whitespace-pre-wrap leading-relaxed">{r.excerpt}</p>
+                    <div className={`text-[12px] text-text/80 leading-relaxed ${mdStyles}`}>
+                      <MarkdownRenderer content={r.excerpt} />
+                    </div>
                   </div>
                 )}
               </div>
