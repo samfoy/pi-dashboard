@@ -3,6 +3,7 @@
 import type { ClaimEntry, PluginManifest } from '@shared/plugin-types'
 
 import { InitExperimentRenderer, RunExperimentRenderer, LogExperimentRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-autoresearch/src/client.tsx"
+import { GraphQueryRenderer, GraphPathRenderer, GraphIngestRenderer, GraphVisualizeRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-graph-search/src/client.tsx"
 import { KnowledgeSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-knowledge-search/src/client.tsx"
 import { DiagnosticsRenderer, HoverRenderer, DefinitionRenderer, ReferencesRenderer, SymbolsRenderer, CompletionsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-lsp/src/client.tsx"
 import { MemorySearchRenderer, MemoryRememberRenderer, MemoryForgetRenderer, MemoryLessonsRenderer, MemoryStatsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-memory/src/client.tsx"
@@ -46,6 +47,46 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "init_experiment", Component: InitExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "run_experiment", Component: RunExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "log_experiment", Component: LogExperimentRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-graph-search",
+        "name": "Pi Graph Search",
+        "description": "Rich rendering for knowledge graph tools — query, path, ingest, visualize",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "GraphQueryRenderer",
+                "toolName": "graph_query",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "GraphPathRenderer",
+                "toolName": "graph_path",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "GraphIngestRenderer",
+                "toolName": "graph_ingest",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "GraphVisualizeRenderer",
+                "toolName": "graph_visualize",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-graph-search", priority: 50, slot: "tool-renderer", toolName: "graph_query", Component: GraphQueryRenderer },
+      { pluginId: "pi-graph-search", priority: 50, slot: "tool-renderer", toolName: "graph_path", Component: GraphPathRenderer },
+      { pluginId: "pi-graph-search", priority: 50, slot: "tool-renderer", toolName: "graph_ingest", Component: GraphIngestRenderer },
+      { pluginId: "pi-graph-search", priority: 50, slot: "tool-renderer", toolName: "graph_visualize", Component: GraphVisualizeRenderer },
     ],
   },
   {

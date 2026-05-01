@@ -1,0 +1,17 @@
+{
+  "name": "pi-graph-search-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-graph-search",
+    "name": "Pi Graph Search",
+    "description": "Rich rendering for knowledge graph tools — query, path, ingest, visualize",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "GraphQueryRenderer", "toolName": "graph_query", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "GraphPathRenderer", "toolName": "graph_path", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "GraphIngestRenderer", "toolName": "graph_ingest", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "GraphVisualizeRenderer", "toolName": "graph_visualize", "priority": 50 }
+    ]
+  }
+}
