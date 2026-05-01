@@ -1,0 +1,20 @@
+{
+  "name": "pi-outlook-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-outlook",
+    "name": "Pi Outlook",
+    "description": "Rich rendering for Outlook email and calendar MCP tools",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "EmailSearchRenderer", "toolName": "email_search", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EmailReadRenderer", "toolName": "email_read", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EmailInboxRenderer", "toolName": "email_inbox", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EmailSendRenderer", "toolName": "email_send", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "CalendarViewRenderer", "toolName": "calendar_view", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "CalendarMeetingRenderer", "toolName": "calendar_meeting", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "InternalSearchRenderer", "toolName": "InternalSearch", "priority": 50 }
+    ]
+  }
+}

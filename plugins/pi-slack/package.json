@@ -1,0 +1,17 @@
+{
+  "name": "pi-slack-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-slack",
+    "name": "Pi Slack",
+    "description": "Rich rendering for Slack MCP tools",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "SlackSearchRenderer", "toolName": "search", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "SlackPostRenderer", "toolName": "post_message", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "SlackHistoryRenderer", "toolName": "batch_get_conversation_history", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "SlackThreadRenderer", "toolName": "batch_get_thread_replies", "priority": 50 }
+    ]
+  }
+}

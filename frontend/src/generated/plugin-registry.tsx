@@ -5,10 +5,13 @@ import type { ClaimEntry, PluginManifest } from '@shared/plugin-types'
 import { InitExperimentRenderer, RunExperimentRenderer, LogExperimentRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-autoresearch/src/client.tsx"
 import { GraphQueryRenderer, GraphPathRenderer, GraphIngestRenderer, GraphVisualizeRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-graph-search/src/client.tsx"
 import { KnowledgeSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-knowledge-search/src/client.tsx"
-import { DiagnosticsRenderer, HoverRenderer, DefinitionRenderer, ReferencesRenderer, SymbolsRenderer, CompletionsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-lsp/src/client.tsx"
+import { DiagnosticsRenderer, HoverRenderer, DefinitionRenderer, ReferencesRenderer, SymbolsRenderer, CompletionsRenderer, AstSearchRenderer, CodeRewriteRenderer, CodeOverviewRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-lsp/src/client.tsx"
 import { MemorySearchRenderer, MemoryRememberRenderer, MemoryForgetRenderer, MemoryLessonsRenderer, MemoryStatsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-memory/src/client.tsx"
+import { EmailSearchRenderer, EmailReadRenderer, EmailInboxRenderer, EmailSendRenderer, CalendarViewRenderer, CalendarMeetingRenderer, InternalSearchRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-outlook/src/client.tsx"
 import { NoteRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-scratchpad/src/client.tsx"
 import { SessionSearchRenderer, SessionListRenderer, SessionReadRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-session-search/src/client.tsx"
+import { SlackSearchRenderer, SlackPostRenderer, SlackHistoryRenderer, SlackThreadRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-slack/src/client.tsx"
+import { TaskeiListRenderer, TaskeiGetRenderer, TaskeiUpdateRenderer, TaskeiCreateRenderer, TaskeiRoomsRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-taskei/src/client.tsx"
 
 export interface RegistryEntry {
   manifest: PluginManifest
@@ -150,6 +153,24 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
                 "componentName": "CompletionsRenderer",
                 "toolName": "lsp_completions",
                 "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "AstSearchRenderer",
+                "toolName": "ast_search",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "CodeRewriteRenderer",
+                "toolName": "code_rewrite",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "CodeOverviewRenderer",
+                "toolName": "code_overview",
+                "priority": 50
             }
         ]
     },
@@ -160,6 +181,9 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_references", Component: ReferencesRenderer },
       { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_symbols", Component: SymbolsRenderer },
       { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "lsp_completions", Component: CompletionsRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "ast_search", Component: AstSearchRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "code_rewrite", Component: CodeRewriteRenderer },
+      { pluginId: "pi-lsp", priority: 50, slot: "tool-renderer", toolName: "code_overview", Component: CodeOverviewRenderer },
     ],
   },
   {
@@ -207,6 +231,67 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_forget", Component: MemoryForgetRenderer },
       { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_lessons", Component: MemoryLessonsRenderer },
       { pluginId: "pi-memory", priority: 50, slot: "tool-renderer", toolName: "memory_stats", Component: MemoryStatsRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-outlook",
+        "name": "Pi Outlook",
+        "description": "Rich rendering for Outlook email and calendar MCP tools",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "EmailSearchRenderer",
+                "toolName": "email_search",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EmailReadRenderer",
+                "toolName": "email_read",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EmailInboxRenderer",
+                "toolName": "email_inbox",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EmailSendRenderer",
+                "toolName": "email_send",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "CalendarViewRenderer",
+                "toolName": "calendar_view",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "CalendarMeetingRenderer",
+                "toolName": "calendar_meeting",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "InternalSearchRenderer",
+                "toolName": "InternalSearch",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "email_search", Component: EmailSearchRenderer },
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "email_read", Component: EmailReadRenderer },
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "email_inbox", Component: EmailInboxRenderer },
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "email_send", Component: EmailSendRenderer },
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "calendar_view", Component: CalendarViewRenderer },
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "calendar_meeting", Component: CalendarMeetingRenderer },
+      { pluginId: "pi-outlook", priority: 50, slot: "tool-renderer", toolName: "InternalSearch", Component: InternalSearchRenderer },
     ],
   },
   {
@@ -259,6 +344,93 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-session-search", priority: 50, slot: "tool-renderer", toolName: "session_search", Component: SessionSearchRenderer },
       { pluginId: "pi-session-search", priority: 50, slot: "tool-renderer", toolName: "session_list", Component: SessionListRenderer },
       { pluginId: "pi-session-search", priority: 50, slot: "tool-renderer", toolName: "session_read", Component: SessionReadRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-slack",
+        "name": "Pi Slack",
+        "description": "Rich rendering for Slack MCP tools",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "SlackSearchRenderer",
+                "toolName": "search",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "SlackPostRenderer",
+                "toolName": "post_message",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "SlackHistoryRenderer",
+                "toolName": "batch_get_conversation_history",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "SlackThreadRenderer",
+                "toolName": "batch_get_thread_replies",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-slack", priority: 50, slot: "tool-renderer", toolName: "search", Component: SlackSearchRenderer },
+      { pluginId: "pi-slack", priority: 50, slot: "tool-renderer", toolName: "post_message", Component: SlackPostRenderer },
+      { pluginId: "pi-slack", priority: 50, slot: "tool-renderer", toolName: "batch_get_conversation_history", Component: SlackHistoryRenderer },
+      { pluginId: "pi-slack", priority: 50, slot: "tool-renderer", toolName: "batch_get_thread_replies", Component: SlackThreadRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-taskei",
+        "name": "Pi Taskei",
+        "description": "Rich rendering for Taskei task management tools",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "TaskeiListRenderer",
+                "toolName": "TaskeiListTasks",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "TaskeiGetRenderer",
+                "toolName": "TaskeiGetTask",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "TaskeiUpdateRenderer",
+                "toolName": "TaskeiUpdateTask",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "TaskeiCreateRenderer",
+                "toolName": "TaskeiCreateTask",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "TaskeiRoomsRenderer",
+                "toolName": "TaskeiGetRooms",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiListTasks", Component: TaskeiListRenderer },
+      { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiGetTask", Component: TaskeiGetRenderer },
+      { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiUpdateTask", Component: TaskeiUpdateRenderer },
+      { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiCreateTask", Component: TaskeiCreateRenderer },
+      { pluginId: "pi-taskei", priority: 50, slot: "tool-renderer", toolName: "TaskeiGetRooms", Component: TaskeiRoomsRenderer },
     ],
   },
 ]

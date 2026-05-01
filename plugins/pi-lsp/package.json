@@ -13,7 +13,10 @@
       { "slot": "tool-renderer", "componentName": "DefinitionRenderer", "toolName": "lsp_definition", "priority": 50 },
       { "slot": "tool-renderer", "componentName": "ReferencesRenderer", "toolName": "lsp_references", "priority": 50 },
       { "slot": "tool-renderer", "componentName": "SymbolsRenderer", "toolName": "lsp_symbols", "priority": 50 },
-      { "slot": "tool-renderer", "componentName": "CompletionsRenderer", "toolName": "lsp_completions", "priority": 50 }
+      { "slot": "tool-renderer", "componentName": "CompletionsRenderer", "toolName": "lsp_completions", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "AstSearchRenderer", "toolName": "ast_search", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "CodeRewriteRenderer", "toolName": "code_rewrite", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "CodeOverviewRenderer", "toolName": "code_overview", "priority": 50 }
     ]
   }
 }

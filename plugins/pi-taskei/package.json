@@ -1,0 +1,18 @@
+{
+  "name": "pi-taskei-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-taskei",
+    "name": "Pi Taskei",
+    "description": "Rich rendering for Taskei task management tools",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "TaskeiListRenderer", "toolName": "TaskeiListTasks", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "TaskeiGetRenderer", "toolName": "TaskeiGetTask", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "TaskeiUpdateRenderer", "toolName": "TaskeiUpdateTask", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "TaskeiCreateRenderer", "toolName": "TaskeiCreateTask", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "TaskeiRoomsRenderer", "toolName": "TaskeiGetRooms", "priority": 50 }
+    ]
+  }
+}
