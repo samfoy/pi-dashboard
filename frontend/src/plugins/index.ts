@@ -16,7 +16,7 @@ export type { PluginContextProviderProps, PluginLogger } from './plugin-context'
 
 export { SlotErrorBoundary } from './slot-error-boundary'
 
-export { ToolRendererSlot, SettingsSectionSlot, CommandRouteSlot, SidebarPanelSlot } from './slot-consumers'
+export { ToolRendererSlot, SettingsSectionSlot, CommandRouteSlot, SidebarPanelSlot, StatusBarSlot } from './slot-consumers'
 
 // Re-export shared types for convenience
 export type { SlotId, ClaimEntry, PluginManifest } from '@shared/plugin-types'

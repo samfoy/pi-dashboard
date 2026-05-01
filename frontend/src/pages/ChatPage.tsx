@@ -32,7 +32,7 @@ import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
 import SessionCostBar from './chat/SessionCostBar'
 import SplitPane from './chat/SplitPane'
-import { SidebarPanelSlot } from '../plugins'
+import { SidebarPanelSlot, StatusBarSlot } from '../plugins'
 import type { ChatMessage } from '../types'
 
 
@@ -830,6 +830,7 @@ export default function ChatPage() {
                   ))}
                 </div>
               )}
+              <StatusBarSlot />
               {slotSwitching && messages.length === 0 ? (
                 <div className="flex-1 flex flex-col gap-4 px-5 py-6 animate-pulse">
                   {/* Skeleton: user message */}

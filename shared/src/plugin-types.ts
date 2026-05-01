@@ -13,6 +13,7 @@ export type SlotId =
   | 'settings-section'
   | 'command-route'
   | 'sidebar-panel'
+  | 'status-bar'
   | 'session-card-badge'
   | 'content-header'
 

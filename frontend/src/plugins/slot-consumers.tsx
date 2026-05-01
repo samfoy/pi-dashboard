@@ -111,3 +111,15 @@ export function SidebarPanelSlot() {
     </>
   )
 }
+
+export function StatusBarSlot() {
+  const registry = useSlotRegistryOrNull()
+  if (!registry) return null
+  const claims = registry.getClaims('status-bar')
+  if (!claims.length) return null
+  return (
+    <>
+      {claims.map(c => renderClaim(c, 'status-bar', {}))}
+    </>
+  )
+}
