@@ -106,8 +106,8 @@ export function SidebarPanelSlot() {
   const claims = registry.getClaims('sidebar-panel')
   if (!claims.length) return null
   return (
-    <aside className="flex-[0_0_280px] border-l border-border bg-bg overflow-y-auto">
+    <>
       {claims.map(c => renderClaim(c, 'sidebar-panel', {}))}
-    </aside>
+    </>
   )
 }
