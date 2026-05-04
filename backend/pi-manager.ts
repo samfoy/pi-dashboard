@@ -131,6 +131,7 @@ export class PiProcess extends EventEmitter {
   _stderrLines: string[]
   _startupTimer: ReturnType<typeof setTimeout> | null
   _stoppingTimer?: ReturnType<typeof setTimeout> | null
+  _toolsRunning: number
   _readyPromise?: Promise<void> | null
   _contextUsage?: any
   _tokenStats?: any
@@ -157,6 +158,7 @@ export class PiProcess extends EventEmitter {
     this._pendingRequests = new Map() // id → { resolve, timer }
     this._stopping = false
     this._pendingApproval = false
+    this._toolsRunning = 0
     this._streamIdx = -1  // index where partial streaming messages start
     this._stderrLines = []
     this._startupTimer = null
@@ -900,7 +902,8 @@ export class PiManager {
     for (const pi of this.slots.values()) {
       pi.checkHealth()
       // Detect stuck turns: running for > 5 min with no streaming activity
-      if (pi.proc && pi.running && !pi._stopping && pi._lastActivity > 0) {
+      // Skip if a tool is actively executing (e.g. long bash commands, deploys)
+      if (pi.proc && pi.running && !pi._stopping && pi._toolsRunning === 0 && pi._lastActivity > 0) {
         const stuckFor = now - pi._lastActivity
         if (stuckFor > 5 * 60 * 1000) {
           pi.emit('log', { level: 'warn', msg: `Slot ${pi.slotKey}: turn stuck for ${Math.round(stuckFor/60000)}m with no activity, force-aborting` })

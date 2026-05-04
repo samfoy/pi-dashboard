@@ -1565,6 +1565,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
 
   pi.on('agent_end', () => {
     midTurn = false
+    pi._toolsRunning = 0
     _stopStallDetector()
     streamBuf = ''
     _partialTextMsg = null
@@ -1623,6 +1624,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   })
 
   pi.on('tool_start', ({ toolName, toolCallId, args }: any) => {
+    pi._toolsRunning++
     toolStartTimes.set(toolCallId, { startTime: Date.now(), toolName })
     // Finalize any partial text before tool call
     if (_partialTextMsg) { _partialTextMsg._partial = false; _partialTextMsg = null }
@@ -1650,6 +1652,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   })
 
   pi.on('tool_end', (event: any) => {
+    if (pi._toolsRunning > 0) pi._toolsRunning--
     const result = event.result?.content?.[0]?.text || ''
     // Persist result on the tool message so it survives refresh/slot-switch
     for (let i = pi.messages.length - 1; i >= 0; i--) {
