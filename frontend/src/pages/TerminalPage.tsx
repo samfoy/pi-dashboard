@@ -1,3 +1,4 @@
+import { withToken } from '../api/auth'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
@@ -67,7 +68,7 @@ export default function TerminalPage() {
     const rows = term.rows
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const params = new URLSearchParams({ cwd: targetCwd, cols: String(cols), rows: String(rows) })
-    const ws = new WebSocket(`${proto}//${location.host}/api/terminal/ws?${params}`)
+    const ws = new WebSocket(withToken(`${proto}//${location.host}/api/terminal/ws?${params}`))
     ws.binaryType = 'arraybuffer'
     wsRef.current = ws
 

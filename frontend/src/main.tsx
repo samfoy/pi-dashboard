@@ -4,7 +4,11 @@ import { Provider } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import { store } from './store'
 import App from './App'
+import { initToken } from './api/auth'
 import './index.css'
+
+// Extract and store auth token from URL before any API calls
+initToken()
 
 // Detect standalone/Electron mode for macOS traffic light padding
 if (

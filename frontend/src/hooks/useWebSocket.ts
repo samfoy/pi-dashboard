@@ -1,3 +1,4 @@
+import { withToken } from '../api/auth'
 import { useEffect, useRef, useCallback } from 'react'
 import { useAppDispatch } from '../store'
 import { store } from '../store'
@@ -39,7 +40,7 @@ export function useWebSocket() {
       wsRef.current = null
     }
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${proto}//${location.host}/api/ws`)
+    const ws = new WebSocket(withToken(`${proto}//${location.host}/api/ws`))
     wsRef.current = ws
 
     ws.onopen = () => {
