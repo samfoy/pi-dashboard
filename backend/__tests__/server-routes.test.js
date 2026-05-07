@@ -13,7 +13,7 @@ import { EventEmitter } from 'events'
 // ── Mocks must be declared before the module under test is imported ──────────
 
 // child_process – prevent PiProcess from spawning anything
-vi.mock('child_process', () => ({ spawn: vi.fn(), execSync: vi.fn(() => '') }))
+vi.mock('child_process', () => ({ spawn: vi.fn(), execSync: vi.fn(() => ''), exec: vi.fn((cmd, opts, cb) => { if (typeof opts === 'function') { cb = opts } cb(null, { stdout: '', stderr: '' }) }) }))
 
 // node-pty – pty-manager imports this; stub it out entirely
 vi.mock('node-pty', () => ({
