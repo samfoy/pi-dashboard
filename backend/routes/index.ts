@@ -1,0 +1,6 @@
+export { registerChatRoutes } from './chat.js'
+export { registerFileRoutes } from './files.js'
+export { registerSystemRoutes } from './system.js'
+export { registerSessionRoutes } from './sessions.js'
+export { registerAutoloopRoutes } from './autoloop.js'
+export type { RouteDeps } from './types.js'
