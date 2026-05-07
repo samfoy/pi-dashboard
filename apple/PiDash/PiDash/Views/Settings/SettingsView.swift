@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(\.appTheme) private var theme
     @Environment(ThemeManager.self) private var themeManager
     @State private var urlText: String = ""
+    @State private var tokenText: String = ""
     @State private var cwdText: String = ""
     @State private var testResult: String?
     @State private var isTesting = false
@@ -71,6 +72,11 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .onSubmit { saveURL() }
+                    SecureField("Auth Token", text: $tokenText)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .font(.system(.body, design: .monospaced))
+                        .onSubmit { saveToken() }
                 }
 
                 Section("Working Directory") {
@@ -163,6 +169,7 @@ struct SettingsView: View {
             }
             .onAppear {
                 urlText = appState.serverConfig.baseURL
+                tokenText = appState.serverConfig.token
                 cwdText = appState.serverConfig.defaultCwd
                 testResult = nil
                 // Collect unique cwds from existing slots
@@ -179,6 +186,11 @@ struct SettingsView: View {
         let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         appState.updateServerConfig(baseURL: trimmed)
+    }
+
+    private func saveToken() {
+        let trimmed = tokenText.trimmingCharacters(in: .whitespacesAndNewlines)
+        appState.updateServerConfig(token: trimmed)
     }
 
     private func saveCwd() {

@@ -355,9 +355,13 @@ actor APIClient {
     }
 
     private func perform(_ request: URLRequest) async throws -> Data {
+        var req = request
+        if !config.token.isEmpty {
+            req.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+        }
         do {
-            print("[APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "nil")")
-            let (data, response) = try await session.data(for: request)
+            print("[APIClient] \(req.httpMethod ?? "?") \(req.url?.absoluteString ?? "nil")")
+            let (data, response) = try await session.data(for: req)
             if let http = response as? HTTPURLResponse {
                 print("[APIClient] Response: \(http.statusCode) (\(data.count) bytes)")
                 if !(200..<300).contains(http.statusCode) {

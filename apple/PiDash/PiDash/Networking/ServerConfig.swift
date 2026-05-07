@@ -7,6 +7,7 @@ struct ServerConfig {
     static let defaultBaseURL = "http://samuels-macbook-air-1.taile86245.ts.net:7777"
     static let userDefaultsKey = "serverBaseURL"
     static let cwdDefaultsKey = "defaultCwd"
+    static let tokenDefaultsKey = "serverAuthToken"
     static let appGroupSuite = "group.com.sam.pidash"
 
     /// Shared App Group UserDefaults; falls back to .standard if the suite is unavailable
@@ -17,6 +18,7 @@ struct ServerConfig {
 
     private(set) var baseURL: String
     private(set) var defaultCwd: String
+    private(set) var token: String
 
     init(baseURL: String? = nil) {
         let shared = Self.sharedDefaults
@@ -40,6 +42,7 @@ struct ServerConfig {
             self.baseURL = resolved
         }
         self.defaultCwd = shared.string(forKey: Self.cwdDefaultsKey) ?? ""
+        self.token = shared.string(forKey: Self.tokenDefaultsKey) ?? ""
     }
 
     mutating func update(baseURL: String) {
@@ -56,13 +59,26 @@ struct ServerConfig {
         }
     }
 
+    mutating func update(token: String) {
+        self.token = token
+        if token.isEmpty {
+            Self.sharedDefaults.removeObject(forKey: Self.tokenDefaultsKey)
+        } else {
+            Self.sharedDefaults.set(token, forKey: Self.tokenDefaultsKey)
+        }
+    }
+
     var apiBase: String { "\(baseURL)/api" }
 
     var wsURL: URL? {
         var urlString = baseURL
         urlString = urlString.replacingOccurrences(of: "http://", with: "ws://")
         urlString = urlString.replacingOccurrences(of: "https://", with: "wss://")
-        return URL(string: "\(urlString)/api/ws")
+        var wsPath = "\(urlString)/api/ws"
+        if !token.isEmpty {
+            wsPath += "?token=\(token)"
+        }
+        return URL(string: wsPath)
     }
 
     func url(path: String) -> URL? {

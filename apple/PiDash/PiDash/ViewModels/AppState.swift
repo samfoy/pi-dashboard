@@ -182,6 +182,14 @@ final class AppState {
         Task { await loadSlots() }
     }
 
+    func updateServerConfig(token: String) {
+        var newConfig = serverConfig
+        newConfig.update(token: token)
+        serverConfig = newConfig
+        wsManager.updateConfig(newConfig)
+        Task { await apiClient.updateConfig(newConfig) }
+    }
+
     func updateDefaultCwd(_ cwd: String) {
         serverConfig.update(cwd: cwd)
     }
