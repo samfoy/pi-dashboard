@@ -402,9 +402,16 @@ actor APIClient {
         return try await get(url: url)
     }
 
+    private func attachAuth(_ request: inout URLRequest) {
+        if !config.token.isEmpty {
+            request.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+        }
+    }
+
     private func get(url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        attachAuth(&request)
         return try await perform(request)
     }
 
@@ -412,6 +419,7 @@ actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        attachAuth(&request)
         request.httpBody = try JSONEncoder().encode(body)
         return try await perform(request)
     }
@@ -420,6 +428,7 @@ actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        attachAuth(&request)
         request.httpBody = try JSONEncoder().encode(body)
         return try await perform(request)
     }
@@ -427,6 +436,7 @@ actor APIClient {
     private func delete(url: URL) async throws {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
+        attachAuth(&request)
         _ = try await perform(request)
     }
 

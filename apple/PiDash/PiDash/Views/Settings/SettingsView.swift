@@ -156,7 +156,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Save") { saveURL(); saveCwd(); dismiss() }
+                    Button("Save") { saveURL(); saveToken(); saveCwd(); dismiss() }
                         .frame(maxWidth: .infinity)
                 }
             }
