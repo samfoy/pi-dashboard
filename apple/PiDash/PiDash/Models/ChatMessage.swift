@@ -9,6 +9,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     var role: MessageRole
     var content: String
     var isStreaming: Bool
+    var isQueued: Bool
     var timestamp: Date
     var meta: MessageMeta?
     /// Raw image data for inline display (transient — not persisted to server)
@@ -20,6 +21,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         role: MessageRole,
         content: String,
         isStreaming: Bool = false,
+        isQueued: Bool = false,
         timestamp: Date = Date(),
         meta: MessageMeta? = nil,
         imageData: [Data] = []
@@ -29,6 +31,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         self.role = role
         self.content = content
         self.isStreaming = isStreaming
+        self.isQueued = isQueued
         self.timestamp = timestamp
         self.meta = meta
         self.imageData = imageData
@@ -36,7 +39,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
 
     // Custom Codable — imageData is transient, decode as empty
     enum CodingKeys: String, CodingKey {
-        case id, slotKey, role, content, isStreaming, timestamp, meta
+        case id, slotKey, role, content, isStreaming, isQueued, timestamp, meta
     }
 
     init(from decoder: Decoder) throws {
@@ -46,6 +49,7 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         role = try c.decode(MessageRole.self, forKey: .role)
         content = try c.decode(String.self, forKey: .content)
         isStreaming = try c.decode(Bool.self, forKey: .isStreaming)
+        isQueued = try c.decodeIfPresent(Bool.self, forKey: .isQueued) ?? false
         timestamp = try c.decode(Date.self, forKey: .timestamp)
         meta = try c.decodeIfPresent(MessageMeta.self, forKey: .meta)
         imageData = []
@@ -75,6 +79,9 @@ struct MessageMeta: Codable, Equatable {
     var toolCallId: String?
     var toolArgs: String?      // JSON string of args
     var toolResult: String?
+    /// Partial (streaming) tool output. Rendered while the tool is running;
+    /// replaced by `toolResult` once `tool_result` arrives.
+    var partialResult: String?
     var isError: Bool?
     // System/custom message metadata
     var customType: String?

@@ -64,6 +64,8 @@ actor APIClient {
     struct SlotDetailResult {
         let messages: [ChatMessage]
         let running: Bool
+        let tokenStats: TokenStatsDTO?
+        let thinkingLevel: String?
     }
 
     func fetchSlotDetail(key: String) async throws -> SlotDetailResult {
@@ -72,7 +74,7 @@ actor APIClient {
         do {
             let response = try decoder.decode(SlotDetailResponse.self, from: data)
             let msgs = response.messages.map { $0.toChatMessage(slotKey: key) }
-            return SlotDetailResult(messages: msgs, running: response.running ?? false)
+            return SlotDetailResult(messages: msgs, running: response.running ?? false, tokenStats: response.tokenStats, thinkingLevel: response.thinkingLevel)
         } catch {
             let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
             print("[APIClient] Decode error for slot detail: \(error)")
@@ -154,6 +156,13 @@ actor APIClient {
         let url = try requireURL(path: "/chat/slots/\(slot)/thinking")
         let body = SetThinkingRequest(level: level)
         _ = try await post(url: url, body: body)
+    }
+
+    /// `GET /api/chat/slots/:key/git` — best-effort git summary for the slot's cwd
+    func fetchGitSummary(slot: String) async throws -> GitSummaryDTO {
+        let url = try requireURL(path: "/chat/slots/\(slot)/git")
+        let data = try await get(url: url)
+        return try decoder.decode(GitSummaryDTO.self, from: data)
     }
 
     /// `PATCH /api/chat/slots/:key/tags` — set tags for a slot
@@ -318,6 +327,73 @@ actor APIClient {
         _ = try await post(url: url, body: body)
     }
 
+    // MARK: - Generate title
+
+    /// `POST /api/chat/slots/:key/generate-title` → `{ok, title}`
+    func generateTitle(slot: String) async throws -> String {
+        let url = try requireURL(path: "/chat/slots/\(slot)/generate-title")
+        let data = try await post(url: url, body: EmptyBody())
+        let response = try decoder.decode(GenerateTitleResponse.self, from: data)
+        return response.title
+    }
+
+    // MARK: - System Prompt
+
+    /// `GET /api/chat/slots/:key/system-prompt`
+    func fetchSystemPrompt(slot: String) async throws -> SystemPromptResponse {
+        let url = try requireURL(path: "/chat/slots/\(slot)/system-prompt")
+        let data = try await get(url: url)
+        return try decoder.decode(SystemPromptResponse.self, from: data)
+    }
+
+    // MARK: - Session Tree / Fork
+
+    /// `GET /api/chat/slots/:key/tree` → session JSONL parsed as a tree
+    func fetchSessionTree(slot: String) async throws -> SessionTreeResponse {
+        let url = try requireURL(path: "/chat/slots/\(slot)/tree")
+        let data = try await get(url: url)
+        return try decoder.decode(SessionTreeResponse.self, from: data)
+    }
+
+    /// `POST /api/chat/slots/:key/fork` → forks at `entryId`, returns new slot
+    func forkSlot(slot: String, entryId: String) async throws -> ForkResponse {
+        let url = try requireURL(path: "/chat/slots/\(slot)/fork")
+        let body = ForkRequest(entryId: entryId)
+        let data = try await post(url: url, body: body)
+        return try decoder.decode(ForkResponse.self, from: data)
+    }
+
+    // MARK: - File upload
+
+    /// `POST /api/upload-files` → uploads arbitrary files, returns server-side paths
+    func uploadFiles(_ files: [UploadFileItem]) async throws -> [String] {
+        let url = try requireURL(path: "/upload-files")
+        let body = UploadFilesRequest(files: files)
+        let data = try await post(url: url, body: body)
+        let response = try decoder.decode(UploadFilesResponse.self, from: data)
+        return response.paths
+    }
+
+    // MARK: - Subagents
+
+    /// `GET /api/subagents/status?slot=<key>` → list of subagents for this slot
+    func fetchSubagents(slot: String) async throws -> [SubagentInfoDTO] {
+        guard var components = URLComponents(url: try requireURL(path: "/subagents/status"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [URLQueryItem(name: "slot", value: slot)]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let data = try await get(url: url)
+        return (try? decoder.decode([SubagentInfoDTO].self, from: data)) ?? []
+    }
+
+    /// `GET /api/subagents/:id/log` → live log tail (plain text)
+    func fetchSubagentLog(id: String) async throws -> String {
+        let url = try requireURL(path: "/subagents/\(id)/log")
+        let data = try await get(url: url)
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
     // MARK: - Private HTTP helpers
 
     /// Public raw GET for ad-hoc API calls
@@ -355,13 +431,9 @@ actor APIClient {
     }
 
     private func perform(_ request: URLRequest) async throws -> Data {
-        var req = request
-        if !config.token.isEmpty {
-            req.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
-        }
         do {
-            print("[APIClient] \(req.httpMethod ?? "?") \(req.url?.absoluteString ?? "nil")")
-            let (data, response) = try await session.data(for: req)
+            print("[APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "nil")")
+            let (data, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse {
                 print("[APIClient] Response: \(http.statusCode) (\(data.count) bytes)")
                 if !(200..<300).contains(http.statusCode) {

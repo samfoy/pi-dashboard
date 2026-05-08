@@ -49,6 +49,7 @@ final class AppState {
 
     private var eventTask: Task<Void, Never>?
     private var connectionObserver: AnyCancellable?
+    private var wasConnected: Bool = false
 
     init(serverConfig: ServerConfig = ServerConfig()) {
         self.serverConfig = serverConfig
@@ -61,7 +62,20 @@ final class AppState {
     func start() {
         // Bridge wsManager's @Published connectionState into @Observable connectionState
         connectionObserver = wsManager.$connectionState.sink { [weak self] state in
-            self?.connectionState = state
+            guard let self else { return }
+            let nowConnected = state.isConnected
+            let wasDown = !self.wasConnected
+            self.connectionState = state
+            self.wasConnected = nowConnected
+            // Transition non-connected → connected: tell active chat VMs to backfill
+            // any messages they might have missed while the WS was down / zombie.
+            if nowConnected && wasDown {
+                Task { @MainActor in
+                    for (_, vm) in self.chatViewModels {
+                        vm.handleReconnect()
+                    }
+                }
+            }
         }
         wsManager.connect()
         eventTask = Task { [weak self] in
@@ -180,14 +194,6 @@ final class AppState {
         wsManager.updateConfig(newConfig)
         Task { await apiClient.updateConfig(newConfig) }
         Task { await loadSlots() }
-    }
-
-    func updateServerConfig(token: String) {
-        var newConfig = serverConfig
-        newConfig.update(token: token)
-        serverConfig = newConfig
-        wsManager.updateConfig(newConfig)
-        Task { await apiClient.updateConfig(newConfig) }
     }
 
     func updateDefaultCwd(_ cwd: String) {

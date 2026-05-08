@@ -81,6 +81,7 @@ interface SlotDetail {
   cwd: string | null
   contextUsage: any | null
   tokenStats: any | null
+  thinkingLevel: string | null
 }
 
 function saveImagesToTemp(images: ImagePayload[]): string[] {
@@ -119,6 +120,7 @@ export class PiProcess extends EventEmitter {
   cwd: string | null
   modelProvider: string | null
   modelId: string | null
+  thinkingLevel: string | null
   _title: string | null
   _tags: string[]
   _userRenamed: boolean
@@ -150,6 +152,7 @@ export class PiProcess extends EventEmitter {
     this.cwd = opts.cwd || null
     this.modelProvider = opts.modelProvider || null
     this.modelId = opts.modelId || null
+    this.thinkingLevel = null
     this._title = opts.title || null
     this._tags = opts.tags || []
     this._userRenamed = false  // true if user manually renamed
@@ -282,6 +285,13 @@ export class PiProcess extends EventEmitter {
     this._startupTimer = setTimeout(() => { this._startupTimer = null }, 5000)
 
     this.ready = true
+
+    // Seed current thinking level from pi (best-effort; fails silently if rpc not ready yet)
+    setTimeout(() => {
+      this.getState().then((state: any) => {
+        if (state?.thinkingLevel) this.thinkingLevel = state.thinkingLevel
+      }).catch(() => {})
+    }, 500)
   }
 
   send(cmd: Record<string, any>): boolean {
@@ -833,6 +843,7 @@ export class PiManager {
       cwd: pi.cwd || null,
       contextUsage: pi._contextUsage || null,
       tokenStats: pi._tokenStats || null,
+      thinkingLevel: pi.thinkingLevel || null,
     }
   }
 

@@ -34,7 +34,7 @@ struct ChatView: View {
                 await vm.loadHistory()
                 await vm.loadModels()
                 await vm.loadSlashCommands()
-                await vm.setThinking(vm.thinkingLevel)
+                await vm.refreshGitSummary()
             }
         }
         .onDisappear {
@@ -77,25 +77,30 @@ struct ChatView: View {
                     Text(viewModel?.slot.title ?? slot.title)
                         .font(.headline)
                         .lineLimit(1)
-                    if let cwd = viewModel?.slot.cwd ?? slot.cwd {
-                        Button {
-                            showCwdPicker = true
-                        } label: {
-                            HStack(spacing: 3) {
-                                Image(systemName: "folder.fill")
-                                    .font(.caption2)
-                                Text((cwd as NSString).lastPathComponent.isEmpty ? cwd : (cwd as NSString).lastPathComponent)
-                                    .font(.caption2)
-                                    .lineLimit(1)
+                    HStack(spacing: 6) {
+                        if let cwd = viewModel?.slot.cwd ?? slot.cwd {
+                            Button {
+                                showCwdPicker = true
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "folder.fill")
+                                        .font(.caption2)
+                                    Text((cwd as NSString).lastPathComponent.isEmpty ? cwd : (cwd as NSString).lastPathComponent)
+                                        .font(.caption2)
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(.secondary)
                             }
-                            .foregroundStyle(.secondary)
+                            .buttonStyle(.plain)
+                        } else if let modelName = viewModel?.currentModel?.name ?? viewModel?.slot.model {
+                            Text(modelName)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                        .buttonStyle(.plain)
-                    } else if let modelName = viewModel?.currentModel?.name ?? viewModel?.slot.model {
-                        Text(modelName)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                        if let git = viewModel?.gitSummary, git.isRepo, let branch = git.branch {
+                            GitBranchPill(branch: branch, dirty: git.dirtyFiles ?? 0)
+                        }
                     }
                 }
             }
@@ -117,6 +122,8 @@ private struct ChatContentView: View {
     @State private var showCommandPalette = false
     @State private var showTagEditor = false
     @State private var showModelPickerFromToolbar = false
+    @State private var showForkPickerFromBubble = false
+    @State private var isUploadingFiles = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -155,6 +162,12 @@ private struct ChatContentView: View {
                         .transition(.opacity)
                 }
 
+                // Session cost bar — shown when we have token stats
+                if let stats = viewModel.tokenStats, stats.totalTokens > 0 {
+                    SessionCostBar(stats: stats)
+                        .transition(.opacity)
+                }
+
                 messageList
 
                 ChatInputBar(
@@ -163,6 +176,7 @@ private struct ChatContentView: View {
                     isStreaming: viewModel.isStreaming,
                     isDisabled: viewModel.isLoadingHistory,
                     contextPercent: viewModel.slot.contextPercent,
+                    heartbeatStallMs: viewModel.heartbeatStallMs,
                     lastAssistantContent: viewModel.messages.last(where: { $0.role == .assistant })?.content,
                     onShowPalette: { showCommandPalette = true },
                     onShowModelPicker: { showModelPickerFromToolbar = true },
@@ -230,6 +244,11 @@ private struct ChatContentView: View {
                         }
                     },
                     isSpeechRecording: isSpeechRecording,
+                    onUploadFileURLs: { urls in
+                        guard !urls.isEmpty else { return }
+                        Task { await uploadFiles(urls) }
+                    },
+                    isUploadingFiles: isUploadingFiles,
                     onSend: { Task { await viewModel.send() } },
                     onStop: { Task { await viewModel.stop() } }
                 )
@@ -254,6 +273,9 @@ private struct ChatContentView: View {
                 }
                 .sheet(isPresented: $showModelPickerFromToolbar) {
                     ModelPickerSheet(viewModel: viewModel)
+                }
+                .sheet(isPresented: $showForkPickerFromBubble) {
+                    ForkPickerSheet(slotKey: viewModel.slotKey)
                 }
             }
 
@@ -292,7 +314,10 @@ private struct ChatContentView: View {
                         .padding(.top, 40)
                     }
                     ForEach(viewModel.messages) { message in
-                        MessageBubble(message: message)
+                        MessageBubble(
+                            message: message,
+                            onFork: message.role == .user ? { showForkPickerFromBubble = true } : nil
+                        )
                             .id(message.id)
                     }
                     // Invisible anchor at bottom — onAppear/onDisappear tracks if user is at bottom
@@ -353,16 +378,62 @@ private struct ChatContentView: View {
             }
         }
     }
+
+    /// Upload picked files to the server, then inject the returned paths into
+    /// the message input as a markdown attachment note.
+    private func uploadFiles(_ urls: [URL]) async {
+        isUploadingFiles = true
+        defer { isUploadingFiles = false }
+
+        var items: [UploadFileItem] = []
+        for url in urls {
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            guard let data = try? Data(contentsOf: url) else { continue }
+            let item = UploadFileItem(
+                name: url.lastPathComponent,
+                data: data.base64EncodedString()
+            )
+            items.append(item)
+        }
+        guard !items.isEmpty else {
+            viewModel.error = "Couldn't read selected files"
+            HapticManager.error()
+            return
+        }
+
+        do {
+            let paths = try await appState.apiClient.uploadFiles(items)
+            guard !paths.isEmpty else { return }
+            let attachmentNote = paths.map { "Attached: `\($0)`" }.joined(separator: "\n")
+            let current = viewModel.inputText
+            if current.isEmpty {
+                viewModel.inputText = attachmentNote
+            } else {
+                let sep = current.hasSuffix("\n") ? "\n" : "\n\n"
+                viewModel.inputText = current + sep + attachmentNote
+            }
+            HapticManager.messageSent()
+        } catch {
+            viewModel.error = "Upload failed: \(error.localizedDescription)"
+            HapticManager.error()
+        }
+    }
 }
 
 // MARK: - Chat Settings Menu (Model & Thinking)
 
 private struct ChatSettingsMenu: View {
     @Bindable var viewModel: ChatViewModel
+    @Environment(AppState.self) private var appState
     @State private var showModelPicker = false
     @State private var showThinkingPicker = false
     @State private var showRename = false
     @State private var renameText = ""
+    @State private var showSystemPrompt = false
+    @State private var showForkPicker = false
+    @State private var showSubagentDock = false
+    @State private var isGeneratingTitle = false
 
     var body: some View {
         Menu {
@@ -372,6 +443,40 @@ private struct ChatSettingsMenu: View {
                 showRename = true
             } label: {
                 Label("Rename", systemImage: "pencil")
+            }
+
+            // Auto-title
+            Button {
+                guard !isGeneratingTitle else { return }
+                isGeneratingTitle = true
+                Task {
+                    await viewModel.autoTitle()
+                    isGeneratingTitle = false
+                }
+            } label: {
+                Label("Generate title", systemImage: "sparkles")
+            }
+            .disabled(isGeneratingTitle)
+
+            // View system prompt
+            Button {
+                showSystemPrompt = true
+            } label: {
+                Label("View system prompt", systemImage: "doc.text.magnifyingglass")
+            }
+
+            // Fork conversation
+            Button {
+                showForkPicker = true
+            } label: {
+                Label("Fork from\u{2026}", systemImage: "arrow.triangle.branch")
+            }
+
+            // Subagents dock
+            Button {
+                showSubagentDock = true
+            } label: {
+                Label("Subagents", systemImage: "person.2.crop.square.stack")
             }
 
             // Current model display
@@ -407,6 +512,15 @@ private struct ChatSettingsMenu: View {
         }
         .sheet(isPresented: $showModelPicker) {
             ModelPickerSheet(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showSystemPrompt) {
+            SystemPromptSheet(slotKey: viewModel.slotKey)
+        }
+        .sheet(isPresented: $showForkPicker) {
+            ForkPickerSheet(slotKey: viewModel.slotKey)
+        }
+        .sheet(isPresented: $showSubagentDock) {
+            SubagentDockSheet(slotKey: viewModel.slotKey)
         }
         .alert("Rename Chat", isPresented: $showRename) {
             TextField("Chat name", text: $renameText)
@@ -596,5 +710,72 @@ private struct ContextUsageBar: View {
             }
         }
         .padding(.top, 2)
+    }
+}
+
+// MARK: - Session Cost Bar
+
+private struct SessionCostBar: View {
+    let stats: TokenStatsDTO
+    @Environment(\.appTheme) private var theme
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Label(formatTokens(stats.totalTokens), systemImage: "chart.bar.fill")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            dot
+
+            Text("↑ \(formatTokens(stats.totalInputTokens))")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            Text("↓ \(formatTokens(stats.totalOutputTokens))")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+
+            if cachePercent > 0 {
+                dot
+                Text("⚡ \(cachePercent)%")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(theme.accent)
+            }
+
+            if stats.totalCost > 0 {
+                dot
+                Text(formatCost(stats.totalCost))
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .background(theme.cardBg)
+    }
+
+    private var dot: some View {
+        Text("·")
+            .font(.caption2)
+            .foregroundStyle(.quaternary)
+    }
+
+    private var cachePercent: Int {
+        guard stats.totalInputTokens > 0 else { return 0 }
+        return Int((Double(stats.cacheReadTokens) / Double(stats.totalInputTokens) * 100).rounded())
+    }
+
+    private func formatTokens(_ n: Int) -> String {
+        if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
+        if n >= 1_000 { return String(format: "%.1fk", Double(n) / 1_000) }
+        return "\(n)"
+    }
+
+    private func formatCost(_ n: Double) -> String {
+        if n == 0 { return "$0" }
+        if n < 0.01 { return "<$0.01" }
+        return String(format: "$%.2f", n)
     }
 }

@@ -32,6 +32,7 @@
 		795A2660FE11416F8780CB1E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D62D76D4F4395254F5CFF5 /* SettingsView.swift */; };
 		7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBA38927A210B8A6BFB78498 /* ServerConfig.swift */; };
 		81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C0956DDB33362A723DD498 /* MessageBubble.swift */; };
+		530CE37D89A849FEBAD09AF9 /* GitBranchPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D307A6026794760B127605C /* GitBranchPill.swift */; };
 		8334FFC35DF87DCA245E0381 /* ConnectionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64FD511FAE1D25366BE99B3F /* ConnectionBanner.swift */; };
 		878EB4797E74FBB81BAFE1ED /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF70333902B6EE893FC3174A /* AppTheme.swift */; };
 		87A3EE96219338AAF7ED07A1 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = 6245B73A834A08D1F18FD06B /* Highlightr */; };
@@ -68,6 +69,9 @@
 2441AE0E56B1A063674CB584 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDC9D0B24B2D0B801EF003AF /* ShareViewController.swift */; };
 B691A305FC38F6DF01BEA7CA /* ShareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A16C8185F7D80C638FD35A53 /* ShareViewModel.swift */; };
 C050F7E97122191AA8F77EB2 /* PiDashShare.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 600760179E2976E8A5E4618A /* PiDashShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+D1E2F30405060001 /* SystemPromptSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F30405060101 /* SystemPromptSheet.swift */; };
+D1E2F30405060002 /* ForkPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F30405060102 /* ForkPickerSheet.swift */; };
+D1E2F30405060003 /* SubagentDockSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F30405060103 /* SubagentDockSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -109,6 +113,7 @@ C050F7E97122191AA8F77EB2 /* PiDashShare.appex in Embed App Extensions */ = {isa 
 		A55A63DAAA5085318A112FC9 /* SlotRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotRow.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A60001 /* TagEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagEditorSheet.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		3D307A6026794760B127605C /* GitBranchPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitBranchPill.swift; sourceTree = "<group>"; };
 		ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
 		AF70333902B6EE893FC3174A /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
@@ -134,6 +139,9 @@ A16C8185F7D80C638FD35A53 /* ShareViewModel.swift */ = {isa = PBXFileReference; l
 CCD3567E28F12B5C0134EAAD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 9C48420B71B5027D153CC4ED /* PiDashShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashShare.entitlements; sourceTree = "<group>"; };
 600760179E2976E8A5E4618A /* PiDashShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PiDashShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+D1E2F30405060101 /* SystemPromptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPromptSheet.swift; sourceTree = "<group>"; };
+D1E2F30405060102 /* ForkPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForkPickerSheet.swift; sourceTree = "<group>"; };
+D1E2F30405060103 /* SubagentDockSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentDockSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -239,9 +247,13 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				519D23A51D27EBEE4AE7B00D /* InlineImageView.swift */,
 				35DAA311D4727DE3B15770F1 /* LineDiffView.swift */,
 				A6C0956DDB33362A723DD498 /* MessageBubble.swift */,
+				3D307A6026794760B127605C /* GitBranchPill.swift */,
 				85CF3CD5B785E976FDAF1644 /* ThinkingView.swift */,
 				238BF8BF39C77ED440301D70 /* ToolCallView.swift */,
 				A1B2C3D4E5F60001 /* SystemMessageView.swift */,
+				D1E2F30405060101 /* SystemPromptSheet.swift */,
+				D1E2F30405060102 /* ForkPickerSheet.swift */,
+				D1E2F30405060103 /* SubagentDockSheet.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -503,6 +515,7 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				42988D7BC2211B3BC2486CAF /* LocationService.swift in Sources */,
 				BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */,
 				81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */,
+				530CE37D89A849FEBAD09AF9 /* GitBranchPill.swift in Sources */,
 				3568E9A59A2673F94DA7A9F2 /* PiDashApp.swift in Sources */,
 				F18845C9A0BC1F7E8B4D3F6D /* PiDashShortcuts.swift in Sources */,
 				FAB50CB7FFBE6724BAAE8EC2 /* ProjectPickerSheet.swift in Sources */,
@@ -525,6 +538,9 @@ A168520FC13293289778C452 /* Frameworks */ = {
 				F40A42BF25A2BC41A60D27E1 /* ThinkingView.swift in Sources */,
 				1DD68D70FC55ACBD275451C2 /* ToolCallView.swift in Sources */,
 				A1B2C3D4E5F60002 /* SystemMessageView.swift in Sources */,
+				D1E2F30405060001 /* SystemPromptSheet.swift in Sources */,
+				D1E2F30405060002 /* ForkPickerSheet.swift in Sources */,
+				D1E2F30405060003 /* SubagentDockSheet.swift in Sources */,
 				63904453439371641F247790 /* WebSocketManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

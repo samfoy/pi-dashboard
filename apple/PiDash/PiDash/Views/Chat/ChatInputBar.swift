@@ -20,6 +20,7 @@ struct ChatInputBar: View {
     let isStreaming: Bool
     var isDisabled: Bool = false
     var contextPercent: Double? = nil
+    var heartbeatStallMs: Int? = nil
     var lastAssistantContent: String? = nil
     var onShowPalette: (() -> Void)? = nil
     var onShowModelPicker: (() -> Void)? = nil
@@ -31,6 +32,10 @@ struct ChatInputBar: View {
     var onLocationSummary: (() -> Void)? = nil
     var onSpeechTap: (() -> Void)? = nil
     var isSpeechRecording: Bool = false
+    /// Called when the user picks one or more files via `.fileImporter` for server upload.
+    var onUploadFileURLs: (([URL]) -> Void)? = nil
+    /// When true, show a small progress indicator next to the input row.
+    var isUploadingFiles: Bool = false
     let onSend: () -> Void
     let onStop: () -> Void
     @FocusState private var isFocused: Bool
@@ -40,16 +45,46 @@ struct ChatInputBar: View {
     @State private var showPhotoPicker = false
     @State private var showDocumentPicker = false
     @State private var showCamera = false
+    @State private var showFileImporter = false
     @State private var photoSelection: [PhotosPickerItem] = []
     @State private var showCompactConfirm = false
 
     private var canSend: Bool {
-        !isStreaming && !isDisabled &&
+        !isDisabled &&
         (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pendingImages.isEmpty)
+    }
+
+    /// True when tapping the send button should queue a follow-up instead of starting a new turn.
+    private var isQueuingFollowUp: Bool {
+        isStreaming && canSend
+    }
+
+    private var heartbeatLabel: String? {
+        guard isStreaming, let ms = heartbeatStallMs, ms > 0 else { return nil }
+        let secs = ms / 1000
+        if secs >= 60 {
+            let mins = secs / 60
+            return "still working\u{2026} (\(mins)m silent)"
+        }
+        return "still working\u{2026} (\(secs)s silent)"
     }
 
     var body: some View {
         VStack(spacing: 0) {
+            // Heartbeat — pi is alive but silent
+            if let label = heartbeatLabel {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.mini)
+                    Text(label)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .transition(.opacity)
+            }
             // Image thumbnails
             if !pendingImages.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -94,6 +129,13 @@ struct ChatInputBar: View {
                             showDocumentPicker = true
                         } label: {
                             Label("Document", systemImage: "doc")
+                        }
+                        if onUploadFileURLs != nil {
+                            Button {
+                                showFileImporter = true
+                            } label: {
+                                Label("Upload File", systemImage: "paperclip.badge.ellipsis")
+                            }
                         }
                         Button {
                             showCamera = true
@@ -202,26 +244,39 @@ struct ChatInputBar: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .fill(theme.inputBg)
                     )
+                    .overlay(alignment: .trailing) {
+                        if isUploadingFiles {
+                            ProgressView()
+                                .controlSize(.small)
+                                .padding(.trailing, 10)
+                        }
+                    }
                     .submitLabel(.return)
                     .disabled(isDisabled)
                     .focused($isFocused)
 
+                let sendIcon: String = {
+                    if isQueuingFollowUp { return "arrow.up.circle.fill" }
+                    if isStreaming { return "stop.circle.fill" }
+                    return "arrow.up.circle.fill"
+                }()
+                let sendTint: Color = {
+                    if isQueuingFollowUp { return theme.accent.opacity(0.85) }
+                    if isStreaming { return theme.error }
+                    return canSend ? theme.accent : theme.textSecondary
+                }()
                 Button(action: {
-                    if isStreaming {
+                    if isQueuingFollowUp {
+                        isFocused = false
+                        onSend()
+                    } else if isStreaming {
                         onStop()
                     } else {
                         isFocused = false
                         onSend()
                     }
                 }) {
-                    Image(systemName: isStreaming ? "stop.circle.fill" : "arrow.up.circle.fill")
-                        .font(.title)
-                        .foregroundStyle(
-                            isStreaming ? theme.error
-                                : (canSend ? theme.accent : theme.textSecondary)
-                        )
-                        .contentTransition(.symbolEffect(.replace))
-                        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: isStreaming)
+                    sendButtonLabel(icon: sendIcon, tint: sendTint)
                 }
                 .disabled(!isStreaming && !canSend)
                 .scaleEffect(canSend || isStreaming ? 1.0 : 0.82)
@@ -233,6 +288,18 @@ struct ChatInputBar: View {
         }
         .background(.bar)
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoSelection, maxSelectionCount: 5, matching: .images)
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.data],
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls):
+                onUploadFileURLs?(urls)
+            case .failure:
+                break
+            }
+        }
         .onChange(of: photoSelection) { _, items in
             Task { await loadPhotos(items) }
         }
@@ -249,6 +316,29 @@ struct ChatInputBar: View {
                 }
             }
             .ignoresSafeArea()
+        }
+    }
+
+    // MARK: - Send button label
+
+    @ViewBuilder
+    private func sendButtonLabel(icon: String, tint: Color) -> some View {
+        let base = Image(systemName: icon)
+            .font(.title)
+            .foregroundStyle(tint)
+            .contentTransition(.symbolEffect(.replace))
+            .animation(reduceMotion ? nil : .spring(duration: 0.3), value: isStreaming)
+        if isQueuingFollowUp {
+            base.overlay(alignment: .topTrailing) {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(theme.pageBg)
+                    .padding(2)
+                    .background(Circle().fill(theme.accent))
+                    .offset(x: 4, y: -4)
+            }
+        } else {
+            base
         }
     }
 

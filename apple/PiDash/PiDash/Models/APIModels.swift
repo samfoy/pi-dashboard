@@ -25,13 +25,16 @@ struct SlotDetailResponse: Decodable {
     let model: String?
     let cwd: String?
     let contextUsage: ContextUsageDTO?
+    let tokenStats: TokenStatsDTO?
+    let thinkingLevel: String?
 
     enum CodingKeys: String, CodingKey {
         case messages, running, stopping, total, model, cwd
         case pendingApproval = "pending_approval"
         case hasMore = "has_more"
-        // API sends camelCase for this one
         case contextUsage
+        case tokenStats
+        case thinkingLevel
     }
 }
 
@@ -39,6 +42,15 @@ struct ContextUsageDTO: Decodable {
     let tokens: Int?
     let contextWindow: Int?
     let percent: Double?
+}
+
+struct TokenStatsDTO: Decodable, Equatable {
+    let totalInputTokens: Int
+    let totalOutputTokens: Int
+    let totalTokens: Int
+    let totalCost: Double
+    let cacheReadTokens: Int
+    let cacheWriteTokens: Int
 }
 
 // MARK: - Data Transfer Objects
@@ -289,6 +301,20 @@ struct WSContextUsageEvent: Decodable {
     let data: WSContextUsageData
 }
 
+struct WSTokenStatsData: Decodable {
+    let slot: String
+    let totalInputTokens: Int?
+    let totalOutputTokens: Int?
+    let totalCost: Double?
+    let cacheReadTokens: Int?
+    let cacheWriteTokens: Int?
+}
+
+struct WSTokenStatsEvent: Decodable {
+    let type: String
+    let data: WSTokenStatsData
+}
+
 struct WSChatErrorData: Decodable {
     let slot: String
     let message: String
@@ -297,6 +323,74 @@ struct WSChatErrorData: Decodable {
 struct WSChatErrorEvent: Decodable {
     let type: String
     let data: WSChatErrorData
+}
+
+// MARK: - Tool update (streaming partial output)
+
+struct WSToolUpdateData: Decodable {
+    let slot: String
+    let tool: String?
+    let id: String
+    let partial: String?
+}
+
+struct WSToolUpdateEvent: Decodable {
+    let type: String
+    let data: WSToolUpdateData
+}
+
+// MARK: - Heartbeat (stall detected, pi still alive)
+
+struct WSHeartbeatData: Decodable {
+    let slot: String
+    let stallMs: Int?
+}
+
+struct WSHeartbeatEvent: Decodable {
+    let type: String
+    let data: WSHeartbeatData
+}
+
+// MARK: - Startup error (pi crashed at launch)
+
+struct WSStartupErrorData: Decodable {
+    let slot: String
+    let message: WSStartupErrorMessage
+}
+
+struct WSStartupErrorMessage: Decodable {
+    let role: String
+    let content: String
+    let ts: String?
+}
+
+struct WSStartupErrorEvent: Decodable {
+    let type: String
+    let data: WSStartupErrorData
+}
+
+// MARK: - Extension status / widget (plugin status bar)
+
+struct WSExtensionStatusData: Decodable {
+    let slot: String
+    let key: String
+    let text: String?
+}
+
+struct WSExtensionStatusEvent: Decodable {
+    let type: String
+    let data: WSExtensionStatusData
+}
+
+struct WSExtensionWidgetData: Decodable {
+    let slot: String
+    let key: String
+    let lines: [String]?
+}
+
+struct WSExtensionWidgetEvent: Decodable {
+    let type: String
+    let data: WSExtensionWidgetData
 }
 
 // MARK: - Send Message Request
@@ -333,6 +427,16 @@ struct SetModelRequest: Encodable {
 
 struct SetThinkingRequest: Encodable {
     let level: String
+}
+
+struct GitSummaryDTO: Decodable {
+    let isRepo: Bool
+    let branch: String?
+    let dirtyFiles: Int?
+    let additions: Int?
+    let deletions: Int?
+    let ahead: Int?
+    let behind: Int?
 }
 
 struct SetTagsRequest: Encodable {
@@ -431,6 +535,90 @@ struct SessionSearchResponse: Decodable {
 struct ResumeResponse: Decodable {
     let ok: Bool
     let key: String
+}
+
+// MARK: - Generate Title
+
+struct GenerateTitleResponse: Decodable {
+    let ok: Bool
+    let title: String
+}
+
+// MARK: - System Prompt
+
+struct SystemPromptResponse: Decodable {
+    let staticPrompt: String
+    let runtime: String
+    let memory: String?
+    let memoryStats: SystemPromptMemoryStats?
+
+    enum CodingKeys: String, CodingKey {
+        case staticPrompt = "static"
+        case runtime, memory, memoryStats
+    }
+}
+
+struct SystemPromptMemoryStats: Decodable {
+    let semantic: Int?
+    let lessons: Int?
+}
+
+// MARK: - Session Tree / Fork
+
+struct SessionTreeResponse: Decodable {
+    let entries: [SessionTreeEntryDTO]
+    let leafId: String?
+}
+
+struct SessionTreeEntryDTO: Decodable, Hashable {
+    let id: String?
+    let parentId: String?
+    let type: String
+    let timestamp: String?
+    let role: String?
+    let text: String?
+    let fullText: String?
+    let tools: [String]?
+
+    /// Stable identifier — uses `id` when present, else synthesizes from type+timestamp.
+    var stableId: String { id ?? "\(type)-\(timestamp ?? UUID().uuidString)" }
+}
+
+struct ForkRequest: Encodable {
+    let entryId: String
+}
+
+struct ForkResponse: Decodable {
+    let ok: Bool
+    let cancelled: Bool?
+    let text: String?
+    let newSlotKey: String?
+}
+
+// MARK: - File Upload
+
+struct UploadFileItem: Encodable {
+    let name: String
+    let data: String  // base64
+}
+
+struct UploadFilesRequest: Encodable {
+    let files: [UploadFileItem]
+}
+
+struct UploadFilesResponse: Decodable {
+    let ok: Bool
+    let paths: [String]
+}
+
+// MARK: - Subagents
+
+struct SubagentInfoDTO: Decodable, Identifiable {
+    let id: String
+    let task: String?
+    let done: Bool?
+    let error: String?
+    let result: String?
 }
 
 // MARK: - Browse
