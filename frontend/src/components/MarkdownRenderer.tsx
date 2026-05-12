@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useId, useCallback, useState } from 'react'
+import { memo, useEffect, useRef, useCallback, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
@@ -20,6 +20,7 @@ import { api } from '../api/client'
 import { useBlockAssembler } from '../hooks/useBlockAssembler'
 import DiffBlock from './DiffBlock'
 import ResizableImage from './ResizableImage'
+import ResizableMermaid from './ResizableMermaid'
 import type { ContentBlock } from '../types'
 
 hljs.registerLanguage('javascript', javascript)
@@ -49,44 +50,6 @@ hljs.registerLanguage('md', markdown)
 
 const PATH_RE = /^~?(?:\.{0,2}\/)?[\w.@~/ -]*\/[\w.@~ -]*[\w.]$/
 
-function isDarkTheme(): boolean {
-  return document.documentElement.getAttribute('data-theme') === 'dark'
-}
-
-/** Lazily loaded mermaid instance — only fetched when first mermaid diagram is rendered. */
-let mermaidPromise: Promise<typeof import('mermaid')['default']> | null = null
-function getMermaid() {
-  if (!mermaidPromise) {
-    mermaidPromise = import('mermaid').then(m => m.default)
-  }
-  return mermaidPromise
-}
-
-function initMermaid(instance: { initialize: (config: object) => void }): void {
-  const dark = isDarkTheme()
-  instance.initialize({
-    startOnLoad: false,
-    theme: dark ? 'dark' : 'default',
-    themeVariables: dark ? {
-      primaryColor: '#f59e32',
-      primaryTextColor: '#e8e6e3',
-      primaryBorderColor: '#3a3a3a',
-      lineColor: '#888',
-      secondaryColor: '#2a2a2a',
-      tertiaryColor: '#1a1a1a',
-    } : {
-      primaryColor: '#f59e32',
-      primaryTextColor: '#1a1a1a',
-      primaryBorderColor: '#ccc',
-      lineColor: '#666',
-      secondaryColor: '#fff3e0',
-      tertiaryColor: '#f5f5f5',
-    },
-    securityLevel: 'loose',
-    fontFamily: 'inherit',
-  })
-}
-
 function setSanitizedHTML(el: Element, html: string): void {
   const clean = DOMPurify.sanitize(html)
   const range = document.createRange()
@@ -94,37 +57,6 @@ function setSanitizedHTML(el: Element, html: string): void {
   range.deleteContents()
   el.appendChild(range.createContextualFragment(clean))
 }
-
-const MermaidBlock = memo(function MermaidBlock({ code }: { code: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const id = useId().replace(/:/g, '_')
-  const renderedRef = useRef('')
-
-  useEffect(() => {
-    if (!ref.current || renderedRef.current === code) return
-    renderedRef.current = code
-    getMermaid().then(m => {
-      if (!ref.current) return
-      initMermaid(m)
-      return m.render(`mermaid-${id}`, code)
-    }).then((result) => {
-      if (!ref.current || !result) return
-      const range = document.createRange()
-      range.selectNodeContents(ref.current)
-      range.deleteContents()
-      ref.current.appendChild(range.createContextualFragment(result.svg))
-    }).catch(() => {
-      if (!ref.current) return
-      const pre = document.createElement('pre')
-      pre.className = 'text-danger text-[13px]'
-      pre.textContent = code
-      ref.current.textContent = ''
-      ref.current.appendChild(pre)
-    })
-  }, [code, id])
-
-  return <div ref={ref} className="my-3 flex justify-center overflow-x-auto min-h-[60px]" />
-})
 
 function HighlightedCode({ code, lang, className }: { code: string; lang: string | undefined; className: string }) {
   const ref = useRef<HTMLElement>(null)
@@ -184,7 +116,7 @@ const MD_COMPONENTS: Record<string, React.ComponentType<any>> = {
     const lang = match?.[1]
     const codeStr = String(children).replace(/\n$/, '')
 
-    if (lang === 'mermaid') return <MermaidBlock code={codeStr} />
+    if (lang === 'mermaid') return <ResizableMermaid code={codeStr} />
 
     if (!className) {
       if (PATH_RE.test(codeStr)) {
@@ -248,7 +180,7 @@ function BlockRenderer({ block }: { block: ContentBlock }) {
     case 'diff':
       return <DiffBlock code={block.content} complete={block.complete} />
     case 'mermaid':
-      return block.complete ? <MermaidBlock code={block.content} /> : (
+      return block.complete ? <ResizableMermaid code={block.content} /> : (
         <div className="my-2 p-3 bg-bg-elevated border border-border rounded-md text-muted text-[12px] italic animate-pulse">generating diagram…</div>
       )
     case 'code':
