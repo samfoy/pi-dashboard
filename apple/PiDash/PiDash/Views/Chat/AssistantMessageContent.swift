@@ -85,16 +85,28 @@ private func parseSegments(_ content: String) -> [ContentSegment] {
 }
 
 private func resolveImageURL(_ urlString: String) -> URL? {
-    // Absolute URLs pass through
-    if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
-        return URL(string: urlString)
-    }
     // data: URIs — skip, these are raw blobs not suitable for InlineImageView
     if urlString.hasPrefix("data:") {
         return nil
     }
+    let config = ServerConfig()
+    let token = config.token
+    // Absolute URLs — append token if we have one and it's our own server
+    if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
+        guard var components = URLComponents(string: urlString) else { return URL(string: urlString) }
+        if !token.isEmpty {
+            var items = components.queryItems ?? []
+            items.append(URLQueryItem(name: "token", value: token))
+            components.queryItems = items
+        }
+        return components.url
+    }
     // Relative path — prepend server base URL
-    let base = ServerConfig().baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    let base = config.baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     let path = urlString.hasPrefix("/") ? urlString : "/\(urlString)"
-    return URL(string: base + path)
+    var urlStr = base + path
+    if !token.isEmpty {
+        urlStr += (urlStr.contains("?") ? "&" : "?") + "token=\(token)"
+    }
+    return URL(string: urlStr)
 }

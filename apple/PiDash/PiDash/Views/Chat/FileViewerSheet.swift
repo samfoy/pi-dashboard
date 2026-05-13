@@ -293,10 +293,14 @@ struct FileViewerContent: View {
     }
 
     private var imageURL: URL? {
-        guard let base = UserDefaults.standard.string(forKey: "serverURL"),
-              var components = URLComponents(string: base) else { return nil }
+        let config = ServerConfig()
+        guard var components = URLComponents(string: config.baseURL) else { return nil }
         components.path = "/api/local-file"
-        components.queryItems = [URLQueryItem(name: "path", value: viewModel.path)]
+        var items = [URLQueryItem(name: "path", value: viewModel.path)]
+        if !config.token.isEmpty {
+            items.append(URLQueryItem(name: "token", value: config.token))
+        }
+        components.queryItems = items
         return components.url
     }
 
