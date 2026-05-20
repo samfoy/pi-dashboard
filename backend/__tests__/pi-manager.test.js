@@ -466,12 +466,13 @@ describe('PiProcess', () => {
       expect(spy).toHaveBeenCalled()
     })
 
-    // ── stuck-turn watchdog repair ──
-    // Symptom: a re-entrant turn (extension followUp / sub-agent completion
-    // delivered via triggerTurn) inherited a stale _lastActivity from before
-    // the long wait, and was force-aborted by _healthCheck within ~30s.
-    // LOAD-BEARING — mutation-witnessed (W1).
-    it('agent_start bumps _lastActivity (re-entrant turns reset stuck clock)', () => {
+    // agent_start refreshes _lastActivity. Originally added (810cd776)
+    // to fix a stuck-turn-watchdog false-positive on re-entrant turns;
+    // the watchdog has since been removed, but the bump is still useful
+    // for the 30-min idle-process reaper math: a fresh turn after a
+    // long sub-agent wait shouldn't immediately look like a 30-min-idle
+    // slot. Mutation-witnessed.
+    it('agent_start bumps _lastActivity (correct math for the 30-min idle reaper)', () => {
       pi._lastActivity = Date.now() - 10 * 60 * 1000 // 10 min stale
       const before = Date.now()
 
@@ -481,10 +482,10 @@ describe('PiProcess', () => {
       expect(Date.now() - pi._lastActivity).toBeLessThan(1000)
     })
 
-    // _toolsRunning was declared+read but never tracked, so the
-    // skip-during-tool-execution guard in _healthCheck was permanently
-    // true. Track on tool_execution_start/_end. Mutation-witnessed (W2).
-    it('tool_execution_start increments _toolsRunning and bumps _lastActivity', () => {
+    // _toolsRunning is instrumentation only since the stuck-turn
+    // force-abort was removed. The activity bump on tool start/end is
+    // still load-bearing for the 30-min idle-reaper.
+    it('tool_execution_start increments _toolsRunning (instrumentation) and bumps _lastActivity', () => {
       pi._lastActivity = Date.now() - 10 * 60 * 1000
       pi._toolsRunning = 0
       const before = Date.now()
@@ -495,7 +496,7 @@ describe('PiProcess', () => {
       expect(pi._lastActivity).toBeGreaterThanOrEqual(before)
     })
 
-    it('tool_execution_end decrements _toolsRunning and bumps _lastActivity', () => {
+    it('tool_execution_end decrements _toolsRunning (instrumentation) and bumps _lastActivity', () => {
       pi._toolsRunning = 1
       pi._lastActivity = Date.now() - 10 * 60 * 1000
       const before = Date.now()
@@ -515,8 +516,12 @@ describe('PiProcess', () => {
     })
   })
 
-  // ── PiManager._healthCheck stuck-turn integration ──
-  describe('PiManager._healthCheck stuck-turn detection', () => {
+  // ── PiManager._healthCheck: idle reaping only ──
+  // The previous 5-min stuck-turn force-abort was removed; pi owns
+  // time-to-completion via its own provider retries + per-tool timeouts.
+  // This block pins the absence of the abort path. Mutation-witnessed:
+  // re-adding the 5-min force-abort makes this test red.
+  describe('PiManager._healthCheck idle-only behavior', () => {
     let mgr
 
     beforeEach(async () => {
@@ -528,36 +533,25 @@ describe('PiProcess', () => {
       if (mgr) mgr.shutdown()
     })
 
-    function makeStuckCandidate() {
+    it('never force-aborts a running turn, no matter how long silent', () => {
+      // Stuck running slot, silent for 30 min — way past any old threshold.
+      // Spy abort. Run _healthCheck. Assert abort NOT called. Pins the
+      // deletion of the stuck-turn force-abort (revert of 810cd776's
+      // _healthCheck branch). Pi has its own provider retries + per-tool
+      // timeouts; dashboard does not second-guess pi on time-to-completion.
       const p = new (PiProcess)('stuck-slot')
       p.proc = { killed: false, exitCode: null, kill: vi.fn() } // looks alive
       p.running = true
       p._stopping = false
-      p._lastActivity = Date.now() - 6 * 60 * 1000 // 6 min stale
-      // Stub abort + checkHealth so the test isolates the watchdog branch.
+      p._toolsRunning = 0 // no tool active
+      p._lastActivity = Date.now() - 30 * 60 * 1000 // 30 min stale
       p.abort = vi.fn(() => true)
       p.checkHealth = vi.fn(() => true)
-      return p
-    }
-
-    it('does NOT abort when a tool is actively running (Fix B intent restored)', () => {
-      const p = makeStuckCandidate()
-      p._toolsRunning = 1 // tool in flight — must skip
       mgr.slots.set(p.slotKey, p)
 
       mgr._healthCheck()
 
       expect(p.abort).not.toHaveBeenCalled()
-    })
-
-    it('DOES abort when no tool is running and lastActivity is stale (regression pin)', () => {
-      const p = makeStuckCandidate()
-      p._toolsRunning = 0
-      mgr.slots.set(p.slotKey, p)
-
-      mgr._healthCheck()
-
-      expect(p.abort).toHaveBeenCalledTimes(1)
     })
   })
 })

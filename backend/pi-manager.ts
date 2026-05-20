@@ -131,6 +131,11 @@ export class PiProcess extends EventEmitter {
   _stderrLines: string[]
   _startupTimer: ReturnType<typeof setTimeout> | null
   _stoppingTimer?: ReturnType<typeof setTimeout> | null
+  // Instrumentation only (no longer load-bearing). Was the
+  // skip-during-tool-execution guard for the 5-min stuck-turn
+  // force-abort in _healthCheck. The force-abort was removed; this
+  // counter stays as cheap instrumentation in case a future UI surface
+  // wants "tools in flight per slot."
   _toolsRunning: number
   _readyPromise?: Promise<void> | null
   _contextUsage?: any
@@ -912,19 +917,18 @@ export class PiManager {
     if (this._onStateChange) this._onStateChange()
   }
 
+  // Periodic health sweep. Idle-process reaping ONLY — frees RSS on slots
+  // that have been !running for >30 min. Does NOT second-guess pi on
+  // time-to-completion: pi has its own provider retries (settings.json
+  // retry.maxRetries) and per-tool timeouts. The previous 5-min
+  // stuck-turn force-abort (introduced + patched in 810cd776) produced
+  // more false positives than true positives — killed legitimately slow
+  // LLM turns, long single tool calls, and foreground sub-agent waits.
+  // Removed in favor of letting pi own that decision.
   _healthCheck(): void {
     const now = Date.now()
     for (const pi of this.slots.values()) {
       pi.checkHealth()
-      // Detect stuck turns: running for > 5 min with no streaming activity
-      // Skip if a tool is actively executing (e.g. long bash commands, deploys)
-      if (pi.proc && pi.running && !pi._stopping && pi._toolsRunning === 0 && pi._lastActivity > 0) {
-        const stuckFor = now - pi._lastActivity
-        if (stuckFor > 5 * 60 * 1000) {
-          pi.emit('log', { level: 'warn', msg: `Slot ${pi.slotKey}: turn stuck for ${Math.round(stuckFor/60000)}m with no activity, force-aborting` })
-          pi.abort()
-        }
-      }
       // Reap idle processes (not running a turn, idle > 30 minutes)
       if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
         const idle = now - pi._lastActivity
