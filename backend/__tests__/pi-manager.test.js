@@ -465,5 +465,99 @@ describe('PiProcess', () => {
       expect(pi._stopping).toBe(false)
       expect(spy).toHaveBeenCalled()
     })
+
+    // ── stuck-turn watchdog repair ──
+    // Symptom: a re-entrant turn (extension followUp / sub-agent completion
+    // delivered via triggerTurn) inherited a stale _lastActivity from before
+    // the long wait, and was force-aborted by _healthCheck within ~30s.
+    // LOAD-BEARING — mutation-witnessed (W1).
+    it('agent_start bumps _lastActivity (re-entrant turns reset stuck clock)', () => {
+      pi._lastActivity = Date.now() - 10 * 60 * 1000 // 10 min stale
+      const before = Date.now()
+
+      pi._handleEvent({ type: 'agent_start' })
+
+      expect(pi._lastActivity).toBeGreaterThanOrEqual(before)
+      expect(Date.now() - pi._lastActivity).toBeLessThan(1000)
+    })
+
+    // _toolsRunning was declared+read but never tracked, so the
+    // skip-during-tool-execution guard in _healthCheck was permanently
+    // true. Track on tool_execution_start/_end. Mutation-witnessed (W2).
+    it('tool_execution_start increments _toolsRunning and bumps _lastActivity', () => {
+      pi._lastActivity = Date.now() - 10 * 60 * 1000
+      pi._toolsRunning = 0
+      const before = Date.now()
+
+      pi._handleEvent({ type: 'tool_execution_start', toolCallId: 't1', toolName: 'bash', args: {} })
+
+      expect(pi._toolsRunning).toBe(1)
+      expect(pi._lastActivity).toBeGreaterThanOrEqual(before)
+    })
+
+    it('tool_execution_end decrements _toolsRunning and bumps _lastActivity', () => {
+      pi._toolsRunning = 1
+      pi._lastActivity = Date.now() - 10 * 60 * 1000
+      const before = Date.now()
+
+      pi._handleEvent({ type: 'tool_execution_end', toolCallId: 't1' })
+
+      expect(pi._toolsRunning).toBe(0)
+      expect(pi._lastActivity).toBeGreaterThanOrEqual(before)
+    })
+
+    it('tool_execution_end clamps _toolsRunning at 0 (defensive against unpaired end)', () => {
+      pi._toolsRunning = 0
+
+      pi._handleEvent({ type: 'tool_execution_end', toolCallId: 'orphan' })
+
+      expect(pi._toolsRunning).toBe(0)
+    })
+  })
+
+  // ── PiManager._healthCheck stuck-turn integration ──
+  describe('PiManager._healthCheck stuck-turn detection', () => {
+    let mgr
+
+    beforeEach(async () => {
+      const mod = await import('../pi-manager.js')
+      mgr = new mod.PiManager()
+    })
+
+    afterEach(() => {
+      if (mgr) mgr.shutdown()
+    })
+
+    function makeStuckCandidate() {
+      const p = new (PiProcess)('stuck-slot')
+      p.proc = { killed: false, exitCode: null, kill: vi.fn() } // looks alive
+      p.running = true
+      p._stopping = false
+      p._lastActivity = Date.now() - 6 * 60 * 1000 // 6 min stale
+      // Stub abort + checkHealth so the test isolates the watchdog branch.
+      p.abort = vi.fn(() => true)
+      p.checkHealth = vi.fn(() => true)
+      return p
+    }
+
+    it('does NOT abort when a tool is actively running (Fix B intent restored)', () => {
+      const p = makeStuckCandidate()
+      p._toolsRunning = 1 // tool in flight — must skip
+      mgr.slots.set(p.slotKey, p)
+
+      mgr._healthCheck()
+
+      expect(p.abort).not.toHaveBeenCalled()
+    })
+
+    it('DOES abort when no tool is running and lastActivity is stale (regression pin)', () => {
+      const p = makeStuckCandidate()
+      p._toolsRunning = 0
+      mgr.slots.set(p.slotKey, p)
+
+      mgr._healthCheck()
+
+      expect(p.abort).toHaveBeenCalledTimes(1)
+    })
   })
 })

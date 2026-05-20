@@ -569,6 +569,11 @@ export class PiProcess extends EventEmitter {
         this._stopping = false
         this._pendingApproval = false
         this._streamIdx = this.messages.length  // mark where partials will go
+        // Bump activity at turn start so re-entrant turns (extension followUp,
+        // sub-agent completion injections via triggerTurn) don't inherit a
+        // stale _lastActivity from before the long wait and trip the
+        // _healthCheck stuck-turn watchdog (5min). LOAD-BEARING.
+        this._lastActivity = Date.now()
         this.emit('agent_start', event)
         break
 
@@ -683,6 +688,12 @@ export class PiProcess extends EventEmitter {
         break
 
       case 'tool_execution_start':
+        // Track in-flight tool count + bump activity so long single-tool-call
+        // turns (deploys, big test runs, conductor foreground sub-agents)
+        // don't trip the _healthCheck stuck-turn watchdog. The _toolsRunning
+        // counter is the skip-during-tool-execution guard at _healthCheck.
+        this._toolsRunning++
+        this._lastActivity = Date.now()
         this.emit('tool_start', {
           toolCallId: event.toolCallId,
           toolName: event.toolName,
@@ -695,6 +706,10 @@ export class PiProcess extends EventEmitter {
         break
 
       case 'tool_execution_end':
+        // Math.max clamp guards against unpaired _end (process restart,
+        // missed event) sending the counter negative.
+        this._toolsRunning = Math.max(0, this._toolsRunning - 1)
+        this._lastActivity = Date.now()
         this.emit('tool_end', event)
         break
 
