@@ -282,6 +282,23 @@ const SystemMessage = memo(function SystemMessage({ content, meta }: Props) {
     />
   }
 
+  // pi-conductor item 11 (D4) defense — if the customType branch above
+  // didn't fire (e.g. customType is missing because of an older pi
+  // version, a routing-channel quirk, or session-replay), fall back to
+  // sniffing the message body for a sub-agent envelope. The conductor's
+  // notifications.ts always emits both a markdown header ("## ✓ `persona`
+  // completed ...") and an xml fence (<sub-agent-completed> ...).
+  // parseEnsembleNotification only requires the xml fence; if it matches,
+  // render the structured card even without the customType marker. This
+  // closes the residual visual gap where a witnessed completion rendered
+  // as a lowercase-`i` info line instead of a structured card. See
+  // pi-conductor docs/items-1-11-pi-dashboard-inspector-map.md §4 D4.
+  {
+    const stripped = content.replace(/^\[[^\]]*\]\s*/, '')
+    const parsed = parseEnsembleNotification(stripped)
+    if (parsed) return <EnsembleNotificationCard n={parsed} />
+  }
+
   // Generic system/custom message — simple muted bar
   const text = content.replace(/^\[[^\]]*\]\s*/, '')
   return (

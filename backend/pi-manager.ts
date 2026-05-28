@@ -762,6 +762,16 @@ export class PiProcess extends EventEmitter {
         break
 
       case 'extension_ui_request':
+        // pi-conductor item 1 (D1) defense — bump _lastActivity on
+        // extension UI requests so slots actively orchestrating
+        // sub-agents (each spawn re-renders the conductor widget,
+        // emitting extension_ui_request events) don't get reaped
+        // by the 30h idle-reaper at _healthCheck. Background
+        // sub-agents end the parent's turn immediately on tool
+        // return, so the parent slot looks idle from pi-dashboard's
+        // POV without a heartbeat from the orchestrator.
+        // See pi-conductor docs/items-1-11-pi-dashboard-inspector-map.md.
+        this._lastActivity = Date.now()
         this.emit('extension_ui', event)
         break
 
