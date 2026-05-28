@@ -3,7 +3,7 @@
  */
 import express, { Request, Response } from 'express'
 import { readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'fs'
-import { readFile, writeFile, mkdir } from 'fs/promises'
+import { readFile, writeFile, mkdir, open, stat } from 'fs/promises'
 import { join, dirname, basename } from 'path'
 import os from 'os'
 import type { RouteDeps } from './types.js'
@@ -64,11 +64,38 @@ export function registerFileRoutes(deps: RouteDeps): void {
     }
   })
 
-  // File read
+  // File read — supports ?tail=<bytes> to return only the last N bytes
+  // (useful for huge append-only logs like sub-agent transcripts).
   app.get('/api/file-read', async (req: Request, res: Response) => {
     const filePath = expandHome(req.query.path as string)
     if (!filePath) return res.status(400).json({ error: 'path required' })
+    const tail = req.query.tail ? parseInt(req.query.tail as string, 10) : 0
     try {
+      if (tail > 0) {
+        const st = await stat(filePath)
+        const size = st.size
+        if (size <= tail) {
+          const content = await readFile(filePath, 'utf-8')
+          res.set('X-File-Size', String(size))
+          res.set('X-Tail-Truncated', '0')
+          return res.type('text/plain').send(content)
+        }
+        const start = size - tail
+        const fh = await open(filePath, 'r')
+        try {
+          const buf = Buffer.allocUnsafe(tail)
+          await fh.read(buf, 0, tail, start)
+          // Drop partial first line so JSONL parsers don't choke.
+          let s = buf.toString('utf-8')
+          const nl = s.indexOf('\n')
+          if (nl >= 0) s = s.slice(nl + 1)
+          res.set('X-File-Size', String(size))
+          res.set('X-Tail-Truncated', '1')
+          return res.type('text/plain').send(s)
+        } finally {
+          await fh.close()
+        }
+      }
       const content = await readFile(filePath, 'utf-8')
       res.type('text/plain').send(content)
     } catch (e: any) {
