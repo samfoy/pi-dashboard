@@ -32,9 +32,15 @@ enum ServerEvent {
     case chatMessage(slot: String, role: String, content: String, ts: String?, meta: MessageMetaDTO?)
     case toolCall(slot: String, tool: String, id: String, args: AnyCodable?)
     case toolResult(slot: String, tool: String, id: String, result: String?, isError: Bool)
+    case toolUpdate(slot: String, tool: String?, id: String, partial: String)
+    case heartbeat(slot: String, stallMs: Int?)
+    case startupError(slot: String, content: String, ts: String?)
+    case extensionStatus(slot: String, key: String, text: String?)
+    case extensionWidget(slot: String, key: String, lines: [String])
     case slotTitle(key: String, title: String)
     case slotTags(key: String, tags: [String])
     case contextUsage(slot: String, tokens: Int?, percent: Double?)
+    case tokenStats(slot: String, stats: TokenStatsDTO)
     case notification(kind: String, title: String, body: String?, slot: String?, ts: String)
     case chatError(slot: String, message: String)
     case unknown(String)
@@ -56,8 +62,11 @@ final class WebSocketManager: ObservableObject {
     private let urlSession: URLSession
     private var config: ServerConfig
     private var reconnectTask: Task<Void, Never>?
+    private var heartbeatTask: Task<Void, Never>?
     private var reconnectAttempts = 0
     private let maxReconnectAttempts = 20
+    private let pingInterval: TimeInterval = 10
+    private let pongTimeout: TimeInterval = 5
 
     private var reconnectDelay: TimeInterval {
         min(pow(2.0, Double(reconnectAttempts)), 30.0)
@@ -89,6 +98,8 @@ final class WebSocketManager: ObservableObject {
 
     func disconnect() {
         reconnectTask?.cancel()
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
         wsTask?.cancel(with: .normalClosure, reason: nil)
         wsTask = nil
         connectionState = .disconnected
@@ -97,6 +108,32 @@ final class WebSocketManager: ObservableObject {
     func updateConfig(_ newConfig: ServerConfig) {
         disconnect()
         self.config = newConfig
+        connect()
+    }
+
+    /// Called on scene-phase → .active. Force-reconnects if the WS is not in a
+    /// healthy .connected state — handles zombie tasks that stopped delivering
+    /// events without throwing (common when the OS suspends and resumes the app).
+    func reconnectIfNeeded() {
+        if connectionState.isConnected, wsTask?.state == .running {
+            // Still healthy in theory — issue an out-of-band ping to force the
+            // kernel to notice a dead socket if it is one.
+            wsTask?.sendPing { [weak self] err in
+                guard let self, err != nil else { return }
+                Task { @MainActor in self.forceReconnect(reason: "resume ping failed") }
+            }
+            return
+        }
+        forceReconnect(reason: "resume not connected")
+    }
+
+    private func forceReconnect(reason: String) {
+        print("[WS] Force reconnect: \(reason)")
+        reconnectTask?.cancel()
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
+        wsTask?.cancel(with: .goingAway, reason: nil)
+        wsTask = nil
         connect()
     }
 
@@ -125,8 +162,54 @@ final class WebSocketManager: ObservableObject {
         task.resume()
         connectionState = .connected
         reconnectAttempts = 0
+        startHeartbeat(task: task)
         await receiveLoop(task: task)
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
         // Don't set .disconnected here — connectLoop will set .reconnecting
+    }
+
+    /// Periodic ping with pong timeout. If a ping fails or no pong arrives
+    /// within `pongTimeout`, tear down the socket so `receiveLoop` exits and
+    /// `connectLoop` schedules a fresh reconnect. This is the only reliable
+    /// way to detect a zombie URLSessionWebSocketTask on iOS — `receive()`
+    /// will otherwise block forever on a half-dead connection.
+    private func startHeartbeat(task: URLSessionWebSocketTask) {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { [weak self, weak task] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self.pingInterval))
+                if Task.isCancelled { break }
+                guard let task, task === self.wsTask else { break }
+
+                // Wrap sendPing in a checked continuation so we can time it out
+                let result: Bool = await withCheckedContinuation { cont in
+                    var resumed = false
+                    let lock = NSLock()
+                    task.sendPing { err in
+                        lock.lock(); defer { lock.unlock() }
+                        guard !resumed else { return }
+                        resumed = true
+                        cont.resume(returning: err == nil)
+                    }
+                    Task {
+                        try? await Task.sleep(for: .seconds(self.pongTimeout))
+                        lock.lock(); defer { lock.unlock() }
+                        guard !resumed else { return }
+                        resumed = true
+                        cont.resume(returning: false)
+                    }
+                }
+
+                if !result {
+                    print("[WS] Heartbeat failed — forcing reconnect")
+                    task.cancel(with: .goingAway, reason: nil)
+                    // receiveLoop's `try await task.receive()` will throw, breaking the loop.
+                    break
+                }
+            }
+        }
     }
 
     private func receiveLoop(task: URLSessionWebSocketTask) async {
@@ -204,6 +287,31 @@ final class WebSocketManager: ObservableObject {
                     isError: e.data.isError ?? false
                 )
             }
+        case "tool_update":
+            if let e = try? dec.decode(WSToolUpdateEvent.self, from: rawData) {
+                return .toolUpdate(
+                    slot: e.data.slot,
+                    tool: e.data.tool,
+                    id: e.data.id,
+                    partial: e.data.partial ?? ""
+                )
+            }
+        case "heartbeat":
+            if let e = try? dec.decode(WSHeartbeatEvent.self, from: rawData) {
+                return .heartbeat(slot: e.data.slot, stallMs: e.data.stallMs)
+            }
+        case "startup_error":
+            if let e = try? dec.decode(WSStartupErrorEvent.self, from: rawData) {
+                return .startupError(slot: e.data.slot, content: e.data.message.content, ts: e.data.message.ts)
+            }
+        case "extension_status":
+            if let e = try? dec.decode(WSExtensionStatusEvent.self, from: rawData) {
+                return .extensionStatus(slot: e.data.slot, key: e.data.key, text: e.data.text)
+            }
+        case "extension_widget":
+            if let e = try? dec.decode(WSExtensionWidgetEvent.self, from: rawData) {
+                return .extensionWidget(slot: e.data.slot, key: e.data.key, lines: e.data.lines ?? [])
+            }
         case "slot_title":
             if let e = try? dec.decode(WSSlotTitleEvent.self, from: rawData) {
                 return .slotTitle(key: e.data.key, title: e.data.title)
@@ -215,6 +323,18 @@ final class WebSocketManager: ObservableObject {
         case "context_usage":
             if let e = try? dec.decode(WSContextUsageEvent.self, from: rawData) {
                 return .contextUsage(slot: e.data.slot, tokens: e.data.tokens, percent: e.data.percent)
+            }
+        case "token_stats":
+            if let e = try? dec.decode(WSTokenStatsEvent.self, from: rawData) {
+                let stats = TokenStatsDTO(
+                    totalInputTokens: e.data.totalInputTokens ?? 0,
+                    totalOutputTokens: e.data.totalOutputTokens ?? 0,
+                    totalTokens: (e.data.totalInputTokens ?? 0) + (e.data.totalOutputTokens ?? 0),
+                    totalCost: e.data.totalCost ?? 0,
+                    cacheReadTokens: e.data.cacheReadTokens ?? 0,
+                    cacheWriteTokens: e.data.cacheWriteTokens ?? 0
+                )
+                return .tokenStats(slot: e.data.slot, stats: stats)
             }
         case "notification":
             if let e = try? dec.decode(WSNotificationEvent.self, from: rawData) {

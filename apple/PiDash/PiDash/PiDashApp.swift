@@ -33,7 +33,7 @@ struct PiDashApp: App {
                 .onChange(of: scenePhase) {
                     switch scenePhase {
                     case .active:
-                        appState.wsManager.connect()
+                        appState.wsManager.reconnectIfNeeded()
                         appState.notificationService.clearBadge()
                         Task { await appState.notificationService.checkPermission() }
                     case .background:

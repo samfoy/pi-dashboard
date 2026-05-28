@@ -5,6 +5,7 @@ import MarkdownUI
 
 struct MessageBubble: View {
     let message: ChatMessage
+    var onFork: (() -> Void)? = nil
     @State private var showTimestamp = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.appTheme) private var theme
@@ -109,8 +110,8 @@ struct MessageBubble: View {
                     Text(text)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(theme.userBubble)
-                        .foregroundStyle(theme.userBubbleText)
+                        .background(theme.userBubble.opacity(message.isQueued ? 0.55 : 1.0))
+                        .foregroundStyle(theme.userBubbleText.opacity(message.isQueued ? 0.75 : 1.0))
                         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .contextMenu {
                             Button {
@@ -118,7 +119,24 @@ struct MessageBubble: View {
                             } label: {
                                 Label("Copy", systemImage: "doc.on.doc")
                             }
+                            if let onFork {
+                                Button {
+                                    onFork()
+                                } label: {
+                                    Label("Fork from here", systemImage: "arrow.triangle.branch")
+                                }
+                            }
                         }
+                }
+                if message.isQueued {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Queued")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(theme.userBubbleText.opacity(0.7))
+                    .padding(.trailing, 4)
                 }
             }
 
@@ -146,6 +164,7 @@ struct MessageBubble: View {
                 toolId: message.meta?.toolCallId ?? "",
                 args: message.meta?.toolArgs,
                 result: message.meta?.toolResult,
+                partialResult: message.meta?.partialResult,
                 isError: message.meta?.isError ?? false
             )
 

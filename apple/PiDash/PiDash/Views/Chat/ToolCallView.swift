@@ -8,10 +8,15 @@ struct ToolCallView: View {
     let toolId: String
     var args: String? = nil
     var result: String? = nil
+    var partialResult: String? = nil
     var isError: Bool = false
 
     @State private var expanded = false
     @Environment(\.appTheme) private var theme
+
+    /// The detail text to show — final result if present, otherwise the streaming partial.
+    private var effectiveResult: String? { result ?? partialResult }
+    private var isStreamingPartial: Bool { result == nil && (partialResult?.isEmpty == false) }
 
     private var parsedArgs: [String: Any]? {
         guard let args, let data = args.data(using: .utf8) else { return nil }
@@ -59,6 +64,11 @@ struct ToolCallView: View {
                 } else {
                     ProgressView()
                         .controlSize(.mini)
+                    if isStreamingPartial {
+                        Text("live")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(theme.accent)
+                    }
                 }
 
                 Image(systemName: "chevron.right")
@@ -78,15 +88,15 @@ struct ToolCallView: View {
     private var toolDetail: some View {
         switch toolName {
         case "read":
-            ReadToolDetail(args: parsedArgs, result: result)
+            ReadToolDetail(args: parsedArgs, result: effectiveResult)
         case "edit":
-            EditToolDetail(args: parsedArgs, result: result)
+            EditToolDetail(args: parsedArgs, result: effectiveResult)
         case "write":
-            WriteToolDetail(args: parsedArgs, result: result)
+            WriteToolDetail(args: parsedArgs, result: effectiveResult)
         case "bash":
-            BashToolDetail(args: parsedArgs, result: result)
+            BashToolDetail(args: parsedArgs, result: effectiveResult)
         default:
-            GenericToolDetail(args: args, result: result, isError: isError)
+            GenericToolDetail(args: args, result: effectiveResult, isError: isError)
         }
     }
 

@@ -49,6 +49,7 @@ final class AppState {
 
     private var eventTask: Task<Void, Never>?
     private var connectionObserver: AnyCancellable?
+    private var wasConnected: Bool = false
 
     init(serverConfig: ServerConfig = ServerConfig()) {
         self.serverConfig = serverConfig
@@ -61,7 +62,20 @@ final class AppState {
     func start() {
         // Bridge wsManager's @Published connectionState into @Observable connectionState
         connectionObserver = wsManager.$connectionState.sink { [weak self] state in
-            self?.connectionState = state
+            guard let self else { return }
+            let nowConnected = state.isConnected
+            let wasDown = !self.wasConnected
+            self.connectionState = state
+            self.wasConnected = nowConnected
+            // Transition non-connected → connected: tell active chat VMs to backfill
+            // any messages they might have missed while the WS was down / zombie.
+            if nowConnected && wasDown {
+                Task { @MainActor in
+                    for (_, vm) in self.chatViewModels {
+                        vm.handleReconnect()
+                    }
+                }
+            }
         }
         wsManager.connect()
         eventTask = Task { [weak self] in
@@ -105,11 +119,17 @@ final class AppState {
         } else {
             resolved = serverConfig.defaultCwd.isEmpty ? nil : serverConfig.defaultCwd
         }
+        let modelDefault = serverConfig.defaultModel.isEmpty ? nil : serverConfig.defaultModel
+        let thinkingDefault = serverConfig.defaultThinkingLevel.isEmpty ? nil : serverConfig.defaultThinkingLevel
         do {
-            let slot = try await apiClient.createSlot(title: title, cwd: resolved)
+            let slot = try await apiClient.createSlot(title: title, cwd: resolved, model: modelDefault)
             // Only insert if WS hasn't already added it
             if !slots.contains(where: { $0.key == slot.key }) {
                 slots.insert(slot, at: 0)
+            }
+            // Apply default thinking level after creation
+            if let level = thinkingDefault {
+                try? await apiClient.setThinking(slot: slot.key, level: level)
             }
             return slot
         } catch {
@@ -188,10 +208,19 @@ final class AppState {
         serverConfig = newConfig
         wsManager.updateConfig(newConfig)
         Task { await apiClient.updateConfig(newConfig) }
+        Task { await loadSlots() }
     }
 
     func updateDefaultCwd(_ cwd: String) {
         serverConfig.update(cwd: cwd)
+    }
+
+    func updateDefaultModel(_ model: String) {
+        serverConfig.update(defaultModel: model)
+    }
+
+    func updateDefaultThinkingLevel(_ level: String) {
+        serverConfig.update(defaultThinkingLevel: level)
     }
 
     // MARK: - Chat ViewModel Registration

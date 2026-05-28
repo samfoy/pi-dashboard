@@ -186,23 +186,25 @@ private struct SlotListContent: View {
     @ToolbarContentBuilder
     private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            // Tap: quick new chat with default cwd
-            // Long-press: project picker → new chat with chosen cwd
-            Button {
-                Task {
-                    if let newSlot = await viewModel.createNewSlot() {
-                        appState.selectedScrollTarget = nil
-                        appState.selectedSlotKey = newSlot.key
+            Menu {
+                Button {
+                    showProjectPicker = true
+                } label: {
+                    Label("New Chat in Project…", systemImage: "folder.badge.plus")
+                }
+                Button {
+                    Task {
+                        if let newSlot = await viewModel.createNewSlot() {
+                            appState.selectedScrollTarget = nil
+                            appState.selectedSlotKey = newSlot.key
+                        }
                     }
+                } label: {
+                    Label("New Chat", systemImage: "square.and.pencil")
                 }
             } label: {
                 Image(systemName: "square.and.pencil")
             }
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.5).onEnded { _ in
-                    showProjectPicker = true
-                }
-            )
         }
         ToolbarItem(placement: .topBarLeading) {
             HStack(spacing: 16) {

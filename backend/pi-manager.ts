@@ -144,6 +144,7 @@ export class PiProcess extends EventEmitter {
   _contextUsage?: any
   _tokenStats?: any
   _wired?: boolean
+  _wasRestarted?: boolean  // set when process restarts for an existing session (resume)
 
   constructor(slotKey: string, opts: PiProcessOptions = {}) {
     super()
@@ -306,6 +307,13 @@ export class PiProcess extends EventEmitter {
     this._startupTimer = setTimeout(() => { this._startupTimer = null }, 5000)
 
     this.ready = true
+
+    // Seed current thinking level from pi (best-effort; fails silently if rpc not ready yet)
+    setTimeout(() => {
+      this.getState().then((state: any) => {
+        if (state?.thinkingLevel) this.thinkingLevel = state.thinkingLevel
+      }).catch(() => {})
+    }, 500)
   }
 
   send(cmd: Record<string, any>): boolean {
@@ -427,6 +435,12 @@ export class PiProcess extends EventEmitter {
       const paths = saveImagesToTemp(normalizedImages)
       cmd.images = normalizedImages
       msg += `\n\n[Images saved to disk: ${paths.join(', ')}]`
+    }
+    // If this process was just restarted for an existing session, prepend a resume
+    // hint so the agent doesn't mistake the re-injected session primer for a fresh start.
+    if (this._wasRestarted) {
+      this._wasRestarted = false
+      msg = `[Note for agent: you are RESUMING an existing conversation — not starting a new session. The session primer above is background context only. Continue from where we left off.]\n\n${msg}`
     }
     cmd.message = msg
     if (this.running) {
@@ -808,12 +822,17 @@ export class PiManager {
     // Restart if process is missing or dead
     if (!pi.proc || pi.proc.killed || pi.proc.exitCode !== null) {
       const reason = !pi.proc ? 'proc=null' : pi.proc.killed ? `proc.killed (pid=${pi.proc.pid})` : `exitCode=${pi.proc.exitCode} (pid=${pi.proc.pid})`
-      console.error(`[pi-manager] ensureRunning: starting slot ${key} because ${reason}`)
+      const isResume = pi.messages.length > 0 || !!pi.sessionFile
+      console.error(`[pi-manager] ensureRunning: starting slot ${key} because ${reason}${isResume ? ' (RESUME)' : ''}`)
       pi.proc = null
       pi.running = false
       pi._stopping = false
       pi._pendingApproval = false
       pi.start()
+      // Flag so the first prompt injects a resume hint — prevents the session primer
+      // (re-injected by pi-session-search on every process start) from confusing the
+      // agent into thinking it's a fresh new session.
+      if (isResume) pi._wasRestarted = true
     }
     return pi
   }
@@ -951,31 +970,26 @@ export class PiManager {
   // LLM turns, long single tool calls, and foreground sub-agent waits.
   // Removed in favor of letting pi own that decision.
   //
-  // 2026-05-21 — idle reaper DISABLED for pi-conductor compatibility.
-  // Background sub-agents (`ensemble_spawn` with `foreground: false`)
-  // end the parent's turn immediately; the parent slot then looks
-  // idle from pi-dashboard's POV while a background subagent is still
-  // doing real work. After 30 min the parent slot was getting
-  // gracefully reaped, killing the conductor extension and orphaning
-  // all its sub-agents. Witnessed twice during pi-conductor v0.11
-  // slice 2 builder runs (`builder-shzs` 22m, `builder-utrr` 39m).
-  // Proper fix: have conductor publish run-state into pi-dashboard
-  // so background sub-agents count as parent activity. Until then,
-  // the reaper is off; idle slots will hold RSS until manually closed.
+  // 2026-05-21 — idle reaper formerly DISABLED for pi-conductor compat,
+  // since 30-min reaping was killing parent slots while background sub-agents
+  // (`ensemble_spawn` foreground=false) were still doing real work. Witnessed
+  // twice on pi-conductor v0.11 slice 2 builder runs (`builder-shzs` 22m,
+  // `builder-utrr` 39m). 2026-05-28 (origin/master aa118fca): replaced the
+  // disable with a 30-hour threshold so slots survive overnight without
+  // being reaped — fixes the conductor problem with much less collateral.
   _healthCheck(): void {
     const now = Date.now()
     for (const pi of this.slots.values()) {
       pi.checkHealth()
-      // Idle reaping disabled — see block comment above.
-      // Original logic preserved here, gated on a future config flag:
-      //
-      // if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
-      //   const idle = now - pi._lastActivity
-      //   if (idle > 30 * 60 * 1000) {
-      //     pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
-      //     pi.gracefulShutdown().then(() => { pi.proc = null })
-      //   }
-      // }
+      // Reap idle processes (not running a turn, idle > 30 hours)
+      // 30h lets slots survive overnight without being reaped.
+      if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
+        const idle = now - pi._lastActivity
+        if (idle > 30 * 60 * 60 * 1000) {
+          pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
+          pi.gracefulShutdown().then(() => { pi.proc = null })
+        }
+      }
     }
   }
 

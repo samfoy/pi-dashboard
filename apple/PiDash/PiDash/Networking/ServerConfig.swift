@@ -8,6 +8,8 @@ struct ServerConfig {
     static let userDefaultsKey = "serverBaseURL"
     static let cwdDefaultsKey = "defaultCwd"
     static let tokenDefaultsKey = "serverAuthToken"
+    static let defaultModelKey = "defaultModel"
+    static let defaultThinkingLevelKey = "defaultThinkingLevel"
     static let appGroupSuite = "group.com.sam.pidash"
 
     /// Shared App Group UserDefaults; falls back to .standard if the suite is unavailable
@@ -19,6 +21,8 @@ struct ServerConfig {
     private(set) var baseURL: String
     private(set) var defaultCwd: String
     private(set) var token: String
+    private(set) var defaultModel: String
+    private(set) var defaultThinkingLevel: String
 
     init(baseURL: String? = nil) {
         let shared = Self.sharedDefaults
@@ -43,6 +47,8 @@ struct ServerConfig {
         }
         self.defaultCwd = shared.string(forKey: Self.cwdDefaultsKey) ?? ""
         self.token = shared.string(forKey: Self.tokenDefaultsKey) ?? ""
+        self.defaultModel = shared.string(forKey: Self.defaultModelKey) ?? ""
+        self.defaultThinkingLevel = shared.string(forKey: Self.defaultThinkingLevelKey) ?? ""
     }
 
     mutating func update(baseURL: String) {
@@ -65,6 +71,24 @@ struct ServerConfig {
             Self.sharedDefaults.removeObject(forKey: Self.tokenDefaultsKey)
         } else {
             Self.sharedDefaults.set(token, forKey: Self.tokenDefaultsKey)
+        }
+    }
+
+    mutating func update(defaultModel: String) {
+        self.defaultModel = defaultModel
+        if defaultModel.isEmpty {
+            Self.sharedDefaults.removeObject(forKey: Self.defaultModelKey)
+        } else {
+            Self.sharedDefaults.set(defaultModel, forKey: Self.defaultModelKey)
+        }
+    }
+
+    mutating func update(defaultThinkingLevel: String) {
+        self.defaultThinkingLevel = defaultThinkingLevel
+        if defaultThinkingLevel.isEmpty {
+            Self.sharedDefaults.removeObject(forKey: Self.defaultThinkingLevelKey)
+        } else {
+            Self.sharedDefaults.set(defaultThinkingLevel, forKey: Self.defaultThinkingLevelKey)
         }
     }
 

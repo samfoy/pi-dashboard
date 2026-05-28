@@ -251,6 +251,35 @@ export function registerChatRoutes(deps: RouteDeps): void {
     res.json({ ok: true })
   })
 
+  // Git repo summary for a slot (branch, dirty file count, adds/dels)
+  app.get('/api/chat/slots/:key/git', (req: Request, res: Response) => {
+    const pi = manager.getSlot(req.params.key as string)
+    if (!pi) return res.status(404).json({ error: 'slot not found' })
+    const cwd = pi.cwd
+    if (!cwd) return res.json({ isRepo: false })
+    const run = (cmd: string): string | null => {
+      try { return execSync(cmd, { cwd, encoding: 'utf-8', timeout: 1500, stdio: ['ignore', 'pipe', 'ignore'] }).trim() } catch { return null }
+    }
+    const insideWorktree = run('git rev-parse --is-inside-work-tree')
+    if (insideWorktree !== 'true') return res.json({ isRepo: false })
+    const branch = run('git rev-parse --abbrev-ref HEAD') || null
+    const statusOut = run('git status --porcelain') || ''
+    const dirtyFiles = statusOut ? statusOut.split('\n').filter(Boolean).length : 0
+    // Sum +/- across working-tree changes
+    let additions = 0
+    let deletions = 0
+    const numstat = run('git diff --numstat HEAD') || ''
+    for (const line of numstat.split('\n')) {
+      const m = line.match(/^(\d+|-)\s+(\d+|-)\s+/)
+      if (!m) continue
+      if (m[1] !== '-') additions += parseInt(m[1]!, 10) || 0
+      if (m[2] !== '-') deletions += parseInt(m[2]!, 10) || 0
+    }
+    const ahead = parseInt(run('git rev-list --count @{u}..HEAD 2>/dev/null') || '0', 10) || 0
+    const behind = parseInt(run('git rev-list --count HEAD..@{u} 2>/dev/null') || '0', 10) || 0
+    res.json({ isRepo: true, branch, dirtyFiles, additions, deletions, ahead, behind })
+  })
+
   // Set CWD for a slot (before process starts)
   app.post('/api/chat/slots/:key/cwd', (req: Request, res: Response) => {
     const { cwd } = req.body
@@ -285,8 +314,9 @@ export function registerChatRoutes(deps: RouteDeps): void {
       const { buildSystemPrompt } = await import(join(piPkg, 'dist/core/system-prompt.js'))
       const { loadProjectContextFiles } = await import(join(piPkg, 'dist/core/resource-loader.js'))
       const { loadSkills } = await import(join(piPkg, 'dist/core/skills.js'))
-      const contextFiles = loadProjectContextFiles({ cwd })
-      const { skills } = loadSkills({ cwd })
+      const agentDir = process.env.PI_AGENT_DIR || join(os.homedir(), '.pi', 'agent')
+      const contextFiles = loadProjectContextFiles({ cwd, agentDir })
+      const { skills } = loadSkills({ cwd, agentDir, skillPaths: [], includeDefaults: true })
       const staticPrompt = buildSystemPrompt({ cwd, contextFiles, skills })
 
       let memoryBlock = ''

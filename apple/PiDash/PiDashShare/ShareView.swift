@@ -70,6 +70,31 @@ struct ShareView: View {
                 }
             }
 
+            // Project directory — only relevant when creating a new chat
+            if viewModel.selectedSlotID == nil {
+                Section(header: Text("Project Directory"),
+                        footer: Text("Where pi will run for this new chat.")) {
+                    if !viewModel.frequentDirs.isEmpty {
+                        ForEach(viewModel.frequentDirs, id: \.self) { dir in
+                            FrequentDirRow(
+                                dir: dir,
+                                isSelected: viewModel.newChatCwd == dir
+                            ) {
+                                viewModel.newChatCwd = (viewModel.newChatCwd == dir) ? "" : dir
+                            }
+                        }
+                    }
+                    HStack {
+                        Image(systemName: "folder.badge.questionmark")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22)
+                        TextField("Custom path…", text: $viewModel.newChatCwd)
+                            .autocorrectionDisabled()
+                            .autocapitalization(.none)
+                    }
+                }
+            }
+
             // Send button
             Section {
                 Button {
@@ -179,5 +204,32 @@ private struct ActionChipRow: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+}
+
+// MARK: - FrequentDirRow
+
+private struct FrequentDirRow: View {
+    let dir: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "folder")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text((dir as NSString).lastPathComponent)
+                        .foregroundStyle(Color.primary)
+                    Text(dir)
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+        }
     }
 }
