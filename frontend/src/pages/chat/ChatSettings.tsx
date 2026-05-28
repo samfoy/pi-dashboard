@@ -28,15 +28,16 @@ interface Props {
   onChange: (c: ChatConfig) => void
   activeSlot?: string | null
   currentModel?: string | null
+  currentThinking?: string | null
   models?: { id: string; name: string; provider: string }[]
 }
 
-export default function ChatSettings({ config, onChange, activeSlot, currentModel, models }: Props) {
+export default function ChatSettings({ config, onChange, activeSlot, currentModel, currentThinking, models }: Props) {
   const [open, setOpen] = useState(false)
   const [showAllModels, setShowAllModels] = useState(false)
   const [enabledModels, setEnabledModels] = useState<string[]>([])
   const isOpus = useMemo(() => currentModel ? /opus/i.test(currentModel) : false, [currentModel])
-  const [thinkingLevel, setThinkingLevel] = useState(isOpus ? 'xhigh' : 'medium')
+  const thinkingLevel = currentThinking || (isOpus ? 'xhigh' : 'medium')
   const btnRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -63,10 +64,11 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
     return { pinnedModels: pinned, otherModels: other }
   }, [models, enabledModels])
 
-  // Auto-adjust thinking level when model changes
+  // Auto-adjust thinking level when model changes (only if pi hasn't told us
+  // a value yet — honour whatever the running pi process actually has).
   useEffect(() => {
+    if (currentThinking) return
     const newDefault = isOpus ? 'xhigh' : 'medium'
-    setThinkingLevel(newDefault)
     if (activeSlot) api.setSlotThinking(activeSlot, newDefault)
   }, [isOpus]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -95,7 +97,6 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
   }
 
   const handleThinkingChange = (level: string) => {
-    setThinkingLevel(level)
     if (activeSlot) api.setSlotThinking(activeSlot, level)
   }
 

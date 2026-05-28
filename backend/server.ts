@@ -508,6 +508,11 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
 
   pi.on('session_file', () => persistSlots())
 
+  pi.on('model_change', () => {
+    persistSlots()
+    broadcastSlots()
+  })
+
   pi.on('error', (err: any) => {
     if (midTurn) {
       midTurn = false

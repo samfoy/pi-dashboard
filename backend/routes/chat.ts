@@ -243,9 +243,11 @@ export function registerChatRoutes(deps: RouteDeps): void {
     const { level } = req.body
     const pi = manager.getSlot(req.params.key as string)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
+    pi.thinkingLevel = level
     if (pi.proc && pi.ready) {
       try { await pi.setThinkingLevel(level) } catch {}
     }
+    broadcastSlots()
     res.json({ ok: true })
   })
 

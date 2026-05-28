@@ -774,7 +774,7 @@ export default function ChatPage() {
                     </>
                   )}
                 </div>
-                <ChatSettings config={chatConfig} onChange={setChatConfig} activeSlot={activeSlot} currentModel={currentSlot?.model} models={availableModels} />
+                <ChatSettings config={chatConfig} onChange={setChatConfig} activeSlot={activeSlot} currentModel={currentSlot?.model} currentThinking={currentSlot?.thinkingLevel} models={availableModels} />
                 <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-danger hover:border-danger transition-all font-body" aria-label="Close session" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)) }}>✕</button>
               </div>
               {/* Mobile overflow menu */}

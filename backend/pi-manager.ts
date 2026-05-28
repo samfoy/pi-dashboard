@@ -64,6 +64,7 @@ interface SlotInfo {
   stopping: boolean
   pending_approval: boolean
   model: string | null
+  thinkingLevel: string | null
   cwd: string | null
   tags: string[]
   created_at: string
@@ -78,6 +79,7 @@ interface SlotDetail {
   has_more: boolean
   total: number
   model: string | null
+  thinkingLevel: string | null
   cwd: string | null
   contextUsage: any | null
   tokenStats: any | null
@@ -119,6 +121,7 @@ export class PiProcess extends EventEmitter {
   cwd: string | null
   modelProvider: string | null
   modelId: string | null
+  thinkingLevel: string | null
   _title: string | null
   _tags: string[]
   _userRenamed: boolean
@@ -155,6 +158,7 @@ export class PiProcess extends EventEmitter {
     this.cwd = opts.cwd || null
     this.modelProvider = opts.modelProvider || null
     this.modelId = opts.modelId || null
+    this.thinkingLevel = null
     this._title = opts.title || null
     this._tags = opts.tags || []
     this._userRenamed = false  // true if user manually renamed
@@ -225,6 +229,21 @@ export class PiProcess extends EventEmitter {
         this.emit('session_file', this.sessionFile)
       } else if (this.sessionFile) {
         console.warn(`[pi-manager] ⚠ get_state returned no sessionFile, but we expected: ${this.sessionFile}`)
+      }
+      // Populate the actual model + thinking level pi resolved (defaults from
+      // settings.json apply when we didn't pass --model). Without this the
+      // ChatSettings modal can't show the selected model on a fresh slot.
+      const m = resp?.data?.model
+      if (m?.provider && m?.id) {
+        const changed = this.modelProvider !== m.provider || this.modelId !== m.id
+        this.modelProvider = m.provider
+        this.modelId = m.id
+        if (changed) this.emit('model_change')
+      }
+      if (typeof resp?.data?.thinkingLevel === 'string') {
+        const changed = this.thinkingLevel !== resp.data.thinkingLevel
+        this.thinkingLevel = resp.data.thinkingLevel
+        if (changed) this.emit('model_change')
       }
     }).catch((err: any) => {
       console.error(`[pi-manager] get_state failed:`, err?.message || err)
@@ -828,6 +847,7 @@ export class PiManager {
         stopping: pi._stopping || false,
         pending_approval: pi._pendingApproval || false,
         model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
+        thinkingLevel: pi.thinkingLevel,
         cwd: pi.cwd || null,
         tags: pi._tags || [],
         created_at: createdAt,
@@ -850,6 +870,7 @@ export class PiManager {
       has_more: pi.messages.length > limit,
       total: pi.messages.length,
       model: pi.modelId ? `${pi.modelProvider}/${pi.modelId}` : null,
+      thinkingLevel: pi.thinkingLevel,
       cwd: pi.cwd || null,
       contextUsage: pi._contextUsage || null,
       tokenStats: pi._tokenStats || null,
