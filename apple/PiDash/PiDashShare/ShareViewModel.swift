@@ -68,6 +68,10 @@ final class ShareViewModel {
     var additionalMessage: String = ""
     var selectedSlotID: String? = nil   // nil = create new chat
     var selectedAction: ShareAction = .chat
+    /// cwd for new chats. Preloaded from settings default; user can change in the UI.
+    var newChatCwd: String = ""
+    /// Frequent dirs loaded from shared UserDefaults (DirFrequencyStore).
+    var frequentDirs: [String] = []
 
     // MARK: State
     var state: ShareState = .loadingContent
@@ -77,19 +81,44 @@ final class ShareViewModel {
     // MARK: Private
     private let extensionContext: NSExtensionContext
     private let serverURL: String
+    private let authToken: String
     private let session: URLSession
 
     private static let appGroupSuite = "group.com.sam.pidash"
     private static let serverKey = "serverBaseURL"
+    private static let tokenKey = "serverAuthToken"
     private static let defaultServer = "http://samuels-macbook-air-1.taile86245.ts.net:7777"
+    private static let cwdDefaultsKey = "defaultCwd"
+    private static let dirFreqStoreKey = "dirFrequency.store"
+
+    private struct DirFreqEntry: Decodable {
+        let path: String
+        let count: Int
+    }
 
     init(extensionContext: NSExtensionContext) {
         self.extensionContext = extensionContext
         let defaults = UserDefaults(suiteName: Self.appGroupSuite) ?? .standard
         self.serverURL = defaults.string(forKey: Self.serverKey) ?? Self.defaultServer
+        self.authToken = defaults.string(forKey: Self.tokenKey) ?? ""
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
-        self.session = URLSession(configuration: config)
+        // Match main app: tolerate self-signed / local-network HTTPS via delegate.
+        let delegate = InsecureSessionDelegate()
+        self.session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+        // Preload cwd defaults from shared UserDefaults
+        self.newChatCwd = defaults.string(forKey: Self.cwdDefaultsKey) ?? ""
+        if let data = defaults.data(forKey: Self.dirFreqStoreKey),
+           let entries = try? JSONDecoder().decode([DirFreqEntry].self, from: data) {
+            self.frequentDirs = entries.sorted { $0.count > $1.count }.prefix(8).map(\.path)
+        }
+    }
+
+    /// Attach `Authorization: Bearer <token>` if a token is configured.
+    private func attachAuth(_ request: inout URLRequest) {
+        if !authToken.isEmpty {
+            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
     }
 
     // MARK: - Load Content
@@ -190,8 +219,11 @@ final class ShareViewModel {
             state = .idle
             return
         }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        attachAuth(&req)
         do {
-            let (data, _) = try await session.data(from: url)
+            let (data, _) = try await session.data(for: req)
             // Response is [{key, title}] or [{key, label}]
             if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
                 availableSlots = arr.compactMap { dict -> SlotInfo? in
@@ -244,9 +276,21 @@ final class ShareViewModel {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try? JSONSerialization.data(withJSONObject: [String: String](), options: [])
+        attachAuth(&req)
+        var body: [String: String] = [:]
+        let cwd = newChatCwd.trimmingCharacters(in: .whitespaces)
+        if !cwd.isEmpty { body["cwd"] = cwd }
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
 
-        let (data, _) = try await session.data(for: req)
+        let (data, response) = try await session.data(for: req)
+        if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            let msg = http.statusCode == 401
+                ? "Unauthorized — open the main app and make sure the auth token is set in Settings."
+                : "Failed to create slot (HTTP \(http.statusCode)): \(body)"
+            throw NSError(domain: "PiDashShare", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: msg])
+        }
         if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
            let key = dict["key"] as? String {
             return key
@@ -314,12 +358,35 @@ final class ShareViewModel {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        attachAuth(&req)
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (_, response) = try await session.data(for: req)
         if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+            let msg = http.statusCode == 401
+                ? "Unauthorized — open the main app and make sure the auth token is set in Settings."
+                : "Server error \(http.statusCode)"
             throw NSError(domain: "PiDashShare", code: http.statusCode,
-                          userInfo: [NSLocalizedDescriptionKey: "Server error \(http.statusCode)"])
+                          userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+    }
+}
+
+// MARK: - Insecure Session Delegate
+
+/// Allows plain HTTP / self-signed TLS connections. Required to reach a local/Tailscale
+/// pi-dashboard server from the Share extension (matches main app's URLSession delegate).
+private final class InsecureSessionDelegate: NSObject, URLSessionDelegate {
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.performDefaultHandling, nil)
         }
     }
 }
