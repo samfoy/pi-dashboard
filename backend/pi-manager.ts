@@ -138,6 +138,7 @@ export class PiProcess extends EventEmitter {
   _contextUsage?: any
   _tokenStats?: any
   _wired?: boolean
+  _wasRestarted?: boolean  // set when process restarts for an existing session (resume)
 
   constructor(slotKey: string, opts: PiProcessOptions = {}) {
     super()
@@ -413,6 +414,12 @@ export class PiProcess extends EventEmitter {
       const paths = saveImagesToTemp(normalizedImages)
       cmd.images = normalizedImages
       msg += `\n\n[Images saved to disk: ${paths.join(', ')}]`
+    }
+    // If this process was just restarted for an existing session, prepend a resume
+    // hint so the agent doesn't mistake the re-injected session primer for a fresh start.
+    if (this._wasRestarted) {
+      this._wasRestarted = false
+      msg = `[Note for agent: you are RESUMING an existing conversation — not starting a new session. The session primer above is background context only. Continue from where we left off.]\n\n${msg}`
     }
     cmd.message = msg
     if (this.running) {
@@ -775,12 +782,17 @@ export class PiManager {
     // Restart if process is missing or dead
     if (!pi.proc || pi.proc.killed || pi.proc.exitCode !== null) {
       const reason = !pi.proc ? 'proc=null' : pi.proc.killed ? `proc.killed (pid=${pi.proc.pid})` : `exitCode=${pi.proc.exitCode} (pid=${pi.proc.pid})`
-      console.error(`[pi-manager] ensureRunning: starting slot ${key} because ${reason}`)
+      const isResume = pi.messages.length > 0 || !!pi.sessionFile
+      console.error(`[pi-manager] ensureRunning: starting slot ${key} because ${reason}${isResume ? ' (RESUME)' : ''}`)
       pi.proc = null
       pi.running = false
       pi._stopping = false
       pi._pendingApproval = false
       pi.start()
+      // Flag so the first prompt injects a resume hint — prevents the session primer
+      // (re-injected by pi-session-search on every process start) from confusing the
+      // agent into thinking it's a fresh new session.
+      if (isResume) pi._wasRestarted = true
     }
     return pi
   }
@@ -921,10 +933,11 @@ export class PiManager {
           pi.abort()
         }
       }
-      // Reap idle processes (not running a turn, idle > 30 minutes)
+      // Reap idle processes (not running a turn, idle > 30 hours)
+      // 30h lets slots survive overnight without being reaped.
       if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
         const idle = now - pi._lastActivity
-        if (idle > 30 * 60 * 1000) {
+        if (idle > 30 * 60 * 60 * 1000) {
           pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
           pi.gracefulShutdown().then(() => { pi.proc = null })
         }
