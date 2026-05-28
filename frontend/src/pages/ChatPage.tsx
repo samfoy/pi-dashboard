@@ -20,6 +20,7 @@ import WelcomeView from '../components/WelcomeView'
 import SlashCommandMenu from '../components/SlashCommandMenu'
 import PathCompleteMenu from '../components/PathCompleteMenu'
 import { usePanelState, detectFileType } from '../hooks/usePanelState'
+import { resolvePath } from '../utils/resolvePath'
 import { WsContext } from '../App'
 import { registerAction } from '../shortcuts'
 import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlock, ToolCallBlock, PermissionMessage, SystemMessage, SubagentDock } from './chat'
@@ -221,7 +222,16 @@ export default function ChatPage() {
     }
   }, [panel.isOpen, panel.filePath, wsRef])
 
-  const handleFileOpen = useCallback(async (filePath: string) => {
+  // Resolve workspace-relative paths (e.g. `docs/design/1-pager.md`) against
+  // the active slot's cwd before issuing fetches — the backend would otherwise
+  // resolve them against process.cwd() of the dashboard install dir and 404.
+  const slotCwdRef = useRef<string | null>(null)
+  useEffect(() => {
+    slotCwdRef.current = slots.find(s => s.key === activeSlot)?.cwd ?? null
+  }, [slots, activeSlot])
+
+  const handleFileOpen = useCallback(async (rawPath: string) => {
+    const filePath = resolvePath(rawPath, slotCwdRef.current)
     try {
       const ft = detectFileType(filePath)
       let text = ''

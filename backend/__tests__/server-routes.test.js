@@ -41,6 +41,8 @@ vi.mock('fs/promises', () => ({
   readFile: vi.fn(async () => ''),
   writeFile: vi.fn(async () => {}),
   mkdir: vi.fn(async () => {}),
+  stat: vi.fn(async () => ({ size: 0 })),
+  open: vi.fn(async () => ({ read: vi.fn(async () => ({ bytesRead: 0 })), close: vi.fn() })),
 }))
 
 // session-store – avoid real file I/O on startup
@@ -532,5 +534,62 @@ describe('_wireSlotEvents: chat_error WS broadcasting', () => {
     } finally {
       ws.close()
     }
+  })
+})
+
+// ── /api/file-read regression: hyphenated filenames, ~/ expansion, ENOENT ───
+//
+// Background: the dashboard 404'd on every `1-pager.md` file. Root cause was
+// workspace-relative paths being resolved against the dashboard install dir's
+// process.cwd() — fixed in the frontend by resolving against the active slot
+// cwd before fetch. These tests guard the *backend* contract that file-read
+// happily serves absolute, ~/-prefixed, and hyphenated paths, and returns 404
+// (not 500) when the file genuinely doesn't exist.
+describe('GET /api/file-read', () => {
+  let srv, port
+  let fsPromises
+  beforeAll(async () => {
+    fsPromises = await import('fs/promises')
+    ;({ srv, port } = await startServer())
+  })
+  afterAll(() => stopServer(srv))
+  beforeEach(() => {
+    fsPromises.readFile.mockReset()
+    fsPromises.readFile.mockResolvedValue('# Hello\n')
+  })
+
+  it('serves an absolute path with hyphens (the 1-pager.md regression)', async () => {
+    const p = '/workplace/samfp/CSSelfHealingWG/src/CSSelfHealingWG/docs/design/1-pager.md'
+    const res = await get(port, '/api/file-read?path=' + encodeURIComponent(p))
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe('# Hello\n')
+    expect(fsPromises.readFile).toHaveBeenCalledWith(p, 'utf-8')
+  })
+
+  it('expands ~/ to the home directory before reading', async () => {
+    const res = await get(port, '/api/file-read?path=' + encodeURIComponent('~/vault/Notes/1-pager.md'))
+    expect(res.status).toBe(200)
+    const calledWith = fsPromises.readFile.mock.calls[0][0]
+    expect(calledWith).not.toContain('~')
+    expect(calledWith.endsWith('/vault/Notes/1-pager.md')).toBe(true)
+  })
+
+  it('returns 404 (not 500) when the underlying file is missing', async () => {
+    const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    fsPromises.readFile.mockRejectedValueOnce(enoent)
+    const res = await get(port, '/api/file-read?path=' + encodeURIComponent('/nope/1-pager.md'))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 when path query param is missing', async () => {
+    const res = await get(port, '/api/file-read')
+    expect(res.status).toBe(400)
+  })
+
+  it('does not double-encode the hyphen — readFile receives the raw path', async () => {
+    // Express auto-decodes req.query, so the route handler should never see %2D.
+    const p = '/tmp/has-many-hyphens-and-1-pager.md'
+    await get(port, '/api/file-read?path=' + encodeURIComponent(p))
+    expect(fsPromises.readFile).toHaveBeenCalledWith(p, 'utf-8')
   })
 })
