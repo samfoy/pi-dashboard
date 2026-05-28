@@ -1,0 +1,21 @@
+{
+  "name": "pi-conductor-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "pi-dashboard-plugin": {
+    "id": "pi-conductor",
+    "name": "Pi Conductor",
+    "description": "Rich rendering for pi-conductor ensemble_* sub-agent tools",
+    "client": "src/client.tsx",
+    "claims": [
+      { "slot": "tool-renderer", "componentName": "EnsembleListRenderer", "toolName": "ensemble_list", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsembleStatusRenderer", "toolName": "ensemble_status", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsembleSpawnRenderer", "toolName": "ensemble_spawn", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsembleSendRenderer", "toolName": "ensemble_send", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsemblePauseRenderer", "toolName": "ensemble_pause", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsembleResumeRenderer", "toolName": "ensemble_resume", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsembleKillRenderer", "toolName": "ensemble_kill", "priority": 50 },
+      { "slot": "tool-renderer", "componentName": "EnsembleFocusRenderer", "toolName": "ensemble_focus", "priority": 50 }
+    ]
+  }
+}

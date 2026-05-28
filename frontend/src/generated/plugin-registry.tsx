@@ -3,6 +3,7 @@
 import type { ClaimEntry, PluginManifest } from '@shared/plugin-types'
 
 import { InitExperimentRenderer, RunExperimentRenderer, LogExperimentRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-autoresearch/src/client.tsx"
+import { EnsembleListRenderer, EnsembleStatusRenderer, EnsembleSpawnRenderer, EnsembleSendRenderer, EnsemblePauseRenderer, EnsembleResumeRenderer, EnsembleKillRenderer, EnsembleFocusRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-conductor/src/client.tsx"
 import { ContextPruneRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-context-prune/src/client.tsx"
 import { DailyLogRenderer, OncallLogRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-daily-log/src/client.tsx"
 import { GraphQueryRenderer, GraphPathRenderer, GraphIngestRenderer, GraphVisualizeRenderer } from "/local/home/samfp/pi-dashboard/plugins/pi-graph-search/src/client.tsx"
@@ -53,6 +54,74 @@ export const PLUGIN_REGISTRY: RegistryEntry[] = [
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "init_experiment", Component: InitExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "run_experiment", Component: RunExperimentRenderer },
       { pluginId: "pi-autoresearch", priority: 50, slot: "tool-renderer", toolName: "log_experiment", Component: LogExperimentRenderer },
+    ],
+  },
+  {
+    manifest: {
+        "id": "pi-conductor",
+        "name": "Pi Conductor",
+        "description": "Rich rendering for pi-conductor ensemble_* sub-agent tools",
+        "client": "src/client.tsx",
+        "claims": [
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleListRenderer",
+                "toolName": "ensemble_list",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleStatusRenderer",
+                "toolName": "ensemble_status",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleSpawnRenderer",
+                "toolName": "ensemble_spawn",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleSendRenderer",
+                "toolName": "ensemble_send",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsemblePauseRenderer",
+                "toolName": "ensemble_pause",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleResumeRenderer",
+                "toolName": "ensemble_resume",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleKillRenderer",
+                "toolName": "ensemble_kill",
+                "priority": 50
+            },
+            {
+                "slot": "tool-renderer",
+                "componentName": "EnsembleFocusRenderer",
+                "toolName": "ensemble_focus",
+                "priority": 50
+            }
+        ]
+    },
+    claims: [
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_list", Component: EnsembleListRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_status", Component: EnsembleStatusRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_spawn", Component: EnsembleSpawnRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_send", Component: EnsembleSendRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_pause", Component: EnsemblePauseRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_resume", Component: EnsembleResumeRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_kill", Component: EnsembleKillRenderer },
+      { pluginId: "pi-conductor", priority: 50, slot: "tool-renderer", toolName: "ensemble_focus", Component: EnsembleFocusRenderer },
     ],
   },
   {
