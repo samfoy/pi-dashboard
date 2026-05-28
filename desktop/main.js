@@ -109,8 +109,14 @@ async function isDashboardUp() {
 
 // ── Window ──
 
+// Default to transparent so the Rosé Pine Glass (and any future glass) theme works out of the box.
+// Set PI_DASH_TRANSPARENT=0 to force a solid window.
+const TRANSPARENT = process.env.PI_DASH_TRANSPARENT === '0'
+  ? false
+  : (process.env.PI_DASH_TRANSPARENT === '1' || store.get('transparent', true))
+
 function createWindow() {
-  win = new BrowserWindow({
+  const winOpts = {
     width: 1400,
     height: 900,
     minWidth: 800,
@@ -119,17 +125,36 @@ function createWindow() {
     titleBarStyle: 'hidden',
     titleBarOverlay: false,
     trafficLightPosition: { x: 12, y: 16 },
-    backgroundColor: '#12141a',
+    backgroundColor: TRANSPARENT ? '#00000000' : '#12141a',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
     show: false,
-  })
+  }
+  if (TRANSPARENT) {
+    winOpts.transparent = true
+    winOpts.hasShadow = false
+    // macOS: use native vibrancy so the desktop blur matches the TUI look
+    if (process.platform === 'darwin') {
+      winOpts.vibrancy = 'under-window'
+      winOpts.visualEffectState = 'active'
+    }
+  }
+  win = new BrowserWindow(winOpts)
 
   win.once('ready-to-show', () => win.show())
   win.on('closed', () => { win = null })
+
+  // When transparent, tag the document so themes can drop their fallback bg tint
+  if (TRANSPARENT) {
+    win.webContents.on('did-finish-load', () => {
+      win.webContents.executeJavaScript(
+        "document.documentElement.classList.add('pi-dash-transparent')"
+      ).catch(() => {})
+    })
+  }
 
   // Open external links in browser
   win.webContents.setWindowOpenHandler(({ url }) => {

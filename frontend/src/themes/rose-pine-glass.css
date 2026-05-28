@@ -1,0 +1,140 @@
+[32m***Midway session forwarding enabled***(B[m
+[32m***Midway session forwarding enabled***(B[m
+[32m***Midway session forwarding enabled***(B[m
+/* Rosé Pine Glass — translucent variant matching the TUI setup */
+:root {
+  /* Rosé Pine palette with aggressive transparency on surfaces.
+     Readability comes from backdrop-filter blur + saturation, not alpha. */
+  --bg:transparent;
+  --bg-accent:rgba(31,29,46,.55);
+  --bg-elevated:rgba(38,35,58,.65);
+  --bg-hover:rgba(56,53,82,.75);
+  --card:rgba(31,29,46,.62);
+  --card-fg:#e0def4;
+  --card-hl:rgba(224,222,244,.06);
+  --panel:rgba(25,23,36,.45);
+  --panel-strong:rgba(31,29,46,.65);
+  --chrome:rgba(25,23,36,.6);
+  --text:#f0efff;
+  --text-strong:#ffffff;
+  --muted:#b0adc7;
+  --muted-strong:#908caa;
+  --border:rgba(110,106,134,.35);
+  --border-strong:rgba(144,140,170,.5);
+  --border-hover:rgba(196,167,231,.5);
+  --accent:#c4a7e7;--accent-hover:#d4bff7;--accent-subtle:rgba(196,167,231,.18);
+  --accent-glow:rgba(196,167,231,.35);--ring:#c4a7e7;
+  --ok:#9ccfd8;--ok-subtle:rgba(156,207,216,.15);
+  --warn:#f6c177;--warn-subtle:rgba(246,193,119,.15);
+  --danger:#eb6f92;--danger-subtle:rgba(235,111,146,.15);
+  --info:#31748f;
+  --aim:#c4a7e7;--aim-subtle:rgba(196,167,231,.15);
+  --clarify:#f6c177;--clarify-subtle:rgba(246,193,119,.08);
+  --diff-add:rgba(156,207,216,.18);--diff-add-text:#9ccfd8;
+  --diff-del:rgba(235,111,146,.18);--diff-del-text:#eb6f92;
+  --diff-hunk:rgba(49,116,143,.2);--diff-hunk-text:#79c0ff;
+  --diff-meta-text:#e0def4;
+  --font-body:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+  --shadow-md:0 4px 14px rgba(0,0,0,.35),0 0 0 1px rgba(224,222,244,.06);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.5);
+  --radius-sm:6px;--radius-md:8px;--radius-lg:12px;--radius-xl:16px;
+  color-scheme:dark;
+}
+
+/* Make the document chain transparent so cards composite over the html-level
+   backdrop (or the real desktop when Electron runs transparent). */
+html[data-theme="rose-pine-glass"],
+html[data-theme="rose-pine-glass"] body,
+html[data-theme="rose-pine-glass"] #root {
+  background: transparent !important;
+}
+
+/* Browser-tab fallback: a near-solid Rosé Pine wash so the page reads as rose-pine. */
+html[data-theme="rose-pine-glass"] {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(196,167,231,.35), transparent 60%),
+    radial-gradient(ellipse at 80% 10%, rgba(49,116,143,.35), transparent 55%),
+    radial-gradient(ellipse at 60% 95%, rgba(235,111,146,.22), transparent 60%),
+    radial-gradient(ellipse at 10% 85%, rgba(156,207,216,.22), transparent 55%),
+    #191724 !important;
+  background-attachment: fixed !important;
+}
+/* Electron transparent mode: html chain is fully transparent — raw macOS
+   vibrancy shows in the gaps between surfaces. Cards/panels stay dark and
+   readable; they act as frosted glass sitting over the vibrancy rather than
+   a flat color. body::before provides the subtle rose-pine gradient identity. */
+html[data-theme="rose-pine-glass"].pi-dash-transparent {
+  background: transparent !important;
+  --card: rgba(31,29,46,.72);
+  --panel: rgba(25,23,36,.60);
+  --panel-strong: rgba(31,29,46,.78);
+  --chrome: rgba(25,23,36,.68);
+  --bg-elevated: rgba(38,35,58,.70);
+  --bg-hover: rgba(56,53,82,.75);
+}
+
+/* Ambient gradient layer — restrained so the html wash dominates. */
+html[data-theme="rose-pine-glass"] body::before {
+  background:
+    radial-gradient(ellipse at 30% 30%, rgba(196,167,231,.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 70%, rgba(156,207,216,.06) 0%, transparent 60%) !important;
+}
+
+/* Heavy backdrop blur on every visible surface so text stays readable even at
+   low alpha. Scoped to this theme so nothing else pays the perf tax. */
+html[data-theme="rose-pine-glass"] .card,
+html[data-theme="rose-pine-glass"] .panel,
+html[data-theme="rose-pine-glass"] aside,
+html[data-theme="rose-pine-glass"] header,
+html[data-theme="rose-pine-glass"] nav,
+html[data-theme="rose-pine-glass"] main,
+html[data-theme="rose-pine-glass"] [role="dialog"],
+html[data-theme="rose-pine-glass"] [class*="bg-card"],
+html[data-theme="rose-pine-glass"] [class*="bg-panel"],
+html[data-theme="rose-pine-glass"] [class*="bg-chrome"],
+html[data-theme="rose-pine-glass"] [class*="bg-elevated"] {
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+}
+
+/* Code surfaces — a little more opaque for code legibility. */
+html[data-theme="rose-pine-glass"] .msg-content :not(pre)>code {
+  background: rgba(224,222,244,.12);
+}
+html[data-theme="rose-pine-glass"] .msg-content pre {
+  background: rgba(15,14,24,.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Syntax highlighting — Rosé Pine */
+html[data-theme="rose-pine-glass"] .hljs-keyword,
+html[data-theme="rose-pine-glass"] .hljs-selector-tag,
+html[data-theme="rose-pine-glass"] .hljs-built_in,
+html[data-theme="rose-pine-glass"] .hljs-name,
+html[data-theme="rose-pine-glass"] .hljs-tag { color:#31748f }
+html[data-theme="rose-pine-glass"] .hljs-string,
+html[data-theme="rose-pine-glass"] .hljs-attr,
+html[data-theme="rose-pine-glass"] .hljs-template-variable,
+html[data-theme="rose-pine-glass"] .hljs-template-tag,
+html[data-theme="rose-pine-glass"] .hljs-addition { color:#f6c177 }
+html[data-theme="rose-pine-glass"] .hljs-comment,
+html[data-theme="rose-pine-glass"] .hljs-quote { color:var(--muted);font-style:italic }
+html[data-theme="rose-pine-glass"] .hljs-number,
+html[data-theme="rose-pine-glass"] .hljs-literal,
+html[data-theme="rose-pine-glass"] .hljs-variable,
+html[data-theme="rose-pine-glass"] .hljs-regexp { color:#f6c177 }
+html[data-theme="rose-pine-glass"] .hljs-title,
+html[data-theme="rose-pine-glass"] .hljs-title.function_ { color:#ebbcba }
+html[data-theme="rose-pine-glass"] .hljs-type,
+html[data-theme="rose-pine-glass"] .hljs-params { color:#9ccfd8 }
+html[data-theme="rose-pine-glass"] .hljs-meta,
+html[data-theme="rose-pine-glass"] .hljs-meta .hljs-keyword { color:#eb6f92 }
+html[data-theme="rose-pine-glass"] .hljs-section { color:#c4a7e7 }
+html[data-theme="rose-pine-glass"] .hljs-deletion { color:var(--diff-del-text) }
+html[data-theme="rose-pine-glass"] .hljs-subst { color:var(--text) }
+html[data-theme="rose-pine-glass"] .hljs-property { color:#9ccfd8 }
+html[data-theme="rose-pine-glass"] .hljs-punctuation,
+html[data-theme="rose-pine-glass"] .hljs-operator { color:#908caa }
