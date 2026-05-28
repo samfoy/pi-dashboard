@@ -20,7 +20,9 @@ HOST="${PI_DASH_HOST:-${1:-your-remote-host}}"
 REMOTE_PORT="${PI_DASH_REMOTE_PORT:-7777}"
 LOCAL_PORT="${PI_DASH_PORT:-7777}"
 SSH_USER="${PI_DASH_USER:-${USER:-user}}"
-TUNNEL_CHECK_INTERVAL=30
+TUNNEL_CHECK_INTERVAL=5
+# Prefer autossh if available — it reconnects within seconds on link blips.
+SSH_BIN="$(command -v autossh || command -v ssh)"
 
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -72,13 +74,19 @@ kill_stale_tunnel() {
 }
 
 start_tunnel() {
-  log "Opening SSH tunnel ${LOCAL_PORT} → ${HOST}:${REMOTE_PORT}..."
-  ssh -f -N -L "${LOCAL_PORT}:localhost:${REMOTE_PORT}" \
-    -o ServerAliveInterval=30 \
+  log "Opening SSH tunnel ${LOCAL_PORT} → ${HOST}:${REMOTE_PORT} (via $(basename "$SSH_BIN"))..."
+  # autossh: -M 0 disables the legacy monitoring port and relies on
+  #   ServerAlive* below for liveness — recommended by autossh docs.
+  AUTOSSH_GATETIME=0 \
+  AUTOSSH_POLL=15 \
+  "$SSH_BIN" -f -N -L "${LOCAL_PORT}:localhost:${REMOTE_PORT}" \
+    -o ServerAliveInterval=15 \
     -o ServerAliveCountMax=3 \
+    -o TCPKeepAlive=yes \
     -o ExitOnForwardFailure=yes \
     -o ConnectTimeout=10 \
     -o StrictHostKeyChecking=accept-new \
+    $( [ "$(basename "$SSH_BIN")" = "autossh" ] && echo "-M 0" ) \
     "${SSH_USER}@${HOST}" 2>/dev/null
 
   if [ $? -eq 0 ]; then
