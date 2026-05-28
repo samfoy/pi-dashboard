@@ -925,18 +925,32 @@ export class PiManager {
   // more false positives than true positives — killed legitimately slow
   // LLM turns, long single tool calls, and foreground sub-agent waits.
   // Removed in favor of letting pi own that decision.
+  //
+  // 2026-05-21 — idle reaper DISABLED for pi-conductor compatibility.
+  // Background sub-agents (`ensemble_spawn` with `foreground: false`)
+  // end the parent's turn immediately; the parent slot then looks
+  // idle from pi-dashboard's POV while a background subagent is still
+  // doing real work. After 30 min the parent slot was getting
+  // gracefully reaped, killing the conductor extension and orphaning
+  // all its sub-agents. Witnessed twice during pi-conductor v0.11
+  // slice 2 builder runs (`builder-shzs` 22m, `builder-utrr` 39m).
+  // Proper fix: have conductor publish run-state into pi-dashboard
+  // so background sub-agents count as parent activity. Until then,
+  // the reaper is off; idle slots will hold RSS until manually closed.
   _healthCheck(): void {
     const now = Date.now()
     for (const pi of this.slots.values()) {
       pi.checkHealth()
-      // Reap idle processes (not running a turn, idle > 30 minutes)
-      if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
-        const idle = now - pi._lastActivity
-        if (idle > 30 * 60 * 1000) {
-          pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
-          pi.gracefulShutdown().then(() => { pi.proc = null })
-        }
-      }
+      // Idle reaping disabled — see block comment above.
+      // Original logic preserved here, gated on a future config flag:
+      //
+      // if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
+      //   const idle = now - pi._lastActivity
+      //   if (idle > 30 * 60 * 1000) {
+      //     pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
+      //     pi.gracefulShutdown().then(() => { pi.proc = null })
+      //   }
+      // }
     }
   }
 
