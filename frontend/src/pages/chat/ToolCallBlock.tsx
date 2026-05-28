@@ -96,6 +96,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
           <span>✏️ edit</span>
           <span className="text-text/70 text-[12px] font-normal truncate">{editDiff.path}</span>
           {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(editDiff.path) }}>Open</button>}
+          <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, editDiff.path)} title="Download">⬇</button>
           {isError && <span className="text-danger text-[12px] ml-auto shrink-0">✗ error</span>}
           {result && !isError && <span className="text-ok text-[12px] ml-auto shrink-0">✓</span>}
         </button>
@@ -129,6 +130,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
             <span>🖼️ read</span>
             <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path.split('/').pop()}</span>
             {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
+            <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, readInfo.path)} title="Download">⬇</button>
           </button>
           {readExpanded && (
             <div className="px-2 pb-2">
@@ -151,6 +153,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
           <span>📖 read</span>
           <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path}</span>
           {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
+          <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, readInfo.path)} title="Download">⬇</button>
           <span className="text-muted/50 text-[12px] font-normal ml-auto shrink-0">{rangeLabel}</span>
         </button>
         {readExpanded && (
@@ -183,6 +186,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
           <span>📝 write</span>
           <span className="text-text/70 text-[12px] font-normal truncate">{writeInfo.path}</span>
           {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(writeInfo.path) }}>Open</button>}
+          <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, writeInfo.path)} title="Download">⬇</button>
           <span className="text-muted/50 text-[12px] font-normal ml-auto shrink-0">{lineCount} lines</span>
           {isError && <span className="text-danger text-[12px] shrink-0 ml-1">✗ error</span>}
           {result && !isError && <span className="text-ok text-[12px] shrink-0 ml-1">✓</span>}

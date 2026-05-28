@@ -76,6 +76,15 @@ function ReferencedFiles({ files, onFileOpen, onClose }: Props) {
     return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]))
   }, [filtered, groupByType])
 
+  const handleDownload = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation()
+    const url = `/api/local-file/download?path=${encodeURIComponent(path)}`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = path.split('/').pop() || 'file'
+    a.click()
+  }
+
   const renderFile = (f: ReferencedFile) => {
     const icon = f.toolName ? (TOOL_ICONS[f.toolName] || '🔧') : SOURCE_ICONS[f.source] || '📄'
     const name = fileName(f.path)
@@ -90,6 +99,11 @@ function ReferencedFiles({ files, onFileOpen, onClose }: Props) {
         <span className="text-[12px] shrink-0">{icon}</span>
         <span className="text-text truncate font-medium">{name}</span>
         {dir && <span className="text-muted text-[11px] truncate flex-1 min-w-0">{dir}</span>}
+        <button
+          className="opacity-0 group-hover/file:opacity-100 text-muted text-[11px] shrink-0 transition-opacity hover:text-accent bg-transparent border-none cursor-pointer p-0"
+          onClick={(e) => handleDownload(e, f.path)}
+          title="Download file"
+        >⬇</button>
         <span className="opacity-0 group-hover/file:opacity-100 text-muted text-[11px] shrink-0 transition-opacity">Open</span>
       </div>
     )

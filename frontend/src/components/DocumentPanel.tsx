@@ -180,6 +180,7 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
             <button className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${diffMode ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong'}`} onClick={onToggleDiff} aria-label="Diff">Diff</button>
           )}
           {!isBinary && <button className={`px-2 py-1 rounded-md text-[12px] font-medium border transition-all disabled:opacity-40 ${dirty ? 'border-accent text-white bg-accent cursor-pointer hover:bg-accent-hover' : 'border-border text-muted cursor-default'}`} disabled={saving || !dirty} onClick={handleSave}>{saving ? 'Saving…' : 'Save'}</button>}
+          <a href={`/api/local-file/download?path=${encodeURIComponent(filePath)}`} download={fileName} className="px-2 py-1 rounded-md text-[12px] text-muted border border-border hover:text-accent hover:border-accent transition-all cursor-pointer no-underline" title="Download">⬇</a>
           <button className="px-2 py-1 rounded-md text-[12px] text-muted border border-border hover:text-danger hover:border-danger transition-all cursor-pointer" onClick={guardedClose}>✕</button>
         </div>
       </div>
