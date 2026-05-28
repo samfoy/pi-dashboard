@@ -251,7 +251,7 @@ const chatSlice = createSlice({
           for (let i = state.messages.length - 1; i >= 0; i--) {
             const m = state.messages[i]
             if (m.role === 'tool' && (m.meta as any)?.toolCallId === toolCallId) {
-              m.meta = { ...m.meta, partialResult: meta?.partialResult }
+              m.meta = { ...m.meta, partialResult: meta?.partialResult, partialDetails: meta?.partialDetails }
               break
             }
           }
@@ -276,18 +276,22 @@ const chatSlice = createSlice({
       if (role === 'tool') {
         state.slotState = 'tool_running'
         const baseTitle = content.replace(/^🔧 /, '')
-        // Search for consecutive tool messages, skipping trailing streaming message
-        const last = state.messages[state.messages.length - 1]
-        const searchFrom = last?.role === 'streaming' ? state.messages.length - 2 : state.messages.length - 1
-        for (let i = searchFrom; i >= 0; i--) {
-          const m = state.messages[i]
-          if (m.role !== 'tool') break
-          const existingTitle = m.content.replace(/^🔧 /, '').replace(/ ×\d+$/, '')
-          if (existingTitle === baseTitle) {
-            const match = m.content.match(/ ×(\d+)$/)
-            const count = match ? parseInt(match[1]) + 1 : 2
-            m.content = `🔧 ${baseTitle} ×${count}`
-            return
+        // Never dedup tools that need individual messages (long-running, have their own cards)
+        const NO_DEDUP_TOOLS = new Set(['subagent', 'process'])
+        if (!NO_DEDUP_TOOLS.has(meta?.toolName as string ?? '')) {
+          // Search for consecutive tool messages, skipping trailing streaming message
+          const last = state.messages[state.messages.length - 1]
+          const searchFrom = last?.role === 'streaming' ? state.messages.length - 2 : state.messages.length - 1
+          for (let i = searchFrom; i >= 0; i--) {
+            const m = state.messages[i]
+            if (m.role !== 'tool') break
+            const existingTitle = m.content.replace(/^🔧 /, '').replace(/ ×\d+$/, '')
+            if (existingTitle === baseTitle) {
+              const match = m.content.match(/ ×(\d+)$/)
+              const count = match ? parseInt(match[1]) + 1 : 2
+              m.content = `🔧 ${baseTitle} ×${count}`
+              return
+            }
           }
         }
       }

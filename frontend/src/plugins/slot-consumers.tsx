@@ -33,10 +33,22 @@ function renderClaim(
 
 // ── Slot consumers ────────────────────────────────────────────────────────────
 
+/**
+ * Streaming partial result emitted by a tool's onUpdate handler.
+ * Mirrors the shape pi extensions push (`{ content, details }`).
+ * Plugins can read this to render live state before the tool finishes.
+ */
+export interface ToolPartialResult {
+  content?: Array<{ type?: string; text?: string }>
+  details?: Record<string, unknown>
+}
+
 export function ToolRendererSlot({
   toolName,
   toolInput,
   toolResult,
+  partialResult,
+  isRunning,
   isError,
   sessionId,
   FallbackComponent,
@@ -44,12 +56,16 @@ export function ToolRendererSlot({
   toolName: string
   toolInput: Record<string, unknown>
   toolResult?: string
+  partialResult?: ToolPartialResult
+  isRunning?: boolean
   isError?: boolean
   sessionId: string
   FallbackComponent?: React.ComponentType<{
     toolName: string
     toolInput: Record<string, unknown>
     toolResult?: string
+    partialResult?: ToolPartialResult
+    isRunning?: boolean
     isError?: boolean
     sessionId: string
   }>
@@ -57,17 +73,17 @@ export function ToolRendererSlot({
   const registry = useSlotRegistryOrNull()
   if (!registry) {
     return FallbackComponent
-      ? <FallbackComponent toolName={toolName} toolInput={toolInput} toolResult={toolResult} isError={isError} sessionId={sessionId} />
+      ? <FallbackComponent toolName={toolName} toolInput={toolInput} toolResult={toolResult} partialResult={partialResult} isRunning={isRunning} isError={isError} sessionId={sessionId} />
       : null
   }
   const claims = forToolName(registry.getClaims('tool-renderer'), toolName)
   if (!claims.length) {
     return FallbackComponent
-      ? <FallbackComponent toolName={toolName} toolInput={toolInput} toolResult={toolResult} isError={isError} sessionId={sessionId} />
+      ? <FallbackComponent toolName={toolName} toolInput={toolInput} toolResult={toolResult} partialResult={partialResult} isRunning={isRunning} isError={isError} sessionId={sessionId} />
       : null
   }
   const claim = claims[0]
-  return renderClaim(claim, 'tool-renderer', { toolName, toolInput, toolResult, isError, sessionId })
+  return renderClaim(claim, 'tool-renderer', { toolName, toolInput, toolResult, partialResult, isRunning, isError, sessionId })
 }
 
 export function SettingsSectionSlot({ tab = 'general' }: { tab?: string }) {

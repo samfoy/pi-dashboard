@@ -123,7 +123,7 @@ export function useWebSocket() {
           case 'tool_update':
             dispatch(sseChatMessage({
               slot: data.slot, role: '_tool_update',
-              content: '', meta: { toolCallId: data.id, partialResult: data.partial },
+              content: '', meta: { toolCallId: data.id, partialResult: data.partial, partialDetails: data.partialDetails },
             }))
             break
           case 'tool_result': {

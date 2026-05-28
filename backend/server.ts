@@ -381,11 +381,18 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   })
 
   pi.on('tool_update', (event: any) => {
-    const partial = event.result?.content?.[0]?.text || ''
+    // pi-coding-agent's ToolExecutionUpdateEvent uses `partialResult`,
+    // but tool_execution_end uses `result` — keep the historical fallback
+    // to `event.result` so we don't regress if the upstream shape shifts.
+    const structured = event.partialResult ?? event.result
+    const partialText = (structured?.content?.[0]?.text || '').slice(0, 5000)
+    const partialDetails = (structured?.details && typeof structured.details === 'object')
+      ? structured.details as Record<string, unknown>
+      : undefined
     for (let i = pi.messages.length - 1; i >= 0; i--) {
       const m = pi.messages[i]
       if (m.role === 'tool' && m.meta?.toolCallId === event.toolCallId) {
-        m.meta = { ...m.meta, partialResult: partial.slice(0, 5000) }
+        m.meta = { ...m.meta, partialResult: partialText, partialDetails }
         break
       }
     }
@@ -393,7 +400,8 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
       slot: slotKey,
       tool: event.toolName,
       id: event.toolCallId,
-      partial: partial.slice(0, 5000),
+      partial: partialText,
+      partialDetails,
     })
   })
 

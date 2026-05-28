@@ -751,6 +751,10 @@ export class PiProcess extends EventEmitter {
         this.emit('extension_ui', event)
         break
 
+      case 'extension_error':
+        this.emit('extension_error', event)
+        break
+
       default:
         this.emit('event', event)
     }

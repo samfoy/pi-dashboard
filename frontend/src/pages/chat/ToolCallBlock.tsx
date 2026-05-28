@@ -14,8 +14,30 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   const [expanded, setExpanded] = useState(false)
   const args = meta?.args as string | undefined
   const result = meta?.result as string | undefined
+  const partialText = meta?.partialResult as string | undefined
+  const partialDetails = meta?.partialDetails as Record<string, unknown> | undefined
+  // Re-assemble structured partialResult for plugin tool renderers.
+  // (The wire format is flat — text + details — to keep the WS payload
+  // small; plugins want { content, details } so they can read details
+  // directly without redoing the parse.)
+  const partialResult = (partialText || partialDetails)
+    ? {
+        content: partialText ? [{ type: 'text', text: partialText }] : undefined,
+        details: partialDetails,
+      }
+    : undefined
   const isError = meta?.isError as boolean | undefined
+  const isRunning = !result && !isError
   const hasDetails = !!(args || result)
+
+  const handleDownload = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation()
+    const url = `/api/local-file/download?path=${encodeURIComponent(path)}`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = path.split('/').pop() || 'file'
+    a.click()
+  }
 
   // For edit tool calls, parse args and generate diff
   const editDiff = useMemo(() => {
@@ -60,7 +82,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   // If a plugin claims this tool, render via ToolRendererSlot
   if (pluginClaimed) {
     const toolInput = args ? (() => { try { return JSON.parse(args) } catch { return {} } })() : {}
-    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} toolResult={result} isError={isError} sessionId="" />
+    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} toolResult={result} partialResult={partialResult} isRunning={isRunning} isError={isError} sessionId="" />
   }
 
   if (isEdit) {
