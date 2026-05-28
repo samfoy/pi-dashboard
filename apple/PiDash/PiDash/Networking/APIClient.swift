@@ -83,9 +83,9 @@ actor APIClient {
         }
     }
 
-    func createSlot(title: String? = nil, cwd: String? = nil) async throws -> ChatSlot {
+    func createSlot(title: String? = nil, cwd: String? = nil, model: String? = nil) async throws -> ChatSlot {
         let url = try requireURL(path: "/chat/slots")
-        let body = CreateSlotRequest(title: title, cwd: cwd)
+        let body = CreateSlotRequest(title: title, cwd: cwd, model: model)
         let data = try await post(url: url, body: body)
         do {
             let dto = try decoder.decode(SlotDTO.self, from: data)

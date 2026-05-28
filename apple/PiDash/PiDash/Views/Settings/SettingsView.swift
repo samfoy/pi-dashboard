@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var testResult: String?
     @State private var isTesting = false
     @State private var slotCwds: [String] = []
+    @State private var showDefaultModelPicker = false
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
 
     private func setAppearanceMode(_ mode: Int) {
@@ -115,6 +116,56 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("New Chat Defaults") {
+                    // Default model
+                    Button {
+                        showDefaultModelPicker = true
+                    } label: {
+                        HStack {
+                            Text("Default Model")
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if appState.serverConfig.defaultModel.isEmpty {
+                                Text("None")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text(shortModelLabel(appState.serverConfig.defaultModel))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    // Default thinking level
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Default Thinking Level")
+                        Picker("", selection: Binding(
+                            get: {
+                                appState.serverConfig.defaultThinkingLevel.isEmpty
+                                    ? "none"
+                                    : appState.serverConfig.defaultThinkingLevel
+                            },
+                            set: { newLevel in
+                                appState.updateDefaultThinkingLevel(newLevel == "none" ? "" : newLevel)
+                            }
+                        )) {
+                            Text("None").tag("none")
+                            ForEach(ChatViewModel.thinkingLevels, id: \.self) { level in
+                                Text(level).tag(level)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    Text("Applied automatically when creating a new chat slot.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Connection") {
                     HStack {
                         Text("Status")
@@ -165,6 +216,15 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showDefaultModelPicker) {
+                DefaultModelPickerSheet { model in
+                    if let model {
+                        appState.updateDefaultModel("\(model.provider)/\(model.modelId)")
+                    } else {
+                        appState.updateDefaultModel("")
+                    }
                 }
             }
             .onAppear {
@@ -223,6 +283,12 @@ struct SettingsView: View {
         isTesting = false
     }
 
+    /// Short display label for a stored "provider/modelId" string (no model list needed)
+    private func shortModelLabel(_ stored: String) -> String {
+        guard stored.contains("/") else { return stored }
+        return String(stored.split(separator: "/", maxSplits: 1).last ?? Substring(stored))
+    }
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -251,5 +317,128 @@ private struct ConnectionIndicator: View {
         case .connecting, .reconnecting: return .orange
         case .disconnected, .failed: return .red
         }
+    }
+}
+
+// MARK: - DefaultModelPickerSheet
+
+private struct DefaultModelPickerSheet: View {
+    let onSelect: (ModelInfo?) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
+    @Environment(AppState.self) private var appState
+    @State private var models: [ModelInfo] = []
+    @State private var loadError: String? = nil
+    @State private var isLoading = false
+    @State private var searchText = ""
+
+    private var currentModelString: String { appState.serverConfig.defaultModel }
+
+    private var filteredModels: [ModelInfo] {
+        if searchText.isEmpty { return models }
+        let q = searchText.lowercased()
+        return models.filter {
+            $0.label.lowercased().contains(q) ||
+            $0.provider.lowercased().contains(q) ||
+            $0.modelId.lowercased().contains(q)
+        }
+    }
+
+    private var groupedModels: [(provider: String, models: [ModelInfo])] {
+        let grouped = Dictionary(grouping: filteredModels) { $0.provider }
+        return grouped.sorted { $0.key < $1.key }.map { (provider: $0.key, models: $0.value) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView("Loading models…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let err = loadError {
+                    ContentUnavailableView {
+                        Label("Failed to Load", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(err)
+                    } actions: {
+                        Button("Retry") { Task { await load() } }
+                    }
+                } else if models.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Models", systemImage: "cpu")
+                    }
+                } else {
+                    List {
+                        Section {
+                            Button {
+                                onSelect(nil)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Text("None (server default)")
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    if currentModelString.isEmpty {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(theme.accent)
+                                    }
+                                }
+                            }
+                        }
+                        ForEach(groupedModels, id: \.provider) { section in
+                            Section(section.provider) {
+                                ForEach(section.models) { model in
+                                    let modelKey = "\(model.provider)/\(model.modelId)"
+                                    Button {
+                                        onSelect(model)
+                                        dismiss()
+                                    } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(model.label)
+                                                    .foregroundStyle(.primary)
+                                                Text(model.modelId)
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                            Spacer()
+                                            if currentModelString == modelKey {
+                                                Image(systemName: "checkmark")
+                                                    .foregroundStyle(theme.accent)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search models")
+            .navigationTitle("Default Model")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .task { await load() }
+        }
+    }
+
+    private func load() async {
+        isLoading = true
+        loadError = nil
+        do {
+            let all = try await appState.apiClient.fetchModels()
+            // Exclude geographic-prefix duplicates (eu.*, global.*)
+            models = all.filter { m in
+                let id = m.id.lowercased()
+                return !id.hasPrefix("eu.") && !id.hasPrefix("global.")
+            }
+        } catch {
+            loadError = error.localizedDescription
+        }
+        isLoading = false
     }
 }

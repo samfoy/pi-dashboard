@@ -409,10 +409,12 @@ struct ImagePayload: Encodable {
 struct CreateSlotRequest: Encodable {
     let name: String?   // API uses "name" not "title"
     let cwd: String?
+    let model: String?  // e.g. "amazon-bedrock/us.anthropic.claude-sonnet-4-6"
 
-    init(title: String? = nil, cwd: String? = nil) {
+    init(title: String? = nil, cwd: String? = nil, model: String? = nil) {
         self.name = title
         self.cwd = cwd
+        self.model = model
     }
 }
 
