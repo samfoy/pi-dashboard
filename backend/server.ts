@@ -312,11 +312,14 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   pi.on('agent_start', () => {
     agentStartTime = Date.now()
     midTurn = true
+    console.log(`[server] agent_start slot=${slotKey}`)
     _startStallDetector()
     broadcastSlots()
   })
 
   pi.on('agent_end', () => {
+    const dur = agentStartTime ? Date.now() - agentStartTime : 0
+    console.log(`[server] agent_end slot=${slotKey} duration=${dur}ms midTurn=${midTurn}`)
     midTurn = false
     pi._toolsRunning = 0
     _stopStallDetector()
@@ -514,6 +517,21 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     })
   })
 
+  // Surface prompt-failure responses to the FE. Without this, a pi-side
+  // prompt rejection (provider error, rate limit, no API key, malformed
+  // command) only pushes a system message into pi-manager's internal
+  // array and emits agent_end — the user sees their message followed
+  // by silent chat_done with no assistant reply.
+  pi.on('prompt_failed', ({ error }: any) => {
+    console.error(`[server] prompt_failed slot=${slotKey}: ${error}`)
+    broadcast('chat_message', {
+      slot: slotKey,
+      role: 'system',
+      content: `⚠️ ${error || 'Prompt failed'}`,
+      ts: new Date().toISOString(),
+    })
+  })
+
   pi.on('session_file', () => persistSlots())
 
   pi.on('model_change', () => {
@@ -523,6 +541,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
 
   pi.on('error', (err: any) => {
     if (midTurn) {
+      console.error(`[pi-manager] Slot ${slotKey} mid-turn error:`, err?.message || err)
       midTurn = false
       _stopStallDetector()
       streamBuf = ''
@@ -540,6 +559,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   pi.on('exit', (code: number | null) => {
     _stopStallDetector()
     if (midTurn) {
+      console.error(`[pi-manager] Slot ${slotKey} exited mid-turn (code=${code}) — broadcasting chat_error`)
       midTurn = false
       streamBuf = ''
       _partialTextMsg = null

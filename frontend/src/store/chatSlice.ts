@@ -201,11 +201,21 @@ const chatSlice = createSlice({
       if (slot !== state.activeSlot) return
       // WS chunk — accumulate into streaming message, preserve rawText
       if (role === 'chunk') {
-        // Deduplicate chunks using monotonic seq from server
+        // Deduplicate chunks using monotonic seq from server.
+        // If we see a *much smaller* seq than expected, the backend
+        // restarted (server-side _chunkSeq resets to 0) and we must
+        // resync — otherwise every chunk gets dropped and the user sees
+        // their turn vanish silently.
         const seq = (action.payload as any).seq
         if (typeof seq === 'number') {
-          if (seq <= state._lastChunkSeq) return // already processed
-          state._lastChunkSeq = seq
+          if (seq < state._lastChunkSeq - 100) {
+            // Server restart detected — accept and reset.
+            state._lastChunkSeq = seq
+          } else if (seq <= state._lastChunkSeq) {
+            return // already processed
+          } else {
+            state._lastChunkSeq = seq
+          }
         }
         state.slotState = 'streaming'
         let streamIdx = -1

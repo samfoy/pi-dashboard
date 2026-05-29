@@ -152,6 +152,28 @@ export function useWebSocket() {
             // Skip refreshSlot — frontend already has complete streamed content.
             // Previously needed for missed chunks, but our WS is reliable enough.
             break
+          case 'chat_error': {
+            // Backend emits chat_error when the pi child process exits or
+            // errors mid-turn (instead of the normal agent_end → chat_done).
+            // Without surfacing this, the slot silently goes idle with no
+            // assistant reply — looks like "slot stopped after user turn and
+            // never returned". Push a visible system message AND finalize
+            // any in-flight streaming so the input box unblocks.
+            const errMsg = data?.message || 'Pi process exited unexpectedly during generation.'
+            console.error('[ws chat_error]', data?.slot, errMsg)
+            dispatch(sseChatMessage({
+              slot: data.slot,
+              role: 'system',
+              content: `⚠️ ${errMsg}`,
+              ts: new Date().toISOString(),
+            }))
+            dispatch(sseChatMessage({ slot: data.slot, role: '_done', content: '' }))
+            dispatch(addSlotError({ slot: data.slot, error: errMsg }))
+            if (data.slot && data.slot !== store.getState().chat.activeSlot) {
+              dispatch(markSlotUnread(data.slot))
+            }
+            break
+          }
           case 'context_usage':
             dispatch(setContextUsage({ slot: data.slot, usage: { tokens: data.tokens, contextWindow: data.contextWindow, percent: data.percent } }))
             break

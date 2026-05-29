@@ -130,6 +130,15 @@ export class PiProcess extends EventEmitter {
   _pendingRequests: Map<string, { resolve: (value: any) => void; timer: ReturnType<typeof setTimeout> }>
   _stopping: boolean
   _pendingApproval: boolean
+  // Counts user-initiated prompts that pi-dashboard has issued but for
+  // which we have not yet seen agent_end. Gates followUp streamingBehavior
+  // so we only queue when *we* know we have an outstanding turn — never
+  // on a stale pi.running flag (set by pi child auto-emitting agent_start
+  // during session resume / extension hooks / phantom restart events).
+  // The earlier behavior — trust pi.running unconditionally — caused
+  // fresh user prompts after RESUME to silently queue behind nonexistent
+  // turns, surfacing as "slot stops after my message and never returns".
+  _outstandingPrompts: number
   _streamIdx: number
   _stderrLines: string[]
   _startupTimer: ReturnType<typeof setTimeout> | null
@@ -168,6 +177,7 @@ export class PiProcess extends EventEmitter {
     this._pendingRequests = new Map() // id → { resolve, timer }
     this._stopping = false
     this._pendingApproval = false
+    this._outstandingPrompts = 0
     this._toolsRunning = 0
     this._streamIdx = -1  // index where partial streaming messages start
     this._stderrLines = []
@@ -323,6 +333,7 @@ export class PiProcess extends EventEmitter {
         this.running = false
         this._stopping = false
         this._pendingApproval = false
+        this._outstandingPrompts = 0
         this.emit('agent_end', { messages: [] })
       }
       return false
@@ -417,6 +428,7 @@ export class PiProcess extends EventEmitter {
       }
 
       // Extension and skill commands go through prompt() which handles them
+      this._outstandingPrompts++
       this.running = true
       this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
       const promptCmd: Record<string, any> = { type: 'prompt', message }
@@ -443,9 +455,22 @@ export class PiProcess extends EventEmitter {
       msg = `[Note for agent: you are RESUMING an existing conversation — not starting a new session. The session primer above is background context only. Continue from where we left off.]\n\n${msg}`
     }
     cmd.message = msg
-    if (this.running) {
+    // Only queue as followUp if WE issued a prompt that hasn't been
+    // agent_end'd yet — do NOT trust pi.running alone, which can be set
+    // by phantom agent_start events from session resume or extensions,
+    // causing fresh user prompts to silently queue behind nonexistent
+    // turns ("slot stops after my message and never returns").
+    if (this._outstandingPrompts > 0) {
       cmd.streamingBehavior = 'followUp'
+      console.log(`[pi-manager] prompt(${this.slotKey}): outstandingPrompts=${this._outstandingPrompts}, sending as FOLLOWUP. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
+    } else {
+      if (this.running) {
+        console.log(`[pi-manager] prompt(${this.slotKey}): pi.running=true but outstandingPrompts=0 (likely phantom agent_start) — sending fresh anyway. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
+      } else {
+        console.log(`[pi-manager] prompt(${this.slotKey}): fresh prompt. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
+      }
     }
+    this._outstandingPrompts++
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
     return this.send(cmd)
@@ -458,6 +483,7 @@ export class PiProcess extends EventEmitter {
       this.running = false
       this._stopping = false
       this._pendingApproval = false
+      this._outstandingPrompts = 0
       this.emit('agent_end', { messages: [] })
       return false
     }
@@ -569,6 +595,7 @@ export class PiProcess extends EventEmitter {
       this.running = false
       this._stopping = false
       this._pendingApproval = false
+      this._outstandingPrompts = 0
       if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
       this.emit('agent_end', { messages: [] })
       this.emit('log', { level: 'warn', msg: `Slot ${this.slotKey}: health check found dead process, reset state` })
@@ -593,10 +620,17 @@ export class PiProcess extends EventEmitter {
       case 'response':
         // If a prompt failed (e.g. no API key), reset running state
         if (event.command === 'prompt' && event.success === false) {
+          console.error(`[pi-manager] PROMPT FAILED on slot ${this.slotKey}: ${event.error || '<no error>'} | full event:`, JSON.stringify(event).slice(0, 500))
           this.running = false
           this._stopping = false
           this._pendingApproval = false
-          this.messages.push({ role: 'system', content: `⚠️ ${event.error || 'Prompt failed'}`, ts: new Date().toISOString() })
+          if (this._outstandingPrompts > 0) this._outstandingPrompts--
+          const errMsg = `⚠️ ${event.error || 'Prompt failed'}`
+          this.messages.push({ role: 'system', content: errMsg, ts: new Date().toISOString() })
+          // Emit a synthetic chat_message so server.ts broadcasts the error
+          // to the FE — otherwise the user sees their message and then
+          // silence (chat_done with no assistant reply).
+          this.emit('prompt_failed', { error: event.error || 'Prompt failed' })
           this.emit('agent_end', { messages: [] })
         }
         this.emit('response', event)
@@ -619,6 +653,7 @@ export class PiProcess extends EventEmitter {
         this.running = false
         this._stopping = false
         this._pendingApproval = false
+        if (this._outstandingPrompts > 0) this._outstandingPrompts--
         this._lastActivity = Date.now()
         if (this._stoppingTimer) { clearTimeout(this._stoppingTimer); this._stoppingTimer = null }
         // Remove partial streaming messages, replace with final
