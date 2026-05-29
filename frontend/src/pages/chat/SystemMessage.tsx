@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useState, useEffect } from 'react'
 import MarkdownRenderer from '../../components/MarkdownRenderer'
 import { useSlotRegistryOrNull } from '../../plugins/plugin-context'
 import { SystemMessageRendererSlot } from '../../plugins/slot-consumers'
@@ -201,6 +201,16 @@ function parseProcessUpdate(content: string) {
 const SystemMessage = memo(function SystemMessage({ content, meta }: Props) {
   const registry = useSlotRegistryOrNull()
   const customType = meta?.customType as string | undefined
+
+  // Emit event bridge for sidebar panels (e.g. WorkflowsPanel) that need
+  // to subscribe to custom message types without accessing the message store.
+  useEffect(() => {
+    if (!customType) return
+    window.dispatchEvent(new CustomEvent('pi-dashboard:system-message', {
+      detail: { customType, content, meta },
+    }))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // fire once on mount only
 
   // Plugin system: delegate to registered system-message-renderer if available.
   if (customType && registry) {
