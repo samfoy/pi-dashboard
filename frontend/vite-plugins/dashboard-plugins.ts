@@ -65,7 +65,7 @@ function discoverPlugins(repoRoot: string): PluginEntry[] {
   return entries
 }
 
-const VALID_SLOTS: SlotId[] = ['tool-renderer', 'settings-section', 'command-route', 'sidebar-panel', 'status-bar', 'session-card-badge', 'content-header']
+const VALID_SLOTS: SlotId[] = ['tool-renderer', 'settings-section', 'command-route', 'sidebar-panel', 'status-bar', 'session-card-badge', 'content-header', 'system-message-renderer']
 
 /** Generate the plugin-registry.tsx content with named imports per claim. */
 function generateRegistryContent(entries: PluginEntry[]): string {
@@ -115,6 +115,7 @@ function generateRegistryContent(entries: PluginEntry[]): string {
       if (claim.tab) parts.push(`tab: ${JSON.stringify(claim.tab)}`)
       if (claim.toolName) parts.push(`toolName: ${JSON.stringify(claim.toolName)}`)
       if (claim.command) parts.push(`command: ${JSON.stringify(claim.command)}`)
+      if (claim.customType) parts.push(`customType: ${JSON.stringify(claim.customType)}`)
       if (claim.componentName) parts.push(`Component: ${claim.componentName}`)
       lines.push(`      { ${parts.join(', ')} },`)
     }

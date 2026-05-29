@@ -698,7 +698,7 @@ export class PiProcess extends EventEmitter {
               const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
               const label = m.customType ? `[${m.customType}]` : '[custom]'
               const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-              this.messages.push({ role: 'system', content: `${label} ${text}`, ts, meta: { customType: m.customType } })
+              this.messages.push({ role: 'system', content: `${label} ${text}`, ts, meta: { customType: m.customType, ...(m.details ? { details: m.details } : {}) } })
             } else if (m.role === 'toolResult') {
               // Attach result to the matching tool message
               const toolMsg = [...this.messages].reverse().find(
@@ -755,7 +755,7 @@ export class PiProcess extends EventEmitter {
           const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
           const label = m.customType ? `[${m.customType}]` : '[custom]'
           const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-          this.messages.push({ role: 'system', content: `${label} ${text}`, ts, meta: { customType: m.customType } })
+          this.messages.push({ role: 'system', content: `${label} ${text}`, ts, meta: { customType: m.customType, ...(m.details ? { details: m.details } : {}) } })
         }
         this.emit(type, event)
         break

@@ -1,5 +1,7 @@
 import { memo, useState } from 'react'
 import MarkdownRenderer from '../../components/MarkdownRenderer'
+import { useSlotRegistryOrNull } from '../../plugins/plugin-context'
+import { SystemMessageRendererSlot } from '../../plugins/slot-consumers'
 
 interface Props {
   content: string
@@ -197,7 +199,18 @@ function parseProcessUpdate(content: string) {
 }
 
 const SystemMessage = memo(function SystemMessage({ content, meta }: Props) {
+  const registry = useSlotRegistryOrNull()
   const customType = meta?.customType as string | undefined
+
+  // Plugin system: delegate to registered system-message-renderer if available.
+  if (customType && registry) {
+    const hasPluginRenderer = registry
+      .getClaims('system-message-renderer')
+      .some(c => c.customType === customType)
+    if (hasPluginRenderer) {
+      return <SystemMessageRendererSlot customType={customType} content={content} meta={meta} />
+    }
+  }
 
   // Process updates get a styled notification bar
   if (customType?.startsWith('ad-process:')) {
