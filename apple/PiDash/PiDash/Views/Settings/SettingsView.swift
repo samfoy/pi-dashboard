@@ -67,7 +67,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Section("Server") {
+                Section(header: Text("Server"), footer: Text("Auth token is at ~/.pi/dashboard-token on the server. The share extension reads from the same stored value.")) {
                     TextField("Server URL", text: $urlText)
                         .keyboardType(.URL)
                         .autocorrectionDisabled()

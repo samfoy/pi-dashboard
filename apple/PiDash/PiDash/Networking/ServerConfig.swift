@@ -28,7 +28,7 @@ struct ServerConfig {
         let shared = Self.sharedDefaults
 
         // One-time migration: copy values from standard UserDefaults into the shared suite.
-        for key in [Self.userDefaultsKey, Self.cwdDefaultsKey] {
+        for key in [Self.userDefaultsKey, Self.cwdDefaultsKey, Self.tokenDefaultsKey] {
             if shared.object(forKey: key) == nil,
                let existing = UserDefaults.standard.object(forKey: key) {
                 shared.set(existing, forKey: key)
