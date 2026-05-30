@@ -12,6 +12,8 @@ struct SettingsView: View {
     @State private var cwdText: String = ""
     @State private var testResult: String?
     @State private var isTesting = false
+    @State private var isFetchingToken = false
+    @State private var tokenFetchError: String?
     @State private var slotCwds: [String] = []
     @State private var showDefaultModelPicker = false
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
@@ -78,6 +80,24 @@ struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .font(.system(.body, design: .monospaced))
                         .onSubmit { saveToken() }
+                    Button {
+                        Task { await fetchTokenFromServer() }
+                    } label: {
+                        HStack {
+                            if isFetchingToken {
+                                ProgressView().scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "arrow.down.circle")
+                            }
+                            Text("Fetch token from server")
+                        }
+                    }
+                    .disabled(isFetchingToken)
+                    if let err = tokenFetchError {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 }
 
                 Section("Working Directory") {
@@ -240,6 +260,38 @@ struct SettingsView: View {
                 Task { await loadSlotCwds() }
             }
         }
+    }
+
+    private func fetchTokenFromServer() async {
+        isFetchingToken = true
+        tokenFetchError = nil
+        let serverBase = urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? appState.serverConfig.baseURL
+            : urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: "\(serverBase)/api/token") else {
+            tokenFetchError = "Invalid server URL"
+            isFetchingToken = false
+            return
+        }
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+            if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                tokenFetchError = "Server returned \(http.statusCode)"
+                isFetchingToken = false
+                return
+            }
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let token = json["token"] as? String, !token.isEmpty {
+                tokenText = token
+                saveToken()
+                tokenFetchError = nil
+            } else {
+                tokenFetchError = "No token in response"
+            }
+        } catch {
+            tokenFetchError = error.localizedDescription
+        }
+        isFetchingToken = false
     }
 
     private func saveURL() {
