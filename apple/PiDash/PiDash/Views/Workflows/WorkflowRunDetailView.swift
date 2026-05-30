@@ -75,6 +75,14 @@ struct WorkflowRunDetailView: View {
                 if let agents = detail.agentCount {
                     LabeledContent("Agents", value: "\(agents)")
                 }
+                if let ts = detail.tokenSummary {
+                    LabeledContent("Tokens") {
+                        Text("in: \(TokenSummary.format(ts.totalInput)) · out: \(TokenSummary.format(ts.totalOutput)) · cache: \(TokenSummary.format(ts.totalCacheRead))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
                 if let ver = detail.piWorkflowsVersion {
                     LabeledContent("pi-workflows", value: ver)
                 }

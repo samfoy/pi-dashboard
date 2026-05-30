@@ -181,6 +181,20 @@ struct AgentUsage: Codable {
     let totalTokens: Int?
 }
 
+// MARK: - TokenSummary
+
+struct TokenSummary {
+    let totalInput: Int
+    let totalOutput: Int
+    let totalCacheRead: Int
+    let totalTokens: Int
+
+    /// Formats as "12.3k" for values ≥ 1000, plain integer otherwise.
+    static func format(_ n: Int) -> String {
+        n >= 1000 ? String(format: "%.1fk", Double(n) / 1000) : "\(n)"
+    }
+}
+
 // MARK: - WorkflowRunDetail
 
 /// Full detail for a single run (from `/api/workflows/runs/:id`).
@@ -200,6 +214,19 @@ struct WorkflowRunDetail: Codable {
     let timeline: [LedgerEntry]
     // resultPayload is arbitrary JSON — decode as raw value
     let resultPayload: ResultPayload?
+
+    var tokenSummary: TokenSummary? {
+        let usages = timeline
+            .filter { $0.type == "agent_end" }
+            .compactMap(\.usage)
+        guard !usages.isEmpty else { return nil }
+        return TokenSummary(
+            totalInput:     usages.compactMap(\.input).reduce(0, +),
+            totalOutput:    usages.compactMap(\.output).reduce(0, +),
+            totalCacheRead: usages.compactMap(\.cacheRead).reduce(0, +),
+            totalTokens:    usages.compactMap(\.totalTokens).reduce(0, +)
+        )
+    }
 
     var asSummary: WorkflowRun {
         WorkflowRun(

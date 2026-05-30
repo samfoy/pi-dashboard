@@ -6,7 +6,6 @@ struct WorkflowsListView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel: WorkflowsViewModel?
     @State private var selectedRun: WorkflowRun?
-    @State private var showDetail = false
 
     var body: some View {
         Group {
@@ -36,9 +35,9 @@ private struct WorkflowsContent: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.isLoading && viewModel.runs.isEmpty {
+                if viewModel.isLoading && viewModel.runs.isEmpty && viewModel.scripts.isEmpty {
                     ProgressView("Loading workflows…")
-                } else if let err = viewModel.error, viewModel.runs.isEmpty {
+                } else if let err = viewModel.error, viewModel.runs.isEmpty && viewModel.scripts.isEmpty {
                     ContentUnavailableView {
                         Label("Could not load workflows", systemImage: "exclamationmark.triangle")
                     } description: {
@@ -46,7 +45,7 @@ private struct WorkflowsContent: View {
                     } actions: {
                         Button("Retry") { Task { await viewModel.load() } }
                     }
-                } else if viewModel.runs.isEmpty {
+                } else if viewModel.runs.isEmpty && viewModel.scripts.isEmpty {
                     ContentUnavailableView {
                         Label("No workflow runs yet", systemImage: "gearshape.2")
                     } description: {
@@ -68,6 +67,14 @@ private struct WorkflowsContent: View {
         List {
             let active = viewModel.runs.filter { $0.state.isActive }
             let terminal = viewModel.runs.filter { $0.state.isTerminal }
+
+            if !viewModel.scripts.isEmpty {
+                Section("Scripts") {
+                    ForEach(viewModel.scripts) { script in
+                        WorkflowScriptRow(script: script)
+                    }
+                }
+            }
 
             if !active.isEmpty {
                 Section("Active") {
@@ -121,6 +128,36 @@ private struct WorkflowsContent: View {
                 Image(systemName: "arrow.clockwise")
             }
         }
+    }
+}
+
+// MARK: - WorkflowScriptRow
+
+private struct WorkflowScriptRow: View {
+    let script: WorkflowScript
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "doc.plaintext")
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+
+            Text(script.name)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text(script.scope)
+                .font(.caption2)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.secondary.opacity(0.12))
+                .foregroundStyle(.secondary)
+                .clipShape(Capsule())
+        }
+        .padding(.vertical, 2)
     }
 }
 
