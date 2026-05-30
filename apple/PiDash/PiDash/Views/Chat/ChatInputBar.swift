@@ -34,6 +34,9 @@ struct ChatInputBar: View {
     var isSpeechRecording: Bool = false
     /// Called when the user picks one or more files via `.fileImporter` for server upload.
     var onUploadFileURLs: (([URL]) -> Void)? = nil
+    /// Called when the user picks non-image documents (PDF, text, etc.) via DocumentPicker.
+    /// The data is pre-read within the security scope — pass to the server upload API.
+    var onDocumentPickFiles: (([(name: String, data: Data)]) -> Void)? = nil
     /// When true, show a small progress indicator next to the input row.
     var isUploadingFiles: Bool = false
     let onSend: () -> Void
@@ -304,9 +307,10 @@ struct ChatInputBar: View {
             Task { await loadPhotos(items) }
         }
         .sheet(isPresented: $showDocumentPicker) {
-            DocumentPicker { images in
-                pendingImages.append(contentsOf: images)
-            }
+            DocumentPicker(
+                onPickImages: { images in pendingImages.append(contentsOf: images) },
+                onPickFiles: onDocumentPickFiles
+            )
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraPicker { image in
@@ -386,7 +390,11 @@ struct ChatInputBar: View {
 // MARK: - Document Picker (UIKit bridge)
 
 struct DocumentPicker: UIViewControllerRepresentable {
-    let onPick: ([PendingImage]) -> Void
+    /// Called with image files — added as inline vision attachments.
+    let onPickImages: ([PendingImage]) -> Void
+    /// Called with non-image files (PDF, text, etc.) — should be uploaded to the server.
+    /// Receives (filename, raw data) tuples read within the security scope.
+    var onPickFiles: (([(name: String, data: Data)]) -> Void)? = nil
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.image, .pdf, .plainText, .data])
@@ -397,37 +405,43 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(onPick: onPick) }
+    func makeCoordinator() -> Coordinator { Coordinator(onPickImages: onPickImages, onPickFiles: onPickFiles) }
 
     class Coordinator: NSObject, UIDocumentPickerDelegate {
-        let onPick: ([PendingImage]) -> Void
-        init(onPick: @escaping ([PendingImage]) -> Void) { self.onPick = onPick }
+        let onPickImages: ([PendingImage]) -> Void
+        let onPickFiles: (([(name: String, data: Data)]) -> Void)?
+
+        init(
+            onPickImages: @escaping ([PendingImage]) -> Void,
+            onPickFiles: (([(name: String, data: Data)]) -> Void)? = nil
+        ) {
+            self.onPickImages = onPickImages
+            self.onPickFiles = onPickFiles
+        }
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             var images: [PendingImage] = []
+            var fileItems: [(name: String, data: Data)] = []
+
             for url in urls {
                 guard url.startAccessingSecurityScopedResource() else { continue }
                 defer { url.stopAccessingSecurityScopedResource() }
 
-                if let data = try? Data(contentsOf: url) {
+                guard let data = try? Data(contentsOf: url) else { continue }
+
+                if let uiImage = UIImage(data: data) {
+                    // Recognized image format — add as inline vision attachment
                     let mimeType = url.pathExtension.lowercased() == "png" ? "image/png" : "image/jpeg"
-                    if let uiImage = UIImage(data: data) {
-                        let thumb = uiImage.preparingThumbnail(of: CGSize(width: 120, height: 120)) ?? uiImage
-                        images.append(PendingImage(data: data, mimeType: mimeType, thumbnail: thumb))
-                    } else {
-                        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 120, height: 120))
-                        let placeholder = renderer.image { ctx in
-                            UIColor.systemGray5.setFill()
-                            ctx.fill(CGRect(x: 0, y: 0, width: 120, height: 120))
-                            let icon = "📄"
-                            let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 40)]
-                            icon.draw(at: CGPoint(x: 35, y: 30), withAttributes: attrs)
-                        }
-                        images.append(PendingImage(data: data, mimeType: "application/octet-stream", thumbnail: placeholder))
-                    }
+                    let thumb = uiImage.preparingThumbnail(of: CGSize(width: 120, height: 120)) ?? uiImage
+                    images.append(PendingImage(data: data, mimeType: mimeType, thumbnail: thumb))
+                } else {
+                    // Non-image (PDF, text, etc.) — route to server upload, not vision API
+                    fileItems.append((name: url.lastPathComponent, data: data))
                 }
             }
-            onPick(images)
+
+            if !images.isEmpty { onPickImages(images) }
+            if !fileItems.isEmpty { onPickFiles?(fileItems) }
         }
     }
 }

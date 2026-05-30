@@ -248,6 +248,10 @@ private struct ChatContentView: View {
                         guard !urls.isEmpty else { return }
                         Task { await uploadFiles(urls) }
                     },
+                    onDocumentPickFiles: { items in
+                        guard !items.isEmpty else { return }
+                        Task { await uploadDocumentItems(items) }
+                    },
                     isUploadingFiles: isUploadingFiles,
                     onSend: { Task { await viewModel.send() } },
                     onStop: { Task { await viewModel.stop() } }
@@ -413,6 +417,24 @@ private struct ChatContentView: View {
                 let sep = current.hasSuffix("\n") ? "\n" : "\n\n"
                 viewModel.inputText = current + sep + attachmentNote
             }
+            HapticManager.messageSent()
+        } catch {
+            viewModel.error = "Upload failed: \(error.localizedDescription)"
+            HapticManager.error()
+        }
+    }
+
+    /// Upload files picked by DocumentPicker (data already read within security scope).
+    private func uploadDocumentItems(_ fileItems: [(name: String, data: Data)]) async {
+        isUploadingFiles = true
+        defer { isUploadingFiles = false }
+        let items = fileItems.map { UploadFileItem(name: $0.name, data: $0.data.base64EncodedString()) }
+        do {
+            let paths = try await appState.apiClient.uploadFiles(items)
+            guard !paths.isEmpty else { return }
+            let attachmentNote = paths.map { "Attached: `\($0)`" }.joined(separator: "\n")
+            let current = viewModel.inputText
+            viewModel.inputText = current.isEmpty ? attachmentNote : current + (current.hasSuffix("\n") ? "\n" : "\n\n") + attachmentNote
             HapticManager.messageSent()
         } catch {
             viewModel.error = "Upload failed: \(error.localizedDescription)"
