@@ -77,6 +77,7 @@ final class ShareViewModel {
     var state: ShareState = .loadingContent
     var sharedContent: SharedContent? = nil
     var availableSlots: [SlotInfo] = [SlotInfo]()
+    var slotFetchError: String? = nil
 
     // MARK: Private
     private let extensionContext: NSExtensionContext
@@ -213,9 +214,12 @@ final class ShareViewModel {
 
     // MARK: - API: Slots
 
+    @MainActor
     func fetchSlots() async {
         state = .loadingSlots
+        slotFetchError = nil
         guard let url = URL(string: "\(serverURL)/api/chat/slots") else {
+            slotFetchError = "Invalid server URL: \(serverURL)"
             state = .idle
             return
         }
@@ -223,7 +227,16 @@ final class ShareViewModel {
         req.httpMethod = "GET"
         attachAuth(&req)
         do {
-            let (data, _) = try await session.data(for: req)
+            let (data, response) = try await session.data(for: req)
+            if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+                if http.statusCode == 401 {
+                    slotFetchError = "Unauthorized — open the main app and check the auth token in Settings."
+                } else {
+                    slotFetchError = "Server error \(http.statusCode) fetching slots."
+                }
+                state = .idle
+                return
+            }
             // Response is [{key, title}] or [{key, label}]
             if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
                 availableSlots = arr.compactMap { dict -> SlotInfo? in
@@ -234,10 +247,12 @@ final class ShareViewModel {
                     let ts = dict["updated_at"] as? String ?? dict["updatedAt"] as? String
                     return SlotInfo(id: key, title: title, updatedAt: ts)
                 }
-                                .sorted { ($0.updatedAt ?? "") > ($1.updatedAt ?? "") }
+                .sorted { ($0.updatedAt ?? "") > ($1.updatedAt ?? "") }
+            } else {
+                slotFetchError = "Unexpected response from server."
             }
         } catch {
-            // Non-fatal — just leave slots empty
+            slotFetchError = error.localizedDescription
         }
         state = .idle
     }

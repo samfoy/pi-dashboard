@@ -62,10 +62,23 @@ struct ShareView: View {
 
             // Chat picker
             Section("Send to") {
-                Picker("Chat", selection: $viewModel.selectedSlotID) {
-                    Text("New Chat").tag(String?.none)
-                    ForEach(viewModel.availableSlots) { slot in
-                        Text(slot.title).tag(String?.some(slot.id))
+                if let err = viewModel.slotFetchError {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(err, systemImage: "exclamationmark.triangle")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                        Button("Retry") {
+                            Task { await viewModel.fetchSlots() }
+                        }
+                        .font(.footnote)
+                    }
+                    .listRowBackground(Color.orange.opacity(0.08))
+                } else {
+                    Picker("Chat", selection: $viewModel.selectedSlotID) {
+                        Text("New Chat").tag(String?.none)
+                        ForEach(viewModel.availableSlots) { slot in
+                            Text(slot.title).tag(String?.some(slot.id))
+                        }
                     }
                 }
             }
