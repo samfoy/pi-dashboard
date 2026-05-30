@@ -1,9 +1,39 @@
 import SwiftUI
 
-/// Root view — wraps the app in a NavigationSplitView.
-/// On compact width (iPhone) this collapses to a standard navigation stack.
-/// On regular width (iPad) this shows the sidebar + detail side by side.
+/// Root view — tab bar with Chats and Workflows.
+/// Each tab owns its own NavigationSplitView / NavigationStack.
 struct RootView: View {
+    @Environment(AppState.self) private var appState
+    @State private var selectedTab: AppTab = .chats
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            ChatsTab()
+                .tag(AppTab.chats)
+                .tabItem {
+                    Label("Chats", systemImage: "bubble.left.and.bubble.right")
+                }
+
+            WorkflowsTab()
+                .tag(AppTab.workflows)
+                .tabItem {
+                    Label("Workflows", systemImage: "gearshape.2")
+                }
+        }
+    }
+}
+
+// MARK: - AppTab
+
+enum AppTab: Hashable {
+    case chats
+    case workflows
+}
+
+// MARK: - ChatsTab
+
+/// Preserves the existing NavigationSplitView chat experience.
+private struct ChatsTab: View {
     @Environment(AppState.self) private var appState
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
@@ -22,5 +52,13 @@ struct RootView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - WorkflowsTab
+
+private struct WorkflowsTab: View {
+    var body: some View {
+        WorkflowsListView()
     }
 }

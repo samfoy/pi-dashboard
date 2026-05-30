@@ -25,6 +25,7 @@ import {
   registerSystemRoutes,
   registerSessionRoutes,
   registerAutoloopRoutes,
+  registerWorkflowRoutes,
 } from './routes/index.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -618,6 +619,7 @@ registerFileRoutes(routeDeps)
 registerSystemRoutes(routeDeps)
 registerSessionRoutes(routeDeps)
 registerAutoloopRoutes(routeDeps)
+registerWorkflowRoutes(routeDeps)
 
 // ─── Static files ────────────────────────────────────────────
 app.use(express.static(DIST_DIR))

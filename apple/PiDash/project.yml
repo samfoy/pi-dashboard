@@ -18,7 +18,7 @@ settings:
     SUPPORTS_MACCATALYST: "YES"
     ENABLE_HARDENED_RUNTIME: "YES"
     CODE_SIGN_STYLE: "Automatic"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "ZBL5RZ37FG"
     DEBUG_INFORMATION_FORMAT: "dwarf-with-dsym"
 
 packages:
@@ -55,4 +55,4 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.sam.pidash
         INFOPLIST_FILE: PiDash/Info.plist
         CODE_SIGN_STYLE: "Automatic"
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: "ZBL5RZ37FG"

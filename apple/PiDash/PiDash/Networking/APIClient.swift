@@ -27,7 +27,7 @@ actor APIClient {
     var config: ServerConfig
 
     private let session: URLSession
-    private let decoder: JSONDecoder
+    let decoder: JSONDecoder
 
     init(config: ServerConfig = ServerConfig()) {
         self.config = config
@@ -408,7 +408,7 @@ actor APIClient {
         }
     }
 
-    private func get(url: URL) async throws -> Data {
+    func get(url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         attachAuth(&request)
@@ -433,7 +433,7 @@ actor APIClient {
         return try await perform(request)
     }
 
-    private func delete(url: URL) async throws {
+    func delete(url: URL) async throws {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         attachAuth(&request)
@@ -466,7 +466,7 @@ actor APIClient {
         }
     }
 
-    private func requireURL(path: String) throws -> URL {
+    func requireURL(path: String) throws -> URL {
         guard let url = config.url(path: path) else {
             throw APIError.invalidURL
         }
