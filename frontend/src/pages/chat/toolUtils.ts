@@ -15,10 +15,13 @@ export function generateEditDiff(filePath: string, edits: { oldText: string; new
 export function parseEditArgs(args: string): { path: string; edits: { oldText: string; newText: string }[] } | null {
   try {
     const parsed = JSON.parse(args)
-    if (!parsed.path) return null
+    if (typeof parsed.path !== 'string') return null
     // New format: { path, edits: [{ oldText, newText }] }
-    if (Array.isArray(parsed.edits) && parsed.edits.length > 0 && typeof parsed.edits[0].oldText === 'string') {
-      return { path: parsed.path, edits: parsed.edits }
+    if (Array.isArray(parsed.edits) && parsed.edits.length > 0) {
+      const edits = parsed.edits.filter((edit: unknown): edit is { oldText: string; newText: string } => {
+        return !!edit && typeof edit === 'object' && typeof (edit as any).oldText === 'string' && typeof (edit as any).newText === 'string'
+      })
+      if (edits.length > 0) return { path: parsed.path, edits }
     }
     // Legacy format: { path, oldText, newText }
     if (typeof parsed.oldText === 'string' && typeof parsed.newText === 'string') {
@@ -32,7 +35,7 @@ export function parseEditArgs(args: string): { path: string; edits: { oldText: s
 export function parseWriteArgs(args: string): { path: string; content: string } | null {
   try {
     const parsed = JSON.parse(args)
-    if (parsed.path && typeof parsed.content === 'string') {
+    if (typeof parsed.path === 'string' && typeof parsed.content === 'string') {
       return { path: parsed.path, content: parsed.content }
     }
   } catch { /* ignore */ }
@@ -40,7 +43,8 @@ export function parseWriteArgs(args: string): { path: string; content: string } 
 }
 
 /** Guess a language from a file extension for syntax highlighting. */
-export function langFromPath(path: string): string {
+export function langFromPath(path: unknown): string {
+  if (typeof path !== 'string') return ''
   const ext = path.split('.').pop()?.toLowerCase() || ''
   const map: Record<string, string> = {
     ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
