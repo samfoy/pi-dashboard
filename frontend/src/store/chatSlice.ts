@@ -41,6 +41,8 @@ interface ChatState {
   _resendQueued: string | null
   contextUsage: ContextUsage | null
   tokenStats: TokenStats | null
+  _turnBaselineStats: TokenStats | null
+  _waitingForTurnStats: boolean
   extensionStatuses: Record<string, string>
   extensionWidgets: Record<string, string[]>
   _lastChunkSeq: number
@@ -63,6 +65,8 @@ const initialState: ChatState = {
   _resendQueued: null,
   contextUsage: null,
   tokenStats: null,
+  _turnBaselineStats: null,
+  _waitingForTurnStats: false,
   extensionStatuses: {},
   extensionWidgets: {},
   _lastChunkSeq: -1,
@@ -182,7 +186,27 @@ const chatSlice = createSlice({
       if (action.payload.slot === state.activeSlot) state.contextUsage = action.payload.usage
     },
     setTokenStats(state, action: PayloadAction<{ slot: string; stats: TokenStats }>) {
-      if (action.payload.slot === state.activeSlot) state.tokenStats = action.payload.stats
+      if (action.payload.slot !== state.activeSlot) return
+      const newStats = action.payload.stats
+      // If a turn just completed and we have a baseline, compute per-turn delta
+      if (state._waitingForTurnStats && state._turnBaselineStats) {
+        const base = state._turnBaselineStats
+        const dIn = Math.max(0, newStats.totalInputTokens - base.totalInputTokens)
+        const dOut = Math.max(0, newStats.totalOutputTokens - base.totalOutputTokens)
+        const dCost = Math.max(0, newStats.totalCost - base.totalCost)
+        // Annotate the last assistant message
+        for (let i = state.messages.length - 1; i >= 0; i--) {
+          if (state.messages[i].role === 'assistant') {
+            state.messages[i].turnCost = dCost
+            state.messages[i].turnInputTokens = dIn
+            state.messages[i].turnOutputTokens = dOut
+            break
+          }
+        }
+        state._waitingForTurnStats = false
+        state._turnBaselineStats = null
+      }
+      state.tokenStats = newStats
     },
     setExtensionStatus(state, action: PayloadAction<{ slot: string; key: string; text?: string }>) {
       if (action.payload.slot !== state.activeSlot) return
@@ -243,6 +267,8 @@ const chatSlice = createSlice({
             break
           }
         }
+        // Flag that we're waiting for the token_stats event to annotate this turn
+        state._waitingForTurnStats = true
         // Promote queued message to user and flag for re-send
         const qIdx = state.messages.findIndex(m => m.role === 'queued')
         if (qIdx >= 0) {
@@ -316,6 +342,11 @@ const chatSlice = createSlice({
       }
       // Keep streaming/assistant text at the bottom — insert other messages before it
       const newMsg = { role, content, cls: cls || '', ts, meta }
+      // When the user sends a message, snapshot token stats as the baseline for this turn
+      if (role === 'user') {
+        state._turnBaselineStats = state.tokenStats
+        state._waitingForTurnStats = false
+      }
       const tail = state.messages[state.messages.length - 1]
       if (tail?.role === 'streaming') {
         state.messages.splice(state.messages.length - 1, 0, newMsg)
@@ -351,6 +382,8 @@ const chatSlice = createSlice({
           state.slotOldestIndex = 0
           state.contextUsage = null
           state.tokenStats = null
+          state._turnBaselineStats = null
+          state._waitingForTurnStats = false
           state.extensionStatuses = {}
           state.extensionWidgets = {}
         }

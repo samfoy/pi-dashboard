@@ -201,7 +201,24 @@ function usePiSettings() {
 /* ── MODEL TAB ── */
 function ModelTab() {
   const { settings, feedback, set, setNested } = usePiSettings()
+  const [availableModels, setAvailableModels] = useState<{ id: string; name?: string; provider: string }[]>([])
+
+  useEffect(() => {
+    fetch('/api/models').then(j).then(r => setAvailableModels(r?.models || [])).catch(() => {})
+  }, [])
+
   if (!settings) return <div className="text-muted text-[13px] py-4">Loading settings…</div>
+
+  // Unique providers from /api/models, plus whatever's in settings (in case it's an extension provider not in the live list)
+  const providers = Array.from(new Set([
+    ...(settings.defaultProvider ? [settings.defaultProvider] : []),
+    ...availableModels.map(m => m.provider),
+  ])).filter(Boolean).sort()
+
+  // Models for the currently-selected provider (fall back to all enabled models if provider is unset)
+  const providerModels = settings.defaultProvider
+    ? availableModels.filter(m => m.provider === settings.defaultProvider)
+    : availableModels
 
   return (
     <div className="space-y-4">
@@ -210,20 +227,23 @@ function ModelTab() {
       <Card>
         <CardTitle>Default Model <InfoTip text="Provider and model used for new sessions" /></CardTitle>
         <div className="divide-y divide-border">
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <span className="text-[13px] text-text">Default Provider</span>
-              <div className="text-[12px] text-muted/60 mt-0.5">LLM provider for new sessions</div>
-            </div>
-            <span className="text-[13px] font-mono text-accent">{settings.defaultProvider || '—'}</span>
-          </div>
+          <SelectRow
+            label="Default Provider"
+            hint="LLM provider for new sessions"
+            value={settings.defaultProvider || ''}
+            options={[
+              { value: '', label: '— default —' },
+              ...providers.map(p => ({ value: p, label: p }))
+            ]}
+            onChange={v => set('defaultProvider', v || undefined)}
+          />
           <SelectRow
             label="Default Model"
             hint="Model used for new sessions"
             value={settings.defaultModel || ''}
             options={[
               { value: '', label: '— default —' },
-              ...(settings.enabledModels || []).map(m => ({ value: m.split('/').pop() || m, label: m }))
+              ...providerModels.map(m => ({ value: m.id, label: m.name ? `${m.name} (${m.id})` : m.id }))
             ]}
             onChange={v => set('defaultModel', v || undefined)}
           />

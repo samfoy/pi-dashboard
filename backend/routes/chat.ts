@@ -215,7 +215,17 @@ export function registerChatRoutes(deps: RouteDeps): void {
   app.get('/api/models', async (_req: Request, res: Response) => {
     try {
       const models = await manager.getModels()
-      res.json({ models })
+      // Honour `disabledProviders` from pi settings so users can hide entire providers
+      // (e.g. built-in `amazon-bedrock`) from the dashboard model picker.
+      let disabled: string[] = []
+      try {
+        const s = JSON.parse(readFileSync(join(os.homedir(), '.pi', 'agent', 'settings.json'), 'utf-8'))
+        if (Array.isArray(s.disabledProviders)) disabled = s.disabledProviders
+      } catch {}
+      const filtered = disabled.length
+        ? models.filter((m: any) => !disabled.includes(m.provider))
+        : models
+      res.json({ models: filtered })
     } catch (e: any) {
       res.json({ models: [], error: e.message })
     }

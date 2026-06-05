@@ -360,6 +360,26 @@ export class PiProcess extends EventEmitter {
     })
   }
 
+  async _shouldQueuePromptAsFollowUp(): Promise<boolean> {
+    if (this._outstandingPrompts > 0) return true
+    if (!this.running) return false
+
+    try {
+      const state = await this.request({ type: 'get_state' }, 1000)
+      const isStreaming = state?.data?.isStreaming === true || state?.data?.isCompacting === true
+      if (!isStreaming) {
+        // Keep the old phantom-agent_start recovery: if pi says it is idle,
+        // do not queue behind a nonexistent turn.
+        this.running = false
+      }
+      return isStreaming
+    } catch {
+      // If the child cannot answer get_state, preserve the old behavior rather
+      // than queueing behind a possibly phantom turn forever.
+      return false
+    }
+  }
+
   async prompt(message: string, images?: ImagePayload[]): Promise<boolean | void> {
     this._lastActivity = Date.now()
     // Normalize images to pi's expected format
@@ -428,10 +448,14 @@ export class PiProcess extends EventEmitter {
       }
 
       // Extension and skill commands go through prompt() which handles them
+      const promptCmd: Record<string, any> = { type: 'prompt', message }
+      if (await this._shouldQueuePromptAsFollowUp()) {
+        promptCmd.streamingBehavior = 'followUp'
+        console.log(`[pi-manager] prompt(${this.slotKey}): slash command queued as FOLLOWUP. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
+      }
       this._outstandingPrompts++
       this.running = true
       this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
-      const promptCmd: Record<string, any> = { type: 'prompt', message }
       if (normalizedImages?.length) {
         const paths = saveImagesToTemp(normalizedImages)
         promptCmd.images = normalizedImages
@@ -455,20 +479,16 @@ export class PiProcess extends EventEmitter {
       msg = `[Note for agent: you are RESUMING an existing conversation — not starting a new session. The session primer above is background context only. Continue from where we left off.]\n\n${msg}`
     }
     cmd.message = msg
-    // Only queue as followUp if WE issued a prompt that hasn't been
-    // agent_end'd yet — do NOT trust pi.running alone, which can be set
-    // by phantom agent_start events from session resume or extensions,
-    // causing fresh user prompts to silently queue behind nonexistent
-    // turns ("slot stops after my message and never returns").
-    if (this._outstandingPrompts > 0) {
+    // Queue as followUp when dashboard knows a prompt is outstanding. If
+    // dashboard's local counter is stale, ask pi for the authoritative
+    // isStreaming flag. This catches provider-specific races (seen with
+    // bedrock-mantle GPT/openai-responses) without trusting phantom
+    // agent_start events from resume/restart.
+    if (await this._shouldQueuePromptAsFollowUp()) {
       cmd.streamingBehavior = 'followUp'
-      console.log(`[pi-manager] prompt(${this.slotKey}): outstandingPrompts=${this._outstandingPrompts}, sending as FOLLOWUP. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
+      console.log(`[pi-manager] prompt(${this.slotKey}): pi is busy, sending as FOLLOWUP. outstandingPrompts=${this._outstandingPrompts}. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
     } else {
-      if (this.running) {
-        console.log(`[pi-manager] prompt(${this.slotKey}): pi.running=true but outstandingPrompts=0 (likely phantom agent_start) — sending fresh anyway. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
-      } else {
-        console.log(`[pi-manager] prompt(${this.slotKey}): fresh prompt. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
-      }
+      console.log(`[pi-manager] prompt(${this.slotKey}): fresh prompt. msgPreview=${message.slice(0, 60).replace(/\n/g, ' ')}`)
     }
     this._outstandingPrompts++
     this.running = true

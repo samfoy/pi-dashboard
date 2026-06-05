@@ -53,7 +53,7 @@ export function SearchInput({ className = '', ...props }: React.InputHTMLAttribu
     <div className={`relative ${className}`}>
       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted text-[12px] pointer-events-none">🔍</span>
       <input
-        className="w-full bg-bg-elevated border border-border rounded-md pl-7 pr-3 py-1.5 text-text text-[13px] font-body outline-none transition-all focus-ring placeholder:text-muted/50"
+        className="w-full bg-bg-elevated border border-border rounded-md pl-7 pr-3 py-1.5 text-text text-[16px] md:text-[13px] font-body outline-none transition-all focus-ring placeholder:text-muted/50"
         {...props}
       />
     </div>

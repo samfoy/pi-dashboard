@@ -101,6 +101,11 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
   border-bottom:1px solid var(--border);
   transition:background-color .25s ease}
 
+/* ── Mobile system font override ── */
+@media (max-width: 768px) {
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+}
+
 /* PWA / Electron standalone mode — pad for macOS traffic lights */
 @media all and (display-mode: standalone) {
   .standalone-pad{padding-left:80px}

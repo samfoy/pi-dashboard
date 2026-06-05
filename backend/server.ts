@@ -267,6 +267,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   pi.on('message_update', ({ event, delta }: any) => {
     if (delta.type === 'text_delta') {
       streamBuf += delta.delta
+      _turnChars += delta.delta.length
       if (!_partialTextMsg) {
         _partialTextMsg = { role: 'assistant', content: delta.delta, ts: new Date().toISOString(), _partial: true }
         pi.messages.push(_partialTextMsg)
@@ -285,6 +286,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   let thinkingBuf = ''
   pi.on('thinking_update', ({ delta }: any) => {
     thinkingBuf += delta
+    _turnThinking += delta.length
     if (!_partialThinkMsg) {
       _partialThinkMsg = { role: 'thinking', content: delta, ts: new Date().toISOString(), _partial: true }
       pi.messages.push(_partialThinkMsg)
@@ -308,10 +310,21 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   })
 
   let agentStartTime = 0
+  // Truncation canary — detects provider-side stream failures (e.g.
+  // amazon-claude-code / bedrock-converse-stream sometimes returns empty
+  // streams with stopReason='stop' and 0 tokens, leaving the slot looking
+  // idle with no reply). Track per-turn evidence of actual model activity;
+  // warn at agent_end if the turn produced nothing.
+  let _turnChars = 0
+  let _turnTools = 0
+  let _turnThinking = 0
 
   pi.on('agent_start', () => {
     agentStartTime = Date.now()
     midTurn = true
+    _turnChars = 0
+    _turnTools = 0
+    _turnThinking = 0
     console.log(`[server] agent_start slot=${slotKey}`)
     _startStallDetector()
     broadcastSlots()
@@ -319,7 +332,22 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
 
   pi.on('agent_end', () => {
     const dur = agentStartTime ? Date.now() - agentStartTime : 0
-    console.log(`[server] agent_end slot=${slotKey} duration=${dur}ms midTurn=${midTurn}`)
+    console.log(`[server] agent_end slot=${slotKey} duration=${dur}ms midTurn=${midTurn} chars=${_turnChars} tools=${_turnTools} thinking=${_turnThinking}`)
+    // Empty/truncated turn detection. If the turn produced no tool calls,
+    // no thinking, and no text in < 10s, the provider almost certainly returned
+    // a degenerate stream (witnessed: amazon-claude-code Opus 4.7 returning
+    // empty stream with stopReason=stop, 0 tokens). Surface a visible warning
+    // so the user knows their slot did not actually just respond with nothing.
+    if (midTurn && _turnTools === 0 && _turnThinking === 0 && _turnChars === 0 && dur < 10_000) {
+      const warnMsg = '⚠️ Provider returned an empty stream (' + _turnChars + ' chars, 0 tools, ' + dur + 'ms). Likely upstream instability — try resending, or switch the slot model.'
+      console.error(`[server] TRUNCATED TURN slot=${slotKey} duration=${dur}ms chars=${_turnChars}`)
+      broadcast('chat_message', {
+        slot: slotKey,
+        role: 'system',
+        content: warnMsg,
+        ts: new Date().toISOString(),
+      })
+    }
     midTurn = false
     pi._toolsRunning = 0
     _stopStallDetector()
@@ -339,12 +367,12 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
       const data = resp?.data
       if (data) {
         const tokenStats = {
-          totalInputTokens: data.totalInputTokens || 0,
-          totalOutputTokens: data.totalOutputTokens || 0,
-          totalTokens: (data.totalInputTokens || 0) + (data.totalOutputTokens || 0),
-          totalCost: data.totalCost || 0,
-          cacheReadTokens: data.cacheReadTokens || 0,
-          cacheWriteTokens: data.cacheWriteTokens || 0,
+          totalInputTokens: data.tokens?.input || 0,
+          totalOutputTokens: data.tokens?.output || 0,
+          totalTokens: data.tokens?.total || 0,
+          totalCost: data.cost || 0,
+          cacheReadTokens: data.tokens?.cacheRead || 0,
+          cacheWriteTokens: data.tokens?.cacheWrite || 0,
         }
         pi._tokenStats = tokenStats
         broadcast('token_stats', { slot: slotKey, ...tokenStats })
@@ -381,6 +409,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     if (_partialTextMsg) { _partialTextMsg._partial = false; _partialTextMsg = null }
     pi.messages.push({ role: 'tool', content: `🔧 ${toolName}`, ts: new Date().toISOString(), _partial: true, meta: { toolName, toolCallId, args: typeof args === 'string' ? args : JSON.stringify(args || {}, null, 2) } })
     broadcast('tool_call', { slot: slotKey, tool: toolName, id: toolCallId, args })
+    _turnTools++
   })
 
   pi.on('tool_update', (event: any) => {
