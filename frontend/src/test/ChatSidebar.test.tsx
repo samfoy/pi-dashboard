@@ -49,11 +49,6 @@ const baseProps = {
   ],
   activeSlot: 'slot-1',
   unreadSlots: ['slot-2'],
-  notifications: [] as any[],
-  history: [] as any[],
-  historyHasMore: false,
-  viewingNotification: null,
-  onViewNotification: vi.fn(),
 }
 
 describe('ChatSidebar', () => {
@@ -75,37 +70,9 @@ describe('ChatSidebar', () => {
     expect(screen.getByLabelText('New chat session')).toBeInTheDocument()
   })
 
-  it('renders notifications section', () => {
-    renderWithProviders(<ChatSidebar {...baseProps} />)
-    expect(screen.getByText('Notifications')).toBeInTheDocument()
-  })
-
-  it('renders History section', () => {
-    renderWithProviders(<ChatSidebar {...baseProps} />)
-    expect(screen.getByText(/History/)).toBeInTheDocument()
-  })
-
-  it('shows notification badge when there are unacked notifications', () => {
-    const props = {
-      ...baseProps,
-      notifications: [
-        { kind: 'info', title: 'Task done', body: 'Details', ts: '1', acked: false },
-        { kind: 'info', title: 'Another', body: '', ts: '2', acked: true },
-      ],
-    }
-    renderWithProviders(<ChatSidebar {...props} />)
-    // Unacked count badge should show "1"
-    expect(screen.getByText('1')).toBeInTheDocument()
-  })
-
   it('renders filter input', () => {
     renderWithProviders(<ChatSidebar {...baseProps} />)
     expect(screen.getByPlaceholderText('Filter sessions…')).toBeInTheDocument()
-  })
-
-  it('renders notification filter input', () => {
-    renderWithProviders(<ChatSidebar {...baseProps} />)
-    expect(screen.getByPlaceholderText('Filter notifications…')).toBeInTheDocument()
   })
 
   it('renders pending approval badge', () => {

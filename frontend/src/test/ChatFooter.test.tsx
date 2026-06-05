@@ -15,16 +15,18 @@ describe('ChatFooter', () => {
 
   it('shows stopping indicator', () => {
     render(<ChatFooter running={true} stopping={true} state="" lastRole="user" />)
-    expect(screen.getByText('Stopping…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Stopping' })).toBeInTheDocument()
+    expect(screen.getByText('Pulling from the oven…')).toBeInTheDocument()
   })
 
   it('shows tool running indicator', () => {
     render(<ChatFooter running={true} stopping={false} state="tool_running" lastRole="user" />)
-    expect(screen.getByText('Running tool…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Running tool' })).toBeInTheDocument()
+    expect(screen.getByText('Greasing the pan…')).toBeInTheDocument()
   })
 
   it('shows thinking label when running normally', () => {
     render(<ChatFooter running={true} stopping={false} state="" lastRole="user" />)
-    expect(screen.getByText('Thinking…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Preheating the oven…' })).toBeInTheDocument()
   })
 })

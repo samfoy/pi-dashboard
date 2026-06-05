@@ -6,6 +6,7 @@ interface LogEntry {
   level: string
   msg: string
   ts: string
+  displayTime: string
 }
 
 const LEVEL_COLORS: Record<string, 'ok' | 'warn' | 'err' | 'aim'> = {
@@ -18,9 +19,18 @@ const LEVEL_COLORS: Record<string, 'ok' | 'warn' | 'err' | 'aim'> = {
 
 const MAX_LOGS = 2000
 
+function formatLocalLogTime(date: Date): string {
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  const ms = String(date.getMilliseconds()).padStart(3, '0')
+  return `${hh}:${mm}:${ss}.${ms}`
+}
+
 export default function LogsPage() {
   const { subscribeLogs } = useContext(WsContext)
-  const [logs, setLogs] = useState<LogEntry[]>([])
+  const logsRef = useRef<LogEntry[]>([])
+  const [logsVersion, setLogsVersion] = useState(0)
   const [filter, setFilter] = useState('')
   const [levelFilter, setLevelFilter] = useState<string>('all')
   const [tail, setTail] = useState(true)
@@ -33,10 +43,12 @@ export default function LogsPage() {
     subscribeLogs((data) => {
       if (!data) return
       if (pausedRef.current) return
-      setLogs(prev => {
-        const next = [...prev, { ...data, ts: new Date().toISOString() }]
-        return next.length > MAX_LOGS ? next.slice(-MAX_LOGS) : next
-      })
+      const now = new Date()
+      logsRef.current.push({ ...data, ts: now.toISOString(), displayTime: formatLocalLogTime(now) })
+      if (logsRef.current.length > MAX_LOGS) {
+        logsRef.current.splice(0, logsRef.current.length - MAX_LOGS)
+      }
+      setLogsVersion(v => v + 1)
     })
     return () => subscribeLogs(null)
   }, [subscribeLogs])
@@ -45,15 +57,19 @@ export default function LogsPage() {
     if (tail && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [logs, tail])
+  }, [logsVersion, tail])
 
+  const logs = logsRef.current
   const filtered = logs.filter(l => {
     if (levelFilter !== 'all' && l.level !== levelFilter) return false
     if (filter && !l.msg.toLowerCase().includes(filter.toLowerCase())) return false
     return true
   })
 
-  const clear = useCallback(() => setLogs([]), [])
+  const clear = useCallback(() => {
+    logsRef.current = []
+    setLogsVersion(v => v + 1)
+  }, [])
 
   return (
     <>
@@ -100,7 +116,7 @@ export default function LogsPage() {
                   {filtered.map((l, i) => (
                     <tr key={i} className="hover:bg-bg-hover transition-colors group">
                       <td className="px-2 py-0.5 text-muted/50 text-[11px] whitespace-nowrap align-top select-none w-[140px]">
-                        {new Date(l.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 } as any)}
+                        {l.displayTime}
                       </td>
                       <td className="px-2 py-0.5 whitespace-nowrap align-top w-[60px]">
                         <Badge variant={LEVEL_COLORS[l.level] || 'aim'}>{l.level.toUpperCase()}</Badge>

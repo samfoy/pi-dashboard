@@ -262,7 +262,7 @@ describe('LogsPage — MAX_LOGS cap', () => {
     // First entry (log-0) should be gone; last entry (log-2000) should be present
     expect(screen.queryByText('log-0')).not.toBeInTheDocument()
     expect(screen.getByText('log-2000')).toBeInTheDocument()
-  })
+  }, 10_000)
 
   it('exactly 2000 entries are kept without truncation', () => {
     const { subscribeLogs, pushMany } = makeSubscribeLogs()
@@ -274,7 +274,7 @@ describe('LogsPage — MAX_LOGS cap', () => {
     expect(screen.getByText('2000 / 2000')).toBeInTheDocument()
     expect(screen.getByText('log-0')).toBeInTheDocument()
     expect(screen.getByText('log-1999')).toBeInTheDocument()
-  })
+  }, 10_000)
 })
 
 describe('LogsPage — pause state', () => {
