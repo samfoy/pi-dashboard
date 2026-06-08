@@ -31,6 +31,10 @@
         <string>us-west-2</string>
         <key>PI_DASH_PORT</key>
         <string>7777</string>
+        <key>BEDROCK_MANTLE_LOG_FILE</key>
+        <string>/Users/sam.painter/Library/Logs/pi-dashboard/bedrock-mantle.log</string>
+        <key>BEDROCK_MANTLE_EMPTY_DUMP_DIR</key>
+        <string>/Users/sam.painter/Library/Logs/pi-dashboard/empty-dumps</string>
     </dict>
 
     <!-- Start on login -->

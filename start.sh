@@ -6,6 +6,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# bedrock-mantle proxy capture: durable log + empty-completion variant dumps.
+# Spawned pi slots inherit these via pi-manager's `...process.env`. The
+# no_terminal / non_sse dumps fire at default log level (no debug needed).
+export BEDROCK_MANTLE_LOG_FILE="${BEDROCK_MANTLE_LOG_FILE:-$HOME/.pi/logs/bedrock-mantle.log}"
+export BEDROCK_MANTLE_EMPTY_DUMP_DIR="${BEDROCK_MANTLE_EMPTY_DUMP_DIR:-$HOME/Library/Logs/pi-dashboard/empty-dumps}"
+
 # Kill anything holding our port before starting
 fuser -k 7777/tcp 2>/dev/null && sleep 0.5 || true
 
