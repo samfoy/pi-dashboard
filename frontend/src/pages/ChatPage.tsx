@@ -840,6 +840,7 @@ export default function ChatPage() {
                 {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
                 {currentSlot?.model && <button className="md:hidden px-2 py-0.5 rounded-md text-[11px] font-mono bg-bg-elevated border border-border text-muted shrink-0 cursor-pointer hover:border-accent hover:text-accent transition-colors" title="Model" onClick={() => setShowOverflowMenu(v => !v)}>{currentSlot.model.split('/').pop()?.split('-').slice(0,2).join('-')}</button>}
                 {contextUsage && <span className="hidden md:inline"><ContextBar usage={contextUsage} /></span>}
+                {contextUsage && (contextUsage.percent ?? 0) >= 50 && <span className="md:hidden"><ContextBar usage={contextUsage} /></span>}
                 {currentSlot?.cwd && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
               </div>
               {/* Desktop toolbar */}
