@@ -66,7 +66,7 @@ struct WebView: UIViewRepresentable {
     // MARK: - Coordinator
 
     @MainActor
-    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate {
         let appState: AppState
         weak var webView: WKWebView?
         private var readyFired = false
@@ -187,6 +187,42 @@ struct WebView: UIViewRepresentable {
                 case .rejectSlot(let k):     dispatch("reject-slot",    payload: ["slotKey": k])
                 }
                 appState.pendingNotificationAction = nil
+            }
+        }
+
+        // MARK: PHPickerViewControllerDelegate
+
+        nonisolated func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            picker.dismiss(animated: true)
+            for result in results {
+                result.itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { [weak self] data, _ in
+                    guard let self, let data else { return }
+                    let mimeType = result.itemProvider.registeredContentTypes.first?.preferredMIMEType ?? "image/jpeg"
+                    let base64 = data.base64EncodedString()
+                    let dataURL = "data:\(mimeType);base64,\(base64)"
+                    DispatchQueue.main.async {
+                        self.dispatch("media-picked", payload: ["data": base64, "mimeType": mimeType, "preview": dataURL])
+                    }
+                }
+            }
+        }
+
+        // MARK: UIDocumentPickerDelegate
+
+        nonisolated func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            for url in urls {
+                guard url.startAccessingSecurityScopedResource() else { continue }
+                defer { url.stopAccessingSecurityScopedResource() }
+                guard let data = try? Data(contentsOf: url) else { continue }
+                let base64 = data.base64EncodedString()
+                let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                DispatchQueue.main.async {
+                    self.dispatch("file-picked", payload: [
+                        "name": url.lastPathComponent,
+                        "data": base64,
+                        "mimeType": mimeType
+                    ])
+                }
             }
         }
 
