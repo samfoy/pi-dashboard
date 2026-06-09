@@ -799,7 +799,7 @@ export default function ChatPage() {
       />}
 
       {/* Chat pane */}
-      <div className={`flex flex-col bg-bg min-w-0 ${splitSlot ? 'flex-[1_1_50%] max-w-[50%]' : panel.isOpen ? 'flex-[1_1_60%]' : 'flex-1'}`} style={{ transition: 'flex 0.2s' }}>
+      <div className={`flex flex-col bg-bg min-w-0 ${splitSlot ? 'flex-[1_1_50%] max-w-[50%]' : 'flex-1'}`} style={{ transition: 'flex 0.2s' }}>
         {!activeSlot ? (
           <WelcomeView
             input={input}

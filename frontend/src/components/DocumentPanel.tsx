@@ -154,8 +154,8 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
   }, [width])
 
   return (
-    <div ref={ref} className="flex flex-col border-l border-border bg-bg relative" style={{ width, minWidth: 300 }}>
-      <div className="absolute left-[-2px] top-0 bottom-0 w-[5px] cursor-col-resize z-20 group/drag flex items-center justify-center" onMouseDown={onDragStart}>
+    <div ref={ref} className="fixed inset-0 z-30 flex flex-col bg-bg md:relative md:inset-auto md:z-auto md:border-l md:border-border" style={typeof window !== 'undefined' && window.innerWidth >= 768 ? { width, minWidth: 300 } : undefined}>
+      <div className="hidden md:flex absolute left-[-2px] top-0 bottom-0 w-[5px] cursor-col-resize z-20 group/drag items-center justify-center" onMouseDown={onDragStart}>
         <div className="w-[2px] h-full bg-transparent group-hover/drag:bg-orange-400 group-active/drag:bg-orange-500 transition-colors duration-200" />
       </div>
       <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-chrome">
