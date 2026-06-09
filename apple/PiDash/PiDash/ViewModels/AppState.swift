@@ -16,6 +16,8 @@ enum NotificationAction {
 final class AppState {
     var serverConfig = ServerConfig()
     let notificationService = LocalNotificationService()
+    let liveActivityManager = LiveActivityManager()
+    let voiceManager = VoiceManager()
 
     init() {
         notificationService.onNotificationTap = { [weak self] key in
@@ -25,6 +27,7 @@ final class AppState {
             self?.pendingNotificationAction = action
         }
     }
+
     var pendingDeepLinkKey: String?
     var pendingNotificationAction: NotificationAction?
     var connectionFailed: Bool = false

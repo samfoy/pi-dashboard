@@ -68,6 +68,22 @@ function CollapsibleSidebarPanel({ collapsed, onToggle }: { collapsed: boolean; 
   )
 }
 
+// Strip markdown formatting so TTS reads prose cleanly.
+function stripMarkdownForSpeech(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, 'code block omitted')
+    .replace(/`[^`\n]+`/g, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*{1,2}([^*\n]+)\*{1,2}/g, '$1')
+    .replace(/_{1,2}([^_\n]+)_{1,2}/g, '$1')
+    .replace(/^\s*[-*+]\s/gm, '')
+    .replace(/^\s*\d+\.\s/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export default function ChatPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
@@ -112,6 +128,11 @@ export default function ChatPage() {
   const isNativeIOS = navigator.userAgent.includes('PiDash-iOS')
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [isListeningVoice, setIsListeningVoice] = useState(false)
+  // Spike: conversational voice mode (STT → send → TTS → STT loop)
+  const [voiceMode, setVoiceMode] = useState(false)
+  const voiceModeRef = useRef(false)
+  useEffect(() => { voiceModeRef.current = voiceMode }, [voiceMode])
+  const sendRef = useRef<(text?: string) => void>(() => {})
 
   const handleVoiceInput = useCallback(() => {
     if (isNativeIOS) {
@@ -516,6 +537,78 @@ export default function ChatPage() {
     dispatch(setSlotStopping(s.stopping ?? false))
   }, [slots, activeSlot, dispatch])
 
+  // ── Spike: Live Activities ────────────────────────────────────────────────
+  // Track previous slot state to detect transitions (running start/stop, approval changes).
+  const prevSlotsRef = useRef<typeof slots>([])
+  useEffect(() => {
+    const wk = (window as any).webkit?.messageHandlers
+    if (!wk || !isNativeIOS) { prevSlotsRef.current = slots; return }
+    const prev = prevSlotsRef.current
+    prevSlotsRef.current = slots
+    for (const slot of slots) {
+      const prevSlot = prev.find(s => s.key === slot.key)
+      const wasRunning = prevSlot?.running ?? false
+      const isRunning  = slot.running ?? false
+      const hadApproval = prevSlot?.pending_approval ?? false
+      const hasApproval = slot.pending_approval ?? false
+      if (!wasRunning && isRunning) {
+        wk.piLiveActivity?.postMessage({
+          slotKey: slot.key, slotTitle: slot.title ?? 'Chat',
+          currentTool: null, toolInput: null,
+          pendingApproval: hasApproval, tokenCount: 0,
+        })
+      } else if (wasRunning && !isRunning) {
+        wk.piLiveActivityEnd?.postMessage({ slotKey: slot.key })
+      } else if (isRunning && hadApproval !== hasApproval) {
+        wk.piLiveActivityUpdate?.postMessage({
+          slotKey: slot.key, slotTitle: slot.title ?? 'Chat',
+          currentTool: null, toolInput: null,
+          pendingApproval: hasApproval, tokenCount: contextUsage?.tokens ?? 0,
+        })
+      }
+    }
+    // End activities for slots that disappeared
+    for (const p of prev) {
+      if (!slots.find(s => s.key === p.key)) {
+        wk.piLiveActivityEnd?.postMessage({ slotKey: p.key })
+      }
+    }
+  }, [slots, isNativeIOS, contextUsage])
+
+  // Update Live Activity with current tool when messages change (active slot only).
+  useEffect(() => {
+    const wk = (window as any).webkit?.messageHandlers
+    if (!wk?.piLiveActivityUpdate || !isNativeIOS || !activeSlot || !slotRunning) return
+    const lastTool = [...messages].reverse().find(m => m.role === 'tool')
+    if (!lastTool) return
+    const meta = lastTool.meta as { toolName?: string; args?: string } | undefined
+    if (!meta?.toolName) return
+    const rawInput = meta.args ?? ''
+    const toolInput = rawInput.split('\n')[0].slice(0, 60) || undefined
+    const slot = slots.find(s => s.key === activeSlot)
+    wk.piLiveActivityUpdate.postMessage({
+      slotKey: activeSlot, slotTitle: slot?.title ?? 'Chat',
+      currentTool: meta.toolName, toolInput,
+      pendingApproval: slot?.pending_approval ?? false,
+      tokenCount: contextUsage?.tokens ?? 0,
+    })
+  }, [messages, activeSlot, slotRunning, isNativeIOS, slots, contextUsage])
+
+  // ── Spike: Voice mode (TTS → STT loop) ───────────────────────────────────
+  // When streaming ends and voice mode is on, speak the last assistant message.
+  const prevStreamingRef = useRef(false)
+  useEffect(() => {
+    const wasStreaming = prevStreamingRef.current
+    prevStreamingRef.current = isStreaming
+    if (!wasStreaming || isStreaming || !voiceMode || !isNativeIOS) return
+    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
+    if (!lastAssistant?.content) return
+    const spoken = stripMarkdownForSpeech(lastAssistant.content)
+    if (spoken.trim()) {
+      ;(window as any).webkit?.messageHandlers?.piSpeak?.postMessage({ text: spoken })
+    }
+  }, [isStreaming, voiceMode, isNativeIOS, messages])
+
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
     if (!items) return
@@ -582,9 +675,20 @@ export default function ChatPage() {
         setIsListeningVoice(true)
       } else if (detail?.type === 'speech-result') {
         setInput(detail.text as string)
-        if (detail.final) setIsListeningVoice(false)
+        if (detail.final) {
+          setIsListeningVoice(false)
+          // Voice mode: auto-submit the transcription instead of waiting for manual send
+          if (voiceModeRef.current && (detail.text as string).trim()) {
+            setTimeout(() => sendRef.current(detail.text as string), 100)
+          }
+        }
       } else if (detail?.type === 'speech-stop') {
         setIsListeningVoice(false)
+      } else if (detail?.type === 'speak-done') {
+        // Voice mode loop: TTS finished → restart STT automatically
+        if (voiceModeRef.current) {
+          ;(window as any).webkit?.messageHandlers?.piSpeech?.postMessage({})
+        }
       } else if (detail?.type === 'open-sidebar') {
         setMobileSidebarOpen(true)
       } else if (detail?.type === 'navigate-slot') {
@@ -678,6 +782,9 @@ export default function ChatPage() {
     }
     inputRef.current?.focus()
   }, [input, pendingImages, pendingFiles, pendingModel, pendingCwd, activeSlot, dispatch, scrollBottom])
+
+  // Keep sendRef current so the pi-native event handler always calls the latest send
+  useEffect(() => { sendRef.current = send }, [send])
 
   const approve = useCallback(async (action: string) => {
     ;(window as any).webkit?.messageHandlers?.piHaptic?.postMessage({ style: 'medium' })
@@ -1228,6 +1335,36 @@ export default function ChatPage() {
                   <line x1="8" y1="22" x2="16" y2="22" />
                 </svg>
               </button>
+              {/* Spike: Voice mode toggle (continuous STT→TTS loop) — iOS only */}
+              {isNativeIOS && (
+                <button
+                  className={`flex w-[40px] h-[40px] rounded-full items-center justify-center shrink-0 cursor-pointer transition-all border ${
+                    voiceMode
+                      ? 'bg-accent text-white border-accent'
+                      : 'bg-bg-elevated border-border text-muted hover:text-text hover:border-border-strong'
+                  }`}
+                  onClick={() => {
+                    const next = !voiceMode
+                    setVoiceMode(next)
+                    if (next) {
+                      // Start listening immediately when voice mode activates
+                      ;(window as any).webkit?.messageHandlers?.piSpeech?.postMessage({})
+                    } else {
+                      // Stop any in-progress TTS or STT
+                      ;(window as any).webkit?.messageHandlers?.piSpeechStop?.postMessage({})
+                      ;(window as any).webkit?.messageHandlers?.piSpeakStop?.postMessage({})
+                    }
+                  }}
+                  title={voiceMode ? 'Exit voice mode' : 'Voice mode (hands-free)'}
+                >
+                  {/* Headphones icon */}
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                    <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />
+                    <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3Z" />
+                  </svg>
+                </button>
+              )}
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
               {pathMenuOpen && <PathCompleteMenu input={input} cursorPos={cursorPos} anchorRef={inputRef as React.RefObject<HTMLElement>} onComplete={(before, completed, after) => { const val = before + completed + after; setInput(val); setPathMenuOpen(true); setTimeout(() => { if (inputRef.current) { const pos = before.length + completed.length; inputRef.current.selectionStart = inputRef.current.selectionEnd = pos; setCursorPos(pos) } }, 0) }} onClose={() => setPathMenuOpen(false)} />}
               <div className="flex-1 flex flex-col gap-1.5">
