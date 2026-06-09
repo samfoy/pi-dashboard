@@ -52,7 +52,7 @@
                 android:layout_marginBottom="16dp"
                 android:paddingHorizontal="4dp"
                 android:text="pi-dashboard server address — Tailscale hostname or local IP."
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="#555555"
                 android:textSize="12sp" />
 
             <com.google.android.material.textfield.TextInputLayout
@@ -79,7 +79,7 @@
                 android:layout_marginBottom="32dp"
                 android:paddingHorizontal="4dp"
                 android:text="Leave empty for unauthenticated servers."
-                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textColor="#555555"
                 android:textSize="12sp" />
 
             <Button

@@ -1,29 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Base application theme — high contrast for e-ink readability -->
-    <!-- NoActionBar parent avoids the duplicate-ActionBar crash when setSupportActionBar() is called -->
-    <style name="Theme.PiDash" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-
-        <!-- High-contrast primary for e-ink (black on white) -->
-        <item name="colorPrimary">@color/black</item>
-        <item name="colorPrimaryVariant">@color/black</item>
-        <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/black</item>
-        <item name="colorOnSecondary">@color/white</item>
-        <item name="colorSurface">@color/white</item>
-        <item name="colorOnSurface">@color/black</item>
-
-        <!-- E-ink: disable Activity enter/exit window transition animations -->
-        <!-- @null causes NPE on some API paths; use an explicit no-op animation style -->
-        <item name="android:windowAnimationStyle">@style/NoWindowAnimation</item>
-    </style>
-
-    <style name="NoWindowAnimation" parent="@android:style/Animation.Activity">
-        <item name="android:activityOpenEnterAnimation">@null</item>
-        <item name="android:activityOpenExitAnimation">@null</item>
-        <item name="android:activityCloseEnterAnimation">@null</item>
-        <item name="android:activityCloseExitAnimation">@null</item>
-    </style>
+    <!--
+      Keep this dead simple: NoActionBar so setSupportActionBar() works,
+      DayNight so Boox dark/light toggle is respected.
+      No color overrides — Material Components 1.12 text appearances use
+      color state list attributes internally; flat @color overrides break them.
+      E-ink tuning is done via CSS injected into the WebView, not the theme.
+    -->
+    <style name="Theme.PiDash" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
 
 </resources>
