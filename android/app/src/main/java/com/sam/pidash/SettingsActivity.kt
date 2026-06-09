@@ -21,7 +21,6 @@ class SettingsActivity : AppCompatActivity() {
 
         config = ServerConfig(this)
         binding.urlInput.setText(config.baseURL)
-        binding.tokenInput.setText(config.token)
 
         binding.saveButton.setOnClickListener { save() }
     }
@@ -34,7 +33,6 @@ class SettingsActivity : AppCompatActivity() {
         }
         binding.urlLayout.error = null
         config.baseURL = url
-        config.token = binding.tokenInput.text?.toString()?.trim() ?: ""
         setResult(RESULT_OK)
         finish()
     }

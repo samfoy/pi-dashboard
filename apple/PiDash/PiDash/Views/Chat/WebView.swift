@@ -64,15 +64,8 @@ struct WebView: UIViewRepresentable {
 
     func loadURL(in webView: WKWebView) {
         let base = appState.serverConfig.baseURL
-        let token = appState.serverConfig.token
-        guard !base.isEmpty, var components = URLComponents(string: base) else { return }
-        components.path = "/"
-        if !token.isEmpty {
-            var items = components.queryItems ?? []
-            items.append(URLQueryItem(name: "token", value: token))
-            components.queryItems = items
-        }
-        guard let url = components.url else { return }
+        guard !base.isEmpty, let components = URLComponents(string: base),
+              let url = components.url else { return }
         var request = URLRequest(url: url)
         request.cachePolicy = .useProtocolCachePolicy
         webView.load(request)

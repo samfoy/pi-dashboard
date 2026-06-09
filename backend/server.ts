@@ -10,10 +10,9 @@ import WebSocket, { WebSocketServer } from 'ws'
 import { createServer, IncomingMessage } from 'http'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { readFileSync, writeFileSync, mkdirSync, existsSync, watch as fsWatch, FSWatcher } from 'fs'
+import { watch as fsWatch, FSWatcher } from 'fs'
 import { readFile } from 'fs/promises'
 import os from 'os'
-import crypto from 'crypto'
 import { Duplex } from 'stream'
 import { PiManager, PiProcess } from './pi-manager.js'
 import { handlePtyConnection, shutdownAll as shutdownPty } from './pty-manager.js'
@@ -32,42 +31,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const PORT = parseInt(process.env.PI_DASH_PORT || '7777', 10)
 const DIST_DIR = join(__dirname, '..', 'frontend', 'dist')
 
-// ─── Auth token ──────────────────────────────────────────────
-const TOKEN_PATH = join(os.homedir(), '.pi', 'dashboard-token')
 
-function loadOrCreateToken(): string {
-  try {
-    if (existsSync(TOKEN_PATH)) {
-      const existing = readFileSync(TOKEN_PATH, 'utf-8').trim()
-      if (existing.length >= 32) return existing
-    }
-  } catch {}
-  const token = crypto.randomBytes(32).toString('hex')
-  mkdirSync(dirname(TOKEN_PATH), { recursive: true })
-  writeFileSync(TOKEN_PATH, token + '\n', { mode: 0o600 })
-  return token
-}
-
-const AUTH_TOKEN = loadOrCreateToken()
-
-function isLocalhost(req: IncomingMessage | Request): boolean {
-  const ip = ('ip' in req) ? (req as Request).ip : req.socket?.remoteAddress
-  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1'
-}
-
-function checkToken(req: IncomingMessage | Request): boolean {
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
-  const qToken = url.searchParams.get('token')
-  if (qToken === AUTH_TOKEN) return true
-  const authHeader = req.headers.authorization || ''
-  if (authHeader.startsWith('Bearer ') && authHeader.slice(7) === AUTH_TOKEN) return true
-  return false
-}
-
-function authMiddleware(req: Request, res: Response, next: NextFunction): void {
-  if (isLocalhost(req) || checkToken(req)) return next()
-  res.status(401).json({ error: 'Unauthorized — token required' })
-}
 
 // ─── App & Server ────────────────────────────────────────────
 const app = express()
@@ -118,16 +82,7 @@ const wsClients: Set<WebSocket> = new Set()
 // ─── Middleware ──────────────────────────────────────────────
 app.use(express.json({ limit: '50mb' }))
 
-// ─── Public endpoints (no auth required) ────────────────────
-// Returns server token so iOS app can bootstrap itself without copy-pasting.
-app.get('/connection-info', (req: Request, res: Response) => {
-  const proto = req.headers['x-forwarded-proto'] || 'http'
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost'
-  const serverURL = `${proto}://${host}`
-  res.json({ token: AUTH_TOKEN, serverURL })
-})
-
-app.use('/api', authMiddleware)
+app.use('/api', (_req: Request, _res: Response, next: NextFunction) => next())
 
 // ─── Broadcast to all WS clients ────────────────────────────
 function broadcast(type: string, data: any): void {
@@ -671,12 +626,7 @@ const ptyWss = new WebSocketServer({ noServer: true })
 
 server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
   console.log('  WS upgrade:', req.url)
-  const wsIsLocal = req.socket?.remoteAddress === '127.0.0.1' || req.socket?.remoteAddress === '::1' || req.socket?.remoteAddress === '::ffff:127.0.0.1'
-  if (!wsIsLocal && !checkToken(req)) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
-    socket.destroy()
-    return
-  }
+
   const wsPath = (req.url || '').split('?')[0]
   if (wsPath === '/api/ws') {
     wss.handleUpgrade(req, socket, head, (ws) => {
@@ -722,13 +672,11 @@ export { app, server }
 const hostname = os.hostname()
 const BIND_HOST = process.env.PI_DASH_HOST || '0.0.0.0'
 if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
-  const tokenParam = `?token=${AUTH_TOKEN}`
   console.log(`\n🥧 Pi Dashboard`)
   console.log(`   Local:    http://localhost:${PORT}`)
-  console.log(`   Network:  http://${hostname}:${PORT}${tokenParam}`)
-  console.log(`   Custom:   http://pi.dash:${PORT}${tokenParam}`)
-  if (process.env.TAILSCALE_IP) console.log(`   Tailscale: http://${process.env.TAILSCALE_IP}:${PORT}${tokenParam}`)
-  console.log(`   Token:    ${AUTH_TOKEN}`)
+  console.log(`   Network:  http://${hostname}:${PORT}`)
+  console.log(`   Custom:   http://pi.dash:${PORT}`)
+  if (process.env.TAILSCALE_IP) console.log(`   Tailscale: http://${process.env.TAILSCALE_IP}:${PORT}`)
   console.log()
 })
 

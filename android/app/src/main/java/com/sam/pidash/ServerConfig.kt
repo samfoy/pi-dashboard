@@ -14,17 +14,9 @@ class ServerConfig(context: Context) {
         get() = prefs.getString(KEY_BASE_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
         set(value) = prefs.edit().putString(KEY_BASE_URL, value).apply()
 
-    var token: String
-        get() = prefs.getString(KEY_TOKEN, "") ?: ""
-        set(value) {
-            if (value.isEmpty()) prefs.edit().remove(KEY_TOKEN).apply()
-            else prefs.edit().putString(KEY_TOKEN, value).apply()
-        }
-
     companion object {
         const val DEFAULT_BASE_URL = "http://samuels-macbook-air-1.taile86245.ts.net:7777"
         private const val PREFS_NAME = "pidash_prefs"
         private const val KEY_BASE_URL = "base_url"
-        private const val KEY_TOKEN = "auth_token"
     }
 }

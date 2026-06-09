@@ -49,36 +49,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
-                android:layout_marginBottom="16dp"
-                android:paddingHorizontal="4dp"
-                android:text="pi-dashboard server address — Tailscale hostname or local IP."
-                android:textColor="#555555"
-                android:textSize="12sp" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Auth Token (optional)"
-                app:endIconMode="password_toggle"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/tokenInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    android:singleLine="true"
-                    android:autofillHints="none" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
                 android:layout_marginBottom="32dp"
                 android:paddingHorizontal="4dp"
-                android:text="Leave empty for unauthenticated servers."
+                android:text="pi-dashboard server address — Tailscale hostname or local IP."
                 android:textColor="#555555"
                 android:textSize="12sp" />
 

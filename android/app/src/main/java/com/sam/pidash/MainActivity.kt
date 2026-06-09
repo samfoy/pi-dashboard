@@ -188,10 +188,7 @@ class MainActivity : AppCompatActivity() {
 
     fun loadDashboard() {
         binding.errorView.visibility = View.GONE
-        val token = serverConfig.token
-        val url = serverConfig.baseURL.trimEnd('/') + "/" +
-                if (token.isNotEmpty()) "?token=$token" else ""
-        binding.webView.loadUrl(url)
+        binding.webView.loadUrl(serverConfig.baseURL.trimEnd('/') + "/")
     }
 
     fun openSettings() = settingsLauncher.launch(Intent(this, SettingsActivity::class.java))
