@@ -45,6 +45,7 @@ export default function ChatPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const connected = useAppSelector(s => s.dashboard.connected)
   const slots = useAppSelector(s => s.dashboard.slots)
   const unreadSlots = useAppSelector(s => s.dashboard.unreadSlots)
   const refreshTrigger = useAppSelector(s => s.dashboard.refreshTrigger)
@@ -81,6 +82,7 @@ export default function ChatPage() {
   const [showFiles, setShowFiles] = useState(false)
   const [showRefs, setShowRefs] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const isNativeIOS = navigator.userAgent.includes('PiDash-iOS')
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [splitSlot, setSplitSlot] = useState<string | null>(null)
@@ -866,8 +868,9 @@ export default function ChatPage() {
                 <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-danger hover:border-danger transition-all font-body" aria-label="Close session" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)) }}>✕</button>
               </div>
               {/* Mobile overflow menu */}
-              <div className="md:hidden relative shrink-0">
-                {slotRunning && <button className="bg-transparent border border-border text-muted rounded-md px-2 py-1 text-[13px] font-medium cursor-pointer hover:text-text mr-1" onClick={() => { if (activeSlot) api.stopChatSlot(activeSlot) }}>■</button>}
+              <div className="md:hidden relative shrink-0 flex items-center gap-1.5">
+                {/* Connection status dot */}
+                <span className={`w-2 h-2 rounded-full shrink-0 ${connected ? 'bg-ok' : 'bg-danger'}`} title={connected ? 'Connected' : 'Offline'} />
                 <button className="bg-transparent border border-border text-muted rounded-md w-8 h-8 text-[16px] cursor-pointer hover:text-text hover:border-border-strong" onClick={() => setShowOverflowMenu(v => !v)}>⋯</button>
                 {showOverflowMenu && (
                   <>
@@ -877,6 +880,16 @@ export default function ChatPage() {
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal</button>
+                      {isNativeIOS && (
+                        <>
+                          <div className="border-t border-border my-1" />
+                          <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/system'); setShowOverflowMenu(false) }}>🖥 System</button>
+                          <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/logs'); setShowOverflowMenu(false) }}>📋 Logs</button>
+                          <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/loops'); setShowOverflowMenu(false) }}>🔁 Loops</button>
+                          <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/settings'); setShowOverflowMenu(false) }}>⚙️ Settings</button>
+                          <button className="w-full text-left px-3 py-2 text-[13px] text-muted hover:bg-bg-hover" onClick={() => { setShowOverflowMenu(false); (window as any).webkit?.messageHandlers?.piOpenSettings?.postMessage({}) }}>🔧 Pi Settings</button>
+                        </>
+                      )}
                       <div className="border-t border-border my-1" />
                       <button className="w-full text-left px-3 py-2 text-[13px] text-danger hover:bg-bg-hover" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)); setShowOverflowMenu(false) }}>✕ Close Session</button>
                     </div>

@@ -75,7 +75,6 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
-  const [showNavMenu, setShowNavMenu] = useState(false)
   const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
 
   // Detect virtual keyboard on mobile via visualViewport resize
@@ -177,10 +176,10 @@ export default function App() {
     <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} />
     <SessionPicker open={sessionPickerOpen} onOpenChange={setSessionPickerOpen} />
     <ConnectionOverlay />
-    <div className={`pidash-root relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
+    <div className={`pidash-root relative z-[1] h-[100dvh] grid ${isNativeIOS ? 'grid-rows-[0px_1fr_auto]' : 'grid-rows-[52px_1fr_auto]'} md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
       {/* Topbar */}
-      <header className={`pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2`}>
+      <header className={`pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2 ${isNativeIOS ? 'h-0 overflow-hidden' : ''}`}>
         <div className="flex items-center gap-3">
           {/* Logo — hidden on mobile iOS to save space */}
           <div className={`flex items-center gap-2.5 opacity-100 w-40 transition-all duration-300 ease-in-out ${isNativeIOS ? 'hidden md:flex' : ''}`}>
@@ -195,44 +194,6 @@ export default function App() {
             <span className={`font-mono text-[13px] ${isNativeIOS ? 'hidden md:inline' : ''}`}>{connected ? 'OK' : 'Offline'}</span>
           </div>
           {/* Mobile nav menu — PiDash-iOS only (bottom nav hidden) */}
-          {isNativeIOS && (
-            <div className="relative">
-              <button
-                className="flex md:hidden items-center justify-center w-9 h-9 rounded-lg text-muted hover:text-text hover:bg-bg-hover transition-colors border-none bg-transparent cursor-pointer"
-                onClick={() => setShowNavMenu(v => !v)}
-                title="Navigation"
-              >
-                <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
-              </button>
-              {showNavMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowNavMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[160px]">
-                    {NAV_ITEMS.map(n => (
-                      <button
-                        key={n.id}
-                        className={`flex items-center gap-3 w-full px-4 py-3 text-sm font-medium border-none cursor-pointer transition-colors ${
-                          activePath === n.path ? 'bg-accent-subtle text-accent' : 'bg-transparent text-text hover:bg-bg-hover'
-                        }`}
-                        onClick={() => { navigate(n.path); setShowNavMenu(false) }}
-                      >
-                        <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none shrink-0" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">{n.icon}</svg>
-                        {n.label}
-                      </button>
-                    ))}
-                    <div className="border-t border-border my-1" />
-                    <button
-                      className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent text-muted hover:bg-bg-hover hover:text-text"
-                      onClick={() => { setShowNavMenu(false); (window as any).webkit?.messageHandlers?.piOpenSettings?.postMessage({}) }}
-                    >
-                      <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none shrink-0" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                      Pi Settings
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
           {/* Slot errors indicator */}
           {slotErrors.length > 0 && (
             <div className="relative">
