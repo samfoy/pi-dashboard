@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple π foreground for adaptive icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M20,36 L88,36 M38,36 L38,78 M70,36 Q88,36 88,54 Q88,72 70,72 L54,72" />
+    <!-- π symbol as text approximation using filled circle -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M30,34 L78,34 L78,40 L30,40 Z
+                          M36,40 L44,40 L44,76 L36,76 Z
+                          M64,40 L72,40 L72,60 Q72,70 60,70 L52,70 L52,64 L60,64 Q64,64 64,60 Z" />
+</vector>

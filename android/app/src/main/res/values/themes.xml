@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme — high contrast for e-ink readability -->
+    <style name="Theme.PiDash" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <!-- Use NoActionBar and our own Toolbar so we control it fully -->
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+        <!-- High-contrast primary for e-ink (black on white) -->
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/black</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/black</item>
+
+        <!-- Disable window animations (e-ink) -->
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+</resources>

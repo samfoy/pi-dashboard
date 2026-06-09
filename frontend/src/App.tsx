@@ -76,6 +76,8 @@ export default function App() {
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
+  const isNativeAndroid = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-Android')
+  const isNativeApp = isNativeIOS || isNativeAndroid
 
   // Detect virtual keyboard on mobile via visualViewport resize
   useEffect(() => {
@@ -176,13 +178,13 @@ export default function App() {
     <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} onToggleSidebar={toggleNav} />
     <SessionPicker open={sessionPickerOpen} onOpenChange={setSessionPickerOpen} />
     <ConnectionOverlay />
-    <div className={`pidash-root relative z-[1] h-[100dvh] grid ${isNativeIOS ? 'grid-rows-[0px_1fr_auto]' : 'grid-rows-[52px_1fr_auto]'} md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
+    <div className={`pidash-root relative z-[1] h-[100dvh] grid ${isNativeApp ? 'grid-rows-[0px_1fr_auto]' : 'grid-rows-[52px_1fr_auto]'} md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
       {/* Topbar */}
-      <header className={`pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2 ${isNativeIOS ? 'h-0 overflow-hidden' : ''}`}>
+      <header className={`pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2 ${isNativeApp ? 'h-0 overflow-hidden' : ''}`}>
         <div className="flex items-center gap-3">
           {/* Logo — hidden on mobile iOS to save space */}
-          <div className={`flex items-center gap-2.5 opacity-100 w-40 transition-all duration-300 ease-in-out ${isNativeIOS ? 'hidden md:flex' : ''}`}>
+          <div className={`flex items-center gap-2.5 opacity-100 w-40 transition-all duration-300 ease-in-out ${isNativeApp ? 'hidden md:flex' : ''}`}>
             <span className="text-xl">🥧</span>
             <span className="text-sm font-bold tracking-[.08em] text-text-strong whitespace-nowrap">PI DASH</span>
           </div>
@@ -190,8 +192,8 @@ export default function App() {
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-[5px] rounded-full text-[13px] font-medium bg-card border border-border hover:border-border-strong transition-colors">
             <span className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${connected ? 'bg-ok shadow-[0_0_8px_rgba(34,197,94,.4)] animate-dot-breathe' : 'bg-danger'}`} />
-            <span className={isNativeIOS ? 'hidden md:inline' : ''}>Health</span>
-            <span className={`font-mono text-[13px] ${isNativeIOS ? 'hidden md:inline' : ''}`}>{connected ? 'OK' : 'Offline'}</span>
+            <span className={isNativeApp ? 'hidden md:inline' : ''}>Health</span>
+            <span className={`font-mono text-[13px] ${isNativeApp ? 'hidden md:inline' : ''}`}>{connected ? 'OK' : 'Offline'}</span>
           </div>
           {/* Mobile nav menu — PiDash-iOS only (bottom nav hidden) */}
           {/* Slot errors indicator */}
@@ -385,7 +387,7 @@ export default function App() {
       </main>
 
       {/* Mobile bottom tab bar — hidden when virtual keyboard is open */}
-      <nav className={`md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] ${keyboardOpen || isNativeIOS ? 'hidden' : ''}`}>
+      <nav className={`md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] ${keyboardOpen || isNativeApp ? 'hidden' : ''}`}>
         {NAV_ITEMS.map(n => (
           <button
             key={n.id}

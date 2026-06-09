@@ -126,6 +126,8 @@ export default function ChatPage() {
   const [showRefs, setShowRefs] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const isNativeIOS = navigator.userAgent.includes('PiDash-iOS')
+  const isNativeAndroid = navigator.userAgent.includes('PiDash-Android')
+  const isNativeApp = isNativeIOS || isNativeAndroid
   const [showAttachMenu, setShowAttachMenu] = useState(false)
   const [isListeningVoice, setIsListeningVoice] = useState(false)
   // Spike: conversational voice mode (STT → send → TTS → STT loop)
@@ -133,6 +135,9 @@ export default function ChatPage() {
   const voiceModeRef = useRef(false)
   useEffect(() => { voiceModeRef.current = voiceMode }, [voiceMode])
   const sendRef = useRef<(text?: string) => void>(() => {})
+  const voiceLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const voiceLongPressFired = useRef(false)
+  const voiceDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleVoiceInput = useCallback(() => {
     if (isNativeIOS) {
@@ -156,6 +161,37 @@ export default function ChatPage() {
     recognition.onerror = () => setIsListeningVoice(false)
     recognition.start()
   }, [isNativeIOS, isListeningVoice, setInput])
+
+  const handleVoicePressStart = useCallback((_e: React.TouchEvent | React.PointerEvent) => {
+    // No preventDefault — we need the click event to still fire for short taps
+    voiceLongPressFired.current = false
+    voiceLongPressTimer.current = setTimeout(() => {
+      voiceLongPressFired.current = true
+      voiceLongPressTimer.current = null
+      if (!voiceModeRef.current) {
+        setVoiceMode(true)
+        handleVoiceInput()
+      }
+    }, 500)
+  }, [handleVoiceInput])
+
+  const handleVoicePressEnd = useCallback(() => {
+    if (voiceLongPressTimer.current) {
+      clearTimeout(voiceLongPressTimer.current)
+      voiceLongPressTimer.current = null
+    }
+  }, [])
+
+  const handleVoiceClick = useCallback((_e: React.MouseEvent | React.TouchEvent) => {
+    if (voiceLongPressFired.current) { voiceLongPressFired.current = false; return }
+    if (voiceModeRef.current) {
+      setVoiceMode(false)
+      ;(window as any).webkit?.messageHandlers?.piSpeechStop?.postMessage({})
+      ;(window as any).webkit?.messageHandlers?.piSpeakStop?.postMessage({})
+    } else {
+      handleVoiceInput()
+    }
+  }, [handleVoiceInput])
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [splitSlot, setSplitSlot] = useState<string | null>(null)
@@ -583,8 +619,18 @@ export default function ChatPage() {
     if (!lastTool) return
     const meta = lastTool.meta as { toolName?: string; args?: string } | undefined
     if (!meta?.toolName) return
-    const rawInput = meta.args ?? ''
-    const toolInput = rawInput.split('\n')[0].slice(0, 60) || undefined
+    const rawArgs = meta.args ?? ''
+    let toolInput: string | undefined
+    try {
+      const parsed = JSON.parse(rawArgs)
+      // Extract the most meaningful single-line value from the args object
+      const val = parsed.command ?? parsed.path ?? parsed.query ?? parsed.url ??
+                  parsed.pattern ?? parsed.text ?? parsed.name ??
+                  Object.values(parsed).find((v): v is string => typeof v === 'string')
+      if (typeof val === 'string') toolInput = val.split('\n')[0].slice(0, 55) || undefined
+    } catch {
+      toolInput = rawArgs.split('\n')[0].slice(0, 55) || undefined
+    }
     const slot = slots.find(s => s.key === activeSlot)
     wk.piLiveActivityUpdate.postMessage({
       slotKey: activeSlot, slotTitle: slot?.title ?? 'Chat',
@@ -596,18 +642,20 @@ export default function ChatPage() {
 
   // ── Spike: Voice mode (TTS → STT loop) ───────────────────────────────────
   // When streaming ends and voice mode is on, speak the last assistant message.
-  const prevStreamingRef = useRef(false)
+  // TTS: speak the last assistant message when a complete agent turn finishes.
+  // Use slotRunning (not isStreaming) — single clean true→false per turn, even with tool calls.
+  const prevRunningForTTSRef = useRef(false)
   useEffect(() => {
-    const wasStreaming = prevStreamingRef.current
-    prevStreamingRef.current = isStreaming
-    if (!wasStreaming || isStreaming || !voiceMode || !isNativeIOS) return
+    const wasRunning = prevRunningForTTSRef.current
+    prevRunningForTTSRef.current = slotRunning
+    if (!wasRunning || slotRunning || !voiceMode || !isNativeIOS) return
     const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant')
     if (!lastAssistant?.content) return
     const spoken = stripMarkdownForSpeech(lastAssistant.content)
     if (spoken.trim()) {
       ;(window as any).webkit?.messageHandlers?.piSpeak?.postMessage({ text: spoken })
     }
-  }, [isStreaming, voiceMode, isNativeIOS, messages])
+  }, [slotRunning, voiceMode, isNativeIOS, messages])
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
@@ -674,15 +722,27 @@ export default function ChatPage() {
       } else if (detail?.type === 'speech-start') {
         setIsListeningVoice(true)
       } else if (detail?.type === 'speech-result') {
-        setInput(detail.text as string)
+        const text = detail.text as string
+        setInput(text)
         if (detail.final) {
+          // Recognizer delivered a clean final result
+          if (voiceDebounceTimer.current) { clearTimeout(voiceDebounceTimer.current); voiceDebounceTimer.current = null }
           setIsListeningVoice(false)
-          // Voice mode: auto-submit the transcription instead of waiting for manual send
-          if (voiceModeRef.current && (detail.text as string).trim()) {
-            setTimeout(() => sendRef.current(detail.text as string), 100)
+          if (voiceModeRef.current && text.trim()) {
+            setTimeout(() => sendRef.current(text), 100)
           }
+        } else if (voiceModeRef.current && text.trim()) {
+          // Partial result — debounce: if recognizer never fires final, submit after 2s of silence
+          if (voiceDebounceTimer.current) clearTimeout(voiceDebounceTimer.current)
+          voiceDebounceTimer.current = setTimeout(() => {
+            voiceDebounceTimer.current = null
+            ;(window as any).webkit?.messageHandlers?.piSpeechStop?.postMessage({})
+            setIsListeningVoice(false)
+            sendRef.current(text)
+          }, 2000)
         }
       } else if (detail?.type === 'speech-stop') {
+        if (voiceDebounceTimer.current) { clearTimeout(voiceDebounceTimer.current); voiceDebounceTimer.current = null }
         setIsListeningVoice(false)
       } else if (detail?.type === 'speak-done') {
         // Voice mode loop: TTS finished → restart STT automatically
@@ -1116,7 +1176,7 @@ export default function ChatPage() {
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal</button>
-                      {isNativeIOS && (
+                      {isNativeApp && (
                         <>
                           <div className="border-t border-border my-1" />
                           <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/system'); setShowOverflowMenu(false) }}>🖥 System</button>
@@ -1293,7 +1353,7 @@ export default function ChatPage() {
               </button>}
               {/* "+" expandable attach menu */}
               <div className="relative shrink-0">
-                {!isNativeIOS && (
+                {!isNativeApp && (
                   <input ref={mobileFileInputRef} type="file" accept="image/*,application/pdf,text/*" multiple className="hidden" onChange={handleMobileFileInput} />
                 )}
                 <button
@@ -1307,10 +1367,10 @@ export default function ChatPage() {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
                     <div className="absolute left-0 bottom-full mb-2 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[160px]">
-                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeIOS ? (window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({ type: 'photos' }) : mobileFileInputRef.current?.click() }}>
+                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeApp ? (window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({ type: 'photos' }) : mobileFileInputRef.current?.click() }}>
                         <span>🖼️</span> Photos
                       </button>
-                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeIOS ? (window as any).webkit?.messageHandlers?.piPickFile?.postMessage({}) : mobileFileInputRef.current?.click() }}>
+                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeApp ? (window as any).webkit?.messageHandlers?.piPickFile?.postMessage({}) : mobileFileInputRef.current?.click() }}>
                         <span>📄</span> Files
                       </button>
                       {isMac && <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); pickFiles() }}>
@@ -1320,51 +1380,40 @@ export default function ChatPage() {
                   </>
                 )}
               </div>
-              {/* Voice input */}
+              {/* Voice button — tap toggles voice mode on/off */}
               <button
-                className={`flex w-[40px] h-[40px] rounded-full items-center justify-center shrink-0 cursor-pointer transition-all border ${
-                  isListeningVoice ? 'bg-danger text-white border-danger animate-pulse' : 'bg-bg-elevated border-border text-muted hover:text-text hover:border-border-strong'
-                }`}
-                onClick={handleVoiceInput}
-                title={isListeningVoice ? 'Stop recording' : 'Voice input'}
-              >
-                <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="2" width="6" height="12" rx="3" />
-                  <path d="M5 10a7 7 0 0 0 14 0" />
-                  <line x1="12" y1="19" x2="12" y2="22" />
-                  <line x1="8" y1="22" x2="16" y2="22" />
-                </svg>
-              </button>
-              {/* Spike: Voice mode toggle (continuous STT→TTS loop) — iOS only */}
-              {isNativeIOS && (
-                <button
-                  className={`flex w-[40px] h-[40px] rounded-full items-center justify-center shrink-0 cursor-pointer transition-all border ${
-                    voiceMode
-                      ? 'bg-accent text-white border-accent'
+                className={`flex w-[40px] h-[40px] rounded-full items-center justify-center shrink-0 cursor-pointer transition-all border select-none ${
+                  voiceMode
+                    ? 'bg-accent text-white border-accent'
+                    : isListeningVoice
+                      ? 'bg-danger text-white border-danger animate-pulse'
                       : 'bg-bg-elevated border-border text-muted hover:text-text hover:border-border-strong'
-                  }`}
-                  onClick={() => {
-                    const next = !voiceMode
-                    setVoiceMode(next)
-                    if (next) {
-                      // Start listening immediately when voice mode activates
-                      ;(window as any).webkit?.messageHandlers?.piSpeech?.postMessage({})
-                    } else {
-                      // Stop any in-progress TTS or STT
-                      ;(window as any).webkit?.messageHandlers?.piSpeechStop?.postMessage({})
-                      ;(window as any).webkit?.messageHandlers?.piSpeakStop?.postMessage({})
-                    }
-                  }}
-                  title={voiceMode ? 'Exit voice mode' : 'Voice mode (hands-free)'}
-                >
-                  {/* Headphones icon */}
+                }`}
+                onClick={handleVoiceClick}
+                onPointerDown={handleVoicePressStart}
+                onPointerUp={handleVoicePressEnd}
+                onPointerLeave={handleVoicePressEnd}
+                onTouchStart={handleVoicePressStart}
+                onTouchEnd={handleVoicePressEnd}
+                onTouchCancel={handleVoicePressEnd}
+                onContextMenu={e => e.preventDefault()}
+                title={voiceMode ? 'Voice mode on — tap to exit' : 'Tap: dictate  Hold: voice mode'}
+              >
+                {voiceMode && !isListeningVoice ? (
                   <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
                     <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z" />
                     <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3Z" />
                   </svg>
-                </button>
-              )}
+                ) : (
+                  <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3" />
+                    <path d="M5 10a7 7 0 0 0 14 0" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <line x1="8" y1="22" x2="16" y2="22" />
+                  </svg>
+                )}
+              </button>
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
               {pathMenuOpen && <PathCompleteMenu input={input} cursorPos={cursorPos} anchorRef={inputRef as React.RefObject<HTMLElement>} onComplete={(before, completed, after) => { const val = before + completed + after; setInput(val); setPathMenuOpen(true); setTimeout(() => { if (inputRef.current) { const pos = before.length + completed.length; inputRef.current.selectionStart = inputRef.current.selectionEnd = pos; setCursorPos(pos) } }, 0) }} onClose={() => setPathMenuOpen(false)} />}
               <div className="flex-1 flex flex-col gap-1.5">

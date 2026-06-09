@@ -113,10 +113,11 @@ export function EmptyState({ icon, title, subtitle }: { icon: string; title: str
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
+  const isNativeApp = isNativeIOS || (typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-Android'))
   return (
     <div className="flex items-end justify-between gap-4 px-6 pt-4 pb-3">
       <div className="flex items-center gap-3 min-w-0">
-        {isNativeIOS && (
+        {isNativeApp && (
           <button
             className="shrink-0 flex items-center gap-1 text-accent text-[15px] font-medium bg-transparent border-none cursor-pointer p-0 hover:opacity-70 transition-opacity"
             onClick={() => window.history.back()}

@@ -13,8 +13,9 @@ initToken()
 // Detect standalone/Electron mode for macOS traffic light padding
 const isElectron = navigator.userAgent.includes('Electron')
 const isPiDashIOS = navigator.userAgent.includes('PiDash-iOS')
+const isPiDashAndroid = navigator.userAgent.includes('PiDash-Android')
 
-if (isElectron || isPiDashIOS) {
+if (isElectron || isPiDashIOS || isPiDashAndroid) {
   document.documentElement.classList.add('is-standalone')
 }
 
