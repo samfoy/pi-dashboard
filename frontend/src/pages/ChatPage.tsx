@@ -384,7 +384,12 @@ export default function ChatPage() {
     return isAtBottom ? 'smooth' : false
   }, [])
 
-  useEffect(() => { dispatch(fetchHistory(false)) }, [dispatch])
+  useEffect(() => {
+    dispatch(fetchHistory(false))
+    // Signal native shell that React is mounted and ready to receive bridge events
+    const wk = (window as any).webkit?.messageHandlers
+    if (wk?.piReady) wk.piReady.postMessage({})
+  }, [dispatch])
   // Persist active slot to localStorage for refresh recovery
   useEffect(() => { if (activeSlot) { localStorage.setItem('mc-active-slot', activeSlot); wantsNewSession.current = false } }, [activeSlot])
   // Re-fetch slot messages on mount (handles nav away + back)
@@ -478,7 +483,7 @@ export default function ChatPage() {
     e.target.value = ''
   }, [])
 
-  // Receive images picked by native iOS picker + native navigation events
+  // Receive events from native iOS bridge
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail
@@ -488,13 +493,40 @@ export default function ChatPage() {
           mimeType: detail.mimeType as string,
           preview: detail.preview as string
         }])
+      } else if (detail?.type === 'file-picked') {
+        // File picked via native document picker — add as pending file via server upload
+        const mimeType = detail.mimeType as string
+        const isImage = mimeType.startsWith('image/')
+        if (isImage) {
+          const dataUrl = `data:${mimeType};base64,${detail.data}`
+          setPendingImages(prev => [...prev, {
+            data: detail.data as string,
+            mimeType,
+            preview: dataUrl
+          }])
+        } else {
+          // For non-image files, add as pending file path placeholder
+          setPendingFiles(prev => [...prev, { name: detail.name as string, path: detail.name as string }])
+        }
       } else if (detail?.type === 'open-sidebar') {
         setMobileSidebarOpen(true)
+      } else if (detail?.type === 'navigate-slot') {
+        const key = detail.slotKey as string
+        if (key) dispatch(switchSlot(key))
+      } else if (detail?.type === 'stop-slot') {
+        const key = detail.slotKey as string
+        if (key) api.stopChatSlot(key)
+      } else if (detail?.type === 'approve-slot') {
+        const key = detail.slotKey as string
+        if (key) api.approveChatSlot(key, 'approve')
+      } else if (detail?.type === 'reject-slot') {
+        const key = detail.slotKey as string
+        if (key) api.approveChatSlot(key, 'reject')
       }
     }
     window.addEventListener('pi-native', handler)
     return () => window.removeEventListener('pi-native', handler)
-  }, [])
+  }, [dispatch])
 
   const removeFile = useCallback((idx: number) => {
     setPendingFiles(prev => prev.filter((_, i) => i !== idx))
@@ -531,6 +563,7 @@ export default function ChatPage() {
       const imageMarkdown = pendingImages.map(img => `![image](${img.preview})`).join('\n')
       const displayContent = imageMarkdown ? (txt ? `${imageMarkdown}\n\n${txt}` : imageMarkdown) : txt
       const isQueued = slotRunning
+      ;(window as any).webkit?.messageHandlers?.piHaptic?.postMessage({ style: 'light' })
       dispatch(appendMessage({ role: isQueued ? 'queued' : 'user', content: displayContent, cls: '', ts: new Date().toISOString() }))
       setIsAtBottom(true)
       isAtBottomRef.current = true
@@ -569,7 +602,10 @@ export default function ChatPage() {
     inputRef.current?.focus()
   }, [input, pendingImages, pendingFiles, pendingModel, pendingCwd, activeSlot, dispatch, scrollBottom])
 
-  const approve = useCallback(async (action: string) => { if (activeSlot) await api.approveChatSlot(activeSlot, action) }, [activeSlot])
+  const approve = useCallback(async (action: string) => {
+    ;(window as any).webkit?.messageHandlers?.piHaptic?.postMessage({ style: 'medium' })
+    if (activeSlot) await api.approveChatSlot(activeSlot, action)
+  }, [activeSlot])
 
   const handleReviewComments = useCallback(() => {
     if (!panel.filePath || panel.comments.length === 0) return
@@ -1064,7 +1100,16 @@ export default function ChatPage() {
                 onKeyDown={e => { if (e.key === 'Tab' && !e.shiftKey && !input.startsWith('/')) { e.preventDefault(); setPathMenuOpen(true); setCursorPos(inputRef.current?.selectionStart ?? 0) } else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; const cap = prefillHint ? 320 : 140; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, cap) + 'px' }} />
               </div>
-              <button className="btn-sweep bg-accent text-white border-none rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center" onClick={() => send()} disabled={slotStopping}><span className="md:hidden">↑</span><span className="hidden md:inline">Send</span></button>
+              {slotRunning
+                ? <button
+                    className="bg-danger/10 border border-danger/40 text-danger rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-danger/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center"
+                    onClick={() => { if (activeSlot) { ;(window as any).webkit?.messageHandlers?.piHaptic?.postMessage({ style: 'warning' }); api.stopChatSlot(activeSlot) } }}
+                    disabled={slotStopping}
+                  >
+                    <span className="md:hidden">■</span><span className="hidden md:inline">{slotStopping ? 'Stopping…' : 'Stop'}</span>
+                  </button>
+                : <button className="btn-sweep bg-accent text-white border-none rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center" onClick={() => send()} disabled={slotStopping}><span className="md:hidden">↑</span><span className="hidden md:inline">Send</span></button>
+              }
             </div>
           </div></>}
             </div>
