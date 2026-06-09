@@ -114,6 +114,18 @@ struct WebView: UIViewRepresentable {
         // MARK: Pickers
 
         private func handlePickMedia() {
+            let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+            sheet.addAction(UIAlertAction(title: "Photo Library", style: .default) { [weak self] _ in
+                self?.presentPhotoPicker()
+            })
+            sheet.addAction(UIAlertAction(title: "Files", style: .default) { [weak self] _ in
+                self?.handlePickFile()
+            })
+            sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            present(sheet)
+        }
+
+        private func presentPhotoPicker() {
             var config = PHPickerConfiguration()
             config.selectionLimit = 5
             config.filter = .any(of: [.images])
