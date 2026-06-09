@@ -161,7 +161,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
             <div className="relative group">
               <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
                 <span className="text-muted text-[12px] font-mono uppercase">{lang || readInfo.path.split('/').pop()}</span>
-                <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => navigator.clipboard.writeText(result)}>Copy</button>
+                <button className="text-muted text-[12px] opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => navigator.clipboard.writeText(result)}>Copy</button>
               </div>
               <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto max-h-[400px] overflow-y-auto">
                 <code className="text-[13px] font-mono leading-relaxed text-text">{result}</code>
@@ -196,7 +196,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
             <div className="relative group">
               <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
                 <span className="text-muted text-[12px] font-mono uppercase">{lang || writeInfo.path.split('/').pop()}</span>
-                <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => navigator.clipboard.writeText(writeInfo.content)}>Copy</button>
+                <button className="text-muted text-[12px] opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text bg-transparent border-none font-body" onClick={() => navigator.clipboard.writeText(writeInfo.content)}>Copy</button>
               </div>
               <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto max-h-[400px] overflow-y-auto">
                 <code className="text-[13px] font-mono leading-relaxed text-text">{writeInfo.content}</code>

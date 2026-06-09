@@ -92,7 +92,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang, complete }: { code: stri
     <div className="relative group my-2">
       <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
         <span className="text-muted text-[12px] font-mono uppercase">{lang || 'code'}{lineCount > 1 && <span className="text-muted/50 ml-1.5">{lineCount} lines</span>}</span>
-        <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text" onClick={() => navigator.clipboard.writeText(code)}>Copy</button>
+        <button className="text-muted text-[12px] opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text" onClick={() => navigator.clipboard.writeText(code)}>Copy</button>
       </div>
       <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto">
         <HighlightedCode code={displayCode} lang={lang} className={lang ? `language-${lang}` : ''} />
@@ -129,7 +129,7 @@ const MD_COMPONENTS: Record<string, React.ComponentType<any>> = {
       <div className="relative group my-2">
         <div className="flex items-center justify-between bg-bg-elevated border border-border rounded-t-md px-3 py-1.5">
           <span className="text-muted text-[12px] font-mono uppercase">{lang || 'code'}</span>
-          <button className="text-muted text-[12px] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text" onClick={() => navigator.clipboard.writeText(codeStr)}>Copy</button>
+          <button className="text-muted text-[12px] opacity-40 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-text" onClick={() => navigator.clipboard.writeText(codeStr)}>Copy</button>
         </div>
         <pre className="bg-bg-elevated border border-t-0 border-border rounded-b-md p-3 overflow-x-auto">
           <HighlightedCode code={codeStr} lang={lang} className={className || ''} />
@@ -216,7 +216,7 @@ export default memo(function MarkdownRenderer({ content, streaming = false, onFi
     <div className="group" onClick={handleClick}>
       {blocks.map((block, i) => <BlockRenderer key={`${block.type}-${i}`} block={block} />)}
       {!streaming && content.length > 20 && (
-        <button className="text-muted text-[12px] opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity cursor-pointer mt-1" onClick={() => setShowRaw(true)}>raw</button>
+        <button className="text-muted text-[12px] opacity-30 group-hover:opacity-60 hover:!opacity-100 transition-opacity cursor-pointer mt-1" onClick={() => setShowRaw(true)}>raw</button>
       )}
     </div>
   )

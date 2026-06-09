@@ -20,7 +20,7 @@ struct WebView: UIViewRepresentable {
 
         let handlers = ["piHaptic", "piSetActiveSlot", "piOpenShare",
                         "piOpenInSafari", "piRequestNotificationPermission", "piReady",
-                        "piPickMedia", "piPickFile"]
+                        "piPickMedia", "piPickFile", "piOpenSettings"]
         for name in handlers {
             config.userContentController.add(context.coordinator, name: name)
         }
@@ -29,8 +29,10 @@ struct WebView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        webView.isOpaque = false
-        webView.backgroundColor = .clear
+        // Match React theme bg to avoid cold-start flash
+        let isDark = UITraitCollection.current.userInterfaceStyle == .dark
+        webView.isOpaque = true
+        webView.backgroundColor = isDark ? UIColor(red: 0.09, green: 0.09, blue: 0.11, alpha: 1) : .white
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) PiDash-iOS/1.0"
 
         // Left-edge back swipe — invokes window.history.back() in the web view.
@@ -66,7 +68,7 @@ struct WebView: UIViewRepresentable {
         }
         guard let url = components.url else { return }
         var request = URLRequest(url: url)
-        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.cachePolicy = .useProtocolCachePolicy
         webView.load(request)
     }
 
@@ -99,6 +101,8 @@ struct WebView: UIViewRepresentable {
                 }
             case "piRequestNotificationPermission":
                 Task { await appState.notificationService.requestPermission() }
+            case "piOpenSettings":
+                appState.showSettings = true
             case "piReady":
                 readyFired = true
                 dispatchPending()

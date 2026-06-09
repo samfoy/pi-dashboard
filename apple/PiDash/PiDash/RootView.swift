@@ -2,32 +2,34 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
-    @State private var showSettings = false
 
     var body: some View {
         ZStack {
             WebView()
                 .ignoresSafeArea(.container, edges: .bottom)
                 .onLongPressGesture(minimumDuration: 1.5) {
-                    showSettings = true
+                    appState.showSettings = true
                 }
 
             if appState.connectionFailed {
-                ConnectionFailedOverlay(showSettings: $showSettings)
+                ConnectionFailedOverlay()
             }
         }
-        .sheet(isPresented: $showSettings) {
+        .sheet(isPresented: Binding(
+            get: { appState.showSettings },
+            set: { appState.showSettings = $0 }
+        )) {
             SettingsView()
                 .environment(appState)
         }
         .onChange(of: appState.connectionFailed) {
             if appState.connectionFailed && appState.serverConfig.baseURL.isEmpty {
-                showSettings = true
+                appState.showSettings = true
             }
         }
         .onAppear {
             if appState.serverConfig.baseURL.isEmpty {
-                showSettings = true
+                appState.showSettings = true
             }
             Task { await appState.notificationService.requestPermission() }
         }
@@ -38,7 +40,6 @@ struct RootView: View {
 
 private struct ConnectionFailedOverlay: View {
     @Environment(AppState.self) private var appState
-    @Binding var showSettings: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -53,7 +54,7 @@ private struct ConnectionFailedOverlay: View {
                 .multilineTextAlignment(.center)
             HStack(spacing: 12) {
                 Button("Settings") {
-                    showSettings = true
+                    appState.showSettings = true
                 }
                 .buttonStyle(.bordered)
                 Button("Retry") {

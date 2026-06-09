@@ -717,7 +717,7 @@ export default function ChatPage() {
                   return (
                     <span key={li} className="relative inline-block group/img">
                       <img src={dataUrl} alt="Pasted" className="max-h-48 rounded-md my-1" />
-                      <button className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 bg-black/60 hover:bg-black/80 text-white text-[11px] px-2 py-1 rounded cursor-pointer border-none transition-opacity" title="Save image to disk" onClick={async (e) => {
+                      <button className="absolute top-2 right-2 opacity-60 group-hover/img:opacity-100 bg-black/60 hover:bg-black/80 text-white text-[11px] px-2 py-1 rounded cursor-pointer border-none transition-opacity" title="Save image to disk" onClick={async (e) => {
                         e.stopPropagation()
                         const name = prompt('Save image as:', `screenshot-${Date.now()}.png`)
                         if (!name) return
@@ -742,7 +742,7 @@ export default function ChatPage() {
           )}
           <div className="flex items-center gap-1 px-1">
             {chatConfig.showTimestamps && msgTime && <span className="text-muted text-[11px] font-body">{msgTime}</span>}
-            <button className="opacity-0 group-hover/msg:opacity-100 text-[11px] text-muted hover:text-text cursor-pointer bg-transparent border-none transition-opacity px-1" title="Copy" onClick={() => { navigator.clipboard.writeText(m.content); }}>📋</button>
+            <button className="opacity-40 group-hover/msg:opacity-100 text-[11px] text-muted hover:text-text cursor-pointer bg-transparent border-none transition-opacity px-1" title="Copy" onClick={() => { navigator.clipboard.writeText(m.content); }}>📋</button>
           </div>
         </div>
       </div>
@@ -1072,7 +1072,7 @@ export default function ChatPage() {
                     {pendingImages.map((img, i) => (
                       <div key={i} className="relative group">
                         <img src={img.preview} alt="Pasted" className="h-16 rounded-md border border-border object-cover" />
-                        <button className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-[11px] border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center" onClick={() => removeImage(i)}>✕</button>
+                        <button className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-[11px] border-none cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity flex items-center justify-center" onClick={() => removeImage(i)}>✕</button>
                       </div>
                     ))}
                   </div>
@@ -1083,7 +1083,7 @@ export default function ChatPage() {
                       <div key={i} className="relative group flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-elevated text-sm text-text">
                         <span className="text-base">📄</span>
                         <span className="max-w-[200px] truncate">{f.name}</span>
-                        <button className="w-4 h-4 rounded-full bg-danger text-white text-[10px] border-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shrink-0" onClick={() => removeFile(i)}>✕</button>
+                        <button className="w-4 h-4 rounded-full bg-danger text-white text-[10px] border-none cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity flex items-center justify-center shrink-0" onClick={() => removeFile(i)}>✕</button>
                       </div>
                     ))}
                   </div>
