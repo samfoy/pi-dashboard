@@ -89,11 +89,11 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
     return (
       <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
         <button
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
           onClick={() => setEditExpanded(!editExpanded)}
         >
           <span className={`text-[11px] transition-transform ${editExpanded ? 'rotate-90' : ''}`}>▶</span>
-          <span>✏️ edit</span>
+          <span className="shrink-0">✏️ edit</span>
           <span className="text-text/70 text-[12px] font-normal truncate">{editDiff.path}</span>
           {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(editDiff.path) }}>Open</button>}
           <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, editDiff.path)} title="Download">⬇</button>
@@ -123,11 +123,11 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
       return (
         <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
           <button
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
             onClick={() => setReadExpanded(!readExpanded)}
           >
             <span className={`text-[11px] transition-transform ${readExpanded ? 'rotate-90' : ''}`}>▶</span>
-            <span>🖼️ read</span>
+            <span className="shrink-0">🖼️ read</span>
             <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path.split('/').pop()}</span>
             {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
             <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, readInfo.path)} title="Download">⬇</button>
@@ -146,11 +146,11 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
     return (
       <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
         <button
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
           onClick={() => setReadExpanded(!readExpanded)}
         >
           <span className={`text-[11px] transition-transform ${readExpanded ? 'rotate-90' : ''}`}>▶</span>
-          <span>📖 read</span>
+          <span className="shrink-0">📖 read</span>
           <span className="text-text/70 text-[12px] font-normal truncate">{readInfo.path}</span>
           {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(readInfo.path) }}>Open</button>}
           <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, readInfo.path)} title="Download">⬇</button>
@@ -179,11 +179,11 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
     return (
       <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
         <button
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
           onClick={() => setWriteExpanded(!writeExpanded)}
         >
           <span className={`text-[11px] transition-transform ${writeExpanded ? 'rotate-90' : ''}`}>▶</span>
-          <span>📝 write</span>
+          <span className="shrink-0">📝 write</span>
           <span className="text-text/70 text-[12px] font-normal truncate">{writeInfo.path}</span>
           {onFileOpen && <button className="text-accent text-[11px] font-medium hover:underline shrink-0 bg-transparent border-none cursor-pointer" onClick={e => { e.stopPropagation(); onFileOpen(writeInfo.path) }}>Open</button>}
           <button className="text-muted text-[11px] hover:text-accent shrink-0 bg-transparent border-none cursor-pointer" onClick={e => handleDownload(e, writeInfo.path)} title="Download">⬇</button>
@@ -221,7 +221,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
         disabled={!hasDetails}
       >
         {hasDetails && <span className={`text-[11px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>}
-        <span>🔧 {toolName}</span>
+        <span className="shrink-0">🔧 {toolName}</span>
         {isError && <span className="text-danger text-[12px]">✗ error</span>}
         {result && !isError && <span className="text-ok text-[12px]">✓</span>}
       </button>
