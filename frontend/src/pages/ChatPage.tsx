@@ -478,7 +478,7 @@ export default function ChatPage() {
     e.target.value = ''
   }, [])
 
-  // Receive images picked by native iOS picker via JS bridge
+  // Receive images picked by native iOS picker + native navigation events
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail
@@ -488,6 +488,8 @@ export default function ChatPage() {
           mimeType: detail.mimeType as string,
           preview: detail.preview as string
         }])
+      } else if (detail?.type === 'open-sidebar') {
+        setMobileSidebarOpen(true)
       }
     }
     window.addEventListener('pi-native', handler)
@@ -972,7 +974,7 @@ export default function ChatPage() {
                 <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={() => setPrefillHint(false)}>✕</button>
               </div>
             )}
-            <div className={`pidash-compose flex flex-col md:flex-row gap-2.5 px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome md:items-end transition-colors relative ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
+            <div className={`pidash-compose flex flex-row gap-2 items-end px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome transition-colors relative ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
@@ -1003,7 +1005,7 @@ export default function ChatPage() {
                       />
                     )}
                     <button
-                      className="flex md:hidden w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30"
+                      className="flex w-[40px] h-[40px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30"
                       onClick={() => {
                         if (isNativeIOS) {
                           ;(window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({})
@@ -1054,7 +1056,7 @@ export default function ChatPage() {
                 onKeyDown={e => { if (e.key === 'Tab' && !e.shiftKey && !input.startsWith('/')) { e.preventDefault(); setPathMenuOpen(true); setCursorPos(inputRef.current?.selectionStart ?? 0) } else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; const cap = prefillHint ? 320 : 140; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, cap) + 'px' }} />
               </div>
-              <button className="btn-sweep bg-accent text-white border-none rounded-lg w-full md:w-auto px-5 h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0) || slotStopping}>Send</button>
+              <button className="btn-sweep bg-accent text-white border-none rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0) || slotStopping}><span className="md:hidden">↑</span><span className="hidden md:inline">Send</span></button>
             </div>
           </div></>}
             </div>

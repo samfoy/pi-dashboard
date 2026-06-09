@@ -3,10 +3,17 @@ import WebKit
 import PhotosUI
 import UniformTypeIdentifiers
 
+// MARK: - NoAccessoryWebView
+
+/// Suppresses the iOS keyboard accessory bar (↑ ↓ ✓ row above keyboard).
+final class NoAccessoryWebView: WKWebView {
+    override var inputAccessoryView: UIView? { nil }
+}
+
 struct WebView: UIViewRepresentable {
     @Environment(AppState.self) var appState
 
-    func makeUIView(context: Context) -> WKWebView {
+    func makeUIView(context: Context) -> NoAccessoryWebView {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
@@ -18,7 +25,7 @@ struct WebView: UIViewRepresentable {
             config.userContentController.add(context.coordinator, name: name)
         }
 
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = NoAccessoryWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.scrollView.contentInsetAdjustmentBehavior = .never
@@ -39,7 +46,7 @@ struct WebView: UIViewRepresentable {
         return webView
     }
 
-    func updateUIView(_ webView: WKWebView, context: Context) {
+    func updateUIView(_ webView: NoAccessoryWebView, context: Context) {
         // Pending deep links / notification actions dispatched by Coordinator after piReady
     }
 
@@ -68,7 +75,7 @@ struct WebView: UIViewRepresentable {
     @MainActor
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler, WKUIDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate {
         let appState: AppState
-        weak var webView: WKWebView?
+        weak var webView: NoAccessoryWebView?
         private var readyFired = false
 
         init(appState: AppState) {
@@ -138,7 +145,7 @@ struct WebView: UIViewRepresentable {
 
         @objc func handleEdgeSwipe(_ recognizer: UIScreenEdgePanGestureRecognizer) {
             guard recognizer.state == .recognized else { return }
-            webView?.evaluateJavaScript("window.history.back()", completionHandler: nil)
+            dispatch("open-sidebar")
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
 

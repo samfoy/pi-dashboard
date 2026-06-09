@@ -75,6 +75,8 @@ export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
+  const [showNavMenu, setShowNavMenu] = useState(false)
+  const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
 
   // Detect virtual keyboard on mobile via visualViewport resize
   useEffect(() => {
@@ -191,6 +193,37 @@ export default function App() {
             <span>Health</span>
             <span className="font-mono text-[13px]">{connected ? 'OK' : 'Offline'}</span>
           </div>
+          {/* Mobile nav menu — PiDash-iOS only (bottom nav hidden) */}
+          {isNativeIOS && (
+            <div className="relative">
+              <button
+                className="flex md:hidden items-center justify-center w-9 h-9 rounded-lg text-muted hover:text-text hover:bg-bg-hover transition-colors border-none bg-transparent cursor-pointer"
+                onClick={() => setShowNavMenu(v => !v)}
+                title="Navigation"
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+              </button>
+              {showNavMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowNavMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+                    {NAV_ITEMS.map(n => (
+                      <button
+                        key={n.id}
+                        className={`flex items-center gap-3 w-full px-4 py-3 text-sm font-medium border-none cursor-pointer transition-colors ${
+                          activePath === n.path ? 'bg-accent-subtle text-accent' : 'bg-transparent text-text hover:bg-bg-hover'
+                        }`}
+                        onClick={() => { navigate(n.path); setShowNavMenu(false) }}
+                      >
+                        <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none shrink-0" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">{n.icon}</svg>
+                        {n.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {/* Slot errors indicator */}
           {slotErrors.length > 0 && (
             <div className="relative">
@@ -382,7 +415,7 @@ export default function App() {
       </main>
 
       {/* Mobile bottom tab bar — hidden when virtual keyboard is open */}
-      <nav className={`md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] ${keyboardOpen ? 'hidden' : ''}`}>
+      <nav className={`md:hidden flex justify-around items-center bg-bg border-t border-border px-1 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0.5rem))] ${keyboardOpen || isNativeIOS ? 'hidden' : ''}`}>
         {NAV_ITEMS.map(n => (
           <button
             key={n.id}
