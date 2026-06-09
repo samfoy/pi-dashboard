@@ -216,7 +216,7 @@ export default memo(function MarkdownRenderer({ content, streaming = false, onFi
     <div className="group" onClick={handleClick}>
       {blocks.map((block, i) => <BlockRenderer key={`${block.type}-${i}`} block={block} />)}
       {!streaming && content.length > 20 && (
-        <button className="text-muted text-[12px] opacity-30 group-hover:opacity-60 hover:!opacity-100 transition-opacity cursor-pointer mt-1" onClick={() => setShowRaw(true)}>raw</button>
+        <button className="hidden md:inline-block text-muted text-[12px] opacity-30 group-hover:opacity-60 hover:!opacity-100 transition-opacity cursor-pointer mt-1" onClick={() => setShowRaw(true)}>raw</button>
       )}
     </div>
   )

@@ -789,7 +789,7 @@ export default function ChatPage() {
       return d.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     })() : ''
     return (
-      <div key={key} className={`pidash-msg-card flex gap-2 md:gap-3 items-start mb-2 md:mb-3 mr-2 md:mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`} data-pidash-sender={isUser ? 'user' : 'assistant'} data-pidash-streaming={isStreaming ? 'true' : undefined}>
+      <div key={key} className={`pidash-msg-card flex gap-2 md:gap-3 items-start mb-1.5 md:mb-3 mr-2 md:mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`} data-pidash-sender={isUser ? 'user' : 'assistant'} data-pidash-streaming={isStreaming ? 'true' : undefined}>
         {/* Avatars hidden on mobile for more message width — like Claude app */}
         {isUser
           ? <div className="hidden md:grid w-8 h-8 rounded-md place-items-center font-semibold text-xs shrink-0 self-end mb-0.5 bg-accent-subtle text-accent">U</div>
@@ -830,7 +830,7 @@ export default function ChatPage() {
           )}
           <div className="flex items-center gap-1 px-1">
             {chatConfig.showTimestamps && msgTime && <span className="text-muted text-[11px] font-body">{msgTime}</span>}
-            <button className="opacity-40 group-hover/msg:opacity-100 text-[11px] text-muted hover:text-text cursor-pointer bg-transparent border-none transition-opacity px-1" title="Copy" onClick={() => { navigator.clipboard.writeText(m.content); }}>📋</button>
+            <button className="hidden md:inline-block opacity-40 group-hover/msg:opacity-100 text-[11px] text-muted hover:text-text cursor-pointer bg-transparent border-none transition-opacity px-1" title="Copy" onClick={() => { navigator.clipboard.writeText(m.content); }}>📋</button>
           </div>
         </div>
       </div>

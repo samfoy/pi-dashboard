@@ -87,7 +87,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
 
   if (isEdit) {
     return (
-      <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
+      <div className="msg-content bg-transparent border border-border/30 md:bg-card md:border-border rounded-md animate-scale-in">
         <button
           className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
           onClick={() => setEditExpanded(!editExpanded)}
@@ -121,7 +121,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
       const match = result.match(/!\[image\]\(([^)]+)\)/)
       const src = match ? match[1] : imgUrl
       return (
-        <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
+        <div className="msg-content bg-transparent border border-border/30 md:bg-card md:border-border rounded-md animate-scale-in">
           <button
             className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
             onClick={() => setReadExpanded(!readExpanded)}
@@ -144,7 +144,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
     const lineCount = result.split('\n').length
     const rangeLabel = readInfo.offset ? `lines ${readInfo.offset}–${readInfo.offset + (readInfo.limit || lineCount) - 1}` : `${lineCount} lines`
     return (
-      <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
+      <div className="msg-content bg-transparent border border-border/30 md:bg-card md:border-border rounded-md animate-scale-in">
         <button
           className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
           onClick={() => setReadExpanded(!readExpanded)}
@@ -177,7 +177,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
     const lang = langFromPath(writeInfo.path)
     const lineCount = writeInfo.content.split('\n').length
     return (
-      <div className="msg-content bg-card border border-border rounded-md animate-scale-in">
+      <div className="msg-content bg-transparent border border-border/30 md:bg-card md:border-border rounded-md animate-scale-in">
         <button
           className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-body bg-transparent border-none text-left hover:text-text transition-colors cursor-pointer"
           onClick={() => setWriteExpanded(!writeExpanded)}
@@ -214,7 +214,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   }
 
   return (
-    <div className={`pidash-tool-card msg-content bg-card border border-border rounded-md animate-scale-in ${hasDetails ? 'cursor-pointer' : ''}`} data-pidash-tool-name={toolName} data-pidash-tool-status={isError ? 'error' : result ? 'ok' : 'running'}>
+    <div className={`pidash-tool-card msg-content bg-transparent border border-border/30 md:bg-card md:border-border rounded-md animate-scale-in ${hasDetails ? 'cursor-pointer' : ''}`} data-pidash-tool-name={toolName} data-pidash-tool-status={isError ? 'error' : result ? 'ok' : 'running'}>
       <button
         className="w-full flex items-center gap-2 px-3 py-2.5 text-[13px] text-muted font-mono bg-transparent border-none text-left hover:text-text transition-colors"
         onClick={() => hasDetails && setExpanded(!expanded)}
