@@ -535,6 +535,13 @@ export default function ChatPage() {
           // For non-image files, add as pending file path placeholder
           setPendingFiles(prev => [...prev, { name: detail.name as string, path: detail.name as string }])
         }
+      } else if (detail?.type === 'speech-start') {
+        setIsListeningVoice(true)
+      } else if (detail?.type === 'speech-result') {
+        setInput(detail.text as string)
+        if (detail.final) setIsListeningVoice(false)
+      } else if (detail?.type === 'speech-stop') {
+        setIsListeningVoice(false)
       } else if (detail?.type === 'open-sidebar') {
         setMobileSidebarOpen(true)
       } else if (detail?.type === 'navigate-slot') {

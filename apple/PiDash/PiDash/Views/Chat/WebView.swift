@@ -2,6 +2,8 @@ import SwiftUI
 import WebKit
 import PhotosUI
 import UniformTypeIdentifiers
+import Speech
+import AVFoundation
 
 // MARK: - NoAccessoryWebView
 
@@ -20,7 +22,7 @@ struct WebView: UIViewRepresentable {
 
         let handlers = ["piHaptic", "piSetActiveSlot", "piOpenShare",
                         "piOpenInSafari", "piRequestNotificationPermission", "piReady",
-                        "piPickMedia", "piPickFile", "piOpenSettings"]
+                        "piPickMedia", "piPickFile", "piOpenSettings", "piSpeech", "piSpeechStop"]
         for name in handlers {
             config.userContentController.add(context.coordinator, name: name)
         }
@@ -103,6 +105,10 @@ struct WebView: UIViewRepresentable {
                 Task { await appState.notificationService.requestPermission() }
             case "piOpenSettings":
                 appState.showSettings = true
+            case "piSpeech":
+                startSpeechRecognition()
+            case "piSpeechStop":
+                stopSpeechRecognition()
             case "piReady":
                 readyFired = true
                 dispatchPending()
@@ -183,6 +189,76 @@ struct WebView: UIViewRepresentable {
             if let u = urlStr.flatMap(URL.init) { items.append(u) }
             let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
             present(vc)
+        }
+
+        // MARK: Speech Recognition
+
+        private var audioEngine: AVAudioEngine?
+        private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+        private var recognitionTask: SFSpeechRecognitionTask?
+
+        func startSpeechRecognition() {
+            SFSpeechRecognizer.requestAuthorization { [weak self] status in
+                guard status == .authorized else { return }
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    guard granted else { return }
+                    DispatchQueue.main.async { self?.beginRecording() }
+                }
+            }
+        }
+
+        private func beginRecording() {
+            stopSpeechRecognition() // clean up any previous session
+
+            let recognizer = SFSpeechRecognizer(locale: Locale.current)
+            guard recognizer?.isAvailable == true else { return }
+
+            let request = SFSpeechAudioBufferRecognitionRequest()
+            request.shouldReportPartialResults = true
+            recognitionRequest = request
+
+            let engine = AVAudioEngine()
+            audioEngine = engine
+
+            let inputNode = engine.inputNode
+            let format = inputNode.outputFormat(forBus: 0)
+            inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+                request.append(buffer)
+            }
+
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.record, mode: .measurement, options: .duckOthers)
+                try AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+                engine.prepare()
+                try engine.start()
+            } catch {
+                stopSpeechRecognition()
+                return
+            }
+
+            dispatch("speech-start", payload: [:])
+
+            recognitionTask = recognizer?.recognitionTask(with: request) { [weak self] result, error in
+                if let result {
+                    let text = result.bestTranscription.formattedString
+                    self?.dispatch("speech-result", payload: ["text": text, "final": result.isFinal])
+                    if result.isFinal { self?.stopSpeechRecognition() }
+                } else if error != nil {
+                    self?.stopSpeechRecognition()
+                }
+            }
+        }
+
+        func stopSpeechRecognition() {
+            recognitionTask?.cancel()
+            recognitionTask = nil
+            recognitionRequest?.endAudio()
+            recognitionRequest = nil
+            audioEngine?.stop()
+            audioEngine?.inputNode.removeTap(onBus: 0)
+            audioEngine = nil
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            dispatch("speech-stop", payload: [:])
         }
 
         // MARK: Native → JS
