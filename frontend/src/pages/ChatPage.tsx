@@ -735,6 +735,10 @@ export default function ChatPage() {
   const loadingOlder = useAppSelector(s => s.chat.loadingOlder)
 
   const currentSlot = slots.find(s => s.key === activeSlot)
+  // Strip routing prefix (us.anthropic.claude-opus → claude-opus) and provider path for display
+  const modelDisplay = currentSlot?.model
+    ? (currentSlot.model.split('/').pop() || currentSlot.model).replace(/^[a-z]{2}\.[a-z-]+\./, '')
+    : ''
   const title = currentSlot ? (currentSlot.title !== currentSlot.key ? currentSlot.title : currentSlot.key) : ''
   const [editingHeader, setEditingHeader] = useState(false)
   const [editingTitle, setEditingTitle] = useState('')
@@ -887,8 +891,8 @@ export default function ChatPage() {
                   <TypewriterText className="text-sm font-semibold text-text font-body truncate" text={title} onDoubleClick={() => { setEditingHeader(true); setEditingTitle(title) }} />
                 )}
                 {!editingHeader && <span className="hidden md:inline text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
-                {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
-                {currentSlot?.model && <button className="md:hidden px-2 py-0.5 rounded-md text-[11px] font-mono bg-bg-elevated border border-border text-muted shrink-0 cursor-pointer hover:border-accent hover:text-accent transition-colors" title="Model" onClick={() => setShowOverflowMenu(v => !v)}>{currentSlot.model.split('/').pop()?.split('-').slice(0,2).join('-')}</button>}
+                {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title={currentSlot.model}>🧠 {modelDisplay}</span>}
+                {currentSlot?.model && <button className="md:hidden px-2 py-0.5 rounded-md text-[11px] font-mono bg-bg-elevated border border-border text-muted shrink-0 cursor-pointer hover:border-accent hover:text-accent transition-colors max-w-[120px] truncate" title={currentSlot.model} onClick={() => setShowOverflowMenu(v => !v)}>{modelDisplay}</button>}
                 {contextUsage && <span className="hidden md:inline"><ContextBar usage={contextUsage} /></span>}
                 {contextUsage && (contextUsage.percent ?? 0) >= 50 && <span className="md:hidden"><ContextBar usage={contextUsage} /></span>}
                 {currentSlot?.cwd && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
@@ -1060,13 +1064,13 @@ export default function ChatPage() {
                 />
               )}
               {Object.keys(extensionStatuses).length > 0 && (
-                <div className="px-4 py-1 bg-accent-subtle text-accent text-[11px] font-medium border-b border-border flex items-center gap-4 shrink-0">
+                <div className="hidden md:flex px-4 py-1 bg-accent-subtle text-accent text-[11px] font-medium border-b border-border items-center gap-4 shrink-0">
                   {Object.entries(extensionStatuses).map(([key, text]) => (
                     <span key={key} className="opacity-80">{text}</span>
                   ))}
                 </div>
               )}
-              <StatusBarSlot />
+              <div className="hidden md:block"><StatusBarSlot /></div>
               {slotSwitching && messages.length === 0 ? (
                 <div className="flex-1 flex flex-col gap-4 px-5 py-6 animate-pulse">
                   {/* Skeleton: user message */}

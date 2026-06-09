@@ -138,9 +138,9 @@ const MD_COMPONENTS: Record<string, React.ComponentType<any>> = {
     )
   },
   pre({ children }: any) { return <>{children}</> },
-  table({ children }: any) { return <div className="overflow-x-auto my-3"><table className="w-full border-collapse text-sm">{children}</table></div> },
-  th({ children }: any) { return <th className="text-left text-muted text-[13px] font-medium px-3 py-2 border-b border-border bg-bg-elevated">{children}</th> },
-  td({ children }: any) { return <td className="px-3 py-2 border-b border-border text-sm">{children}</td> },
+  table({ children }: any) { return <div className="overflow-x-auto my-3 -mx-1"><table className="min-w-full border-collapse text-sm">{children}</table></div> },
+  th({ children }: any) { return <th className="text-left text-muted text-[13px] font-medium px-3 py-2 border-b border-border bg-bg-elevated whitespace-nowrap">{children}</th> },
+  td({ children }: any) { return <td className="px-3 py-2 border-b border-border text-sm align-top min-w-[100px] [overflow-wrap:break-word]">{children}</td> },
   a({ href, children }: any) { return <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 decoration-accent/40 hover:decoration-accent">{children}</a> },
   blockquote({ children }: any) { return <blockquote className="border-l-[3px] border-accent pl-3 my-2 text-muted italic">{children}</blockquote> },
   hr() { return <hr className="border-border my-4" /> },
