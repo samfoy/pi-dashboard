@@ -7,17 +7,27 @@ export const j = async (r: Response) => {
   }
   return r.json()
 }
+function optionalHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
+  const merged = { ...(headers || {}), ...authHeader() }
+  return Object.keys(merged).length > 0 ? merged : undefined
+}
+
 const post = (url: string, body?: object) =>
-  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: body ? JSON.stringify(body) : undefined })
+  fetch(url, { method: 'POST', headers: optionalHeaders({ 'Content-Type': 'application/json' }), body: body ? JSON.stringify(body) : undefined })
 const put = (url: string, body: object) =>
-  fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeader() }, body: JSON.stringify(body) })
+  fetch(url, { method: 'PUT', headers: optionalHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) })
 const del = (url: string, body?: object) =>
-  fetch(url, { method: 'DELETE', headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...authHeader() }, body: body ? JSON.stringify(body) : undefined })
-const get = (url: string) =>
-  fetch(url, { headers: authHeader() })
+  fetch(url, { method: 'DELETE', headers: optionalHeaders(body ? { 'Content-Type': 'application/json' } : undefined), body: body ? JSON.stringify(body) : undefined })
+const get = (url: string) => {
+  const headers = optionalHeaders()
+  return headers ? fetch(url, { headers }) : fetch(url)
+}
 /** Authenticated fetch — injects auth header into any fetch call. */
-const afetch = (url: string, opts?: RequestInit) =>
-  fetch(url, { ...opts, headers: { ...opts?.headers, ...authHeader() } })
+const afetch = (url: string, opts?: RequestInit) => {
+  const headers = optionalHeaders(opts?.headers as Record<string, string> | undefined)
+  if (headers) return fetch(url, { ...opts, headers })
+  return opts ? fetch(url, opts) : fetch(url)
+}
 
 export const api = {
   status: () => get('/api/status').then(j),

@@ -24,7 +24,7 @@ const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps)
       if (m.meta?.args && (name === 'edit' || name === 'write' || name === 'read')) {
         try {
           const parsed = JSON.parse(m.meta.args as string)
-          if (parsed.path) {
+          if (typeof parsed.path === 'string' && parsed.path) {
             const short = parsed.path.split('/').pop() || parsed.path
             if (!files.includes(short)) files.push(short)
           }

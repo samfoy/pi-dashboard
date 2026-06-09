@@ -9,8 +9,7 @@ function parseOptions(content: string): { text: string; options: string[] } {
   const sep = m[1].includes('|') ? '|' : ','
   return { text: content.slice(0, m.index).trimEnd(), options: m[1].split(sep).map(o => o.trim()).filter(Boolean) }
 }
-
-const AssistantMessage = memo(function AssistantMessage({ content, isStreaming, onOption, onFileOpen, planTaskId, onApplyPlan }: { content: string; isStreaming: boolean; slotRunning: boolean; onOption: (text: string) => void; onFileOpen?: (path: string) => void; planTaskId?: string; onApplyPlan?: (steps: any[]) => void }) {
+const AssistantMessage = memo(function AssistantMessage({ content, isStreaming, onOption, onFileOpen, planTaskId, onApplyPlan, turnCost, turnInputTokens, turnOutputTokens }: { content: string; isStreaming: boolean; slotRunning: boolean; onOption: (text: string) => void; onFileOpen?: (path: string) => void; planTaskId?: string; onApplyPlan?: (steps: any[]) => void; turnCost?: number; turnInputTokens?: number; turnOutputTokens?: number }) {
   const { text, options } = parseOptions(content)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [submitted, setSubmitted] = useState(false)
@@ -32,10 +31,25 @@ const AssistantMessage = memo(function AssistantMessage({ content, isStreaming, 
     return null
   }, [content, isStreaming, planTaskId])
 
+  const costLabel = !isStreaming && turnCost != null && turnCost >= 0.00001
+    ? (turnCost < 0.01 ? '$' + turnCost.toFixed(4) : '$' + turnCost.toFixed(3))
+    : null
+  const costTitle = turnInputTokens != null
+    ? `↑${turnInputTokens.toLocaleString()} in  ↓${(turnOutputTokens ?? 0).toLocaleString()} out`
+    : undefined
+
   return <>
     <div className={`pidash-msg-content msg-content px-3.5 py-2.5 text-sm leading-relaxed rounded-lg bg-card border border-border text-text rounded-bl-[4px] shadow-[inset_0_1px_0_var(--card-hl)] select-text ${isStreaming ? 'streaming-cursor' : ''}`}>
       <MarkdownRenderer content={text} streaming={isStreaming} onFileOpen={onFileOpen} />
     </div>
+    {costLabel && (
+      <div className="flex items-center gap-1 px-1">
+        <span
+          className="text-[11px] font-mono text-muted/50 tabular-nums select-none"
+          title={costTitle}
+        >{costLabel}</span>
+      </div>
+    )}
     {planSteps && onApplyPlan && !applied && (
       <button className="mt-1 px-3 py-1.5 rounded-md text-[13px] font-medium border border-accent text-accent bg-transparent cursor-pointer hover:bg-accent hover:text-white transition-all" onClick={() => { setApplied(true); onApplyPlan(planSteps) }}>
         📋 Use as Plan ({planSteps.length} steps)

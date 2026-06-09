@@ -66,6 +66,12 @@ export interface ChatMessage {
   rawText?: string
   /** Structured metadata for role-specific data (e.g. tool_input for permission messages). */
   meta?: Record<string, unknown>
+  /** Per-turn cost in USD, computed from token delta at turn completion. */
+  turnCost?: number
+  /** Per-turn input token count. */
+  turnInputTokens?: number
+  /** Per-turn output token count. */
+  turnOutputTokens?: number
 }
 
 /** Parsed content block produced by the block assembler. */

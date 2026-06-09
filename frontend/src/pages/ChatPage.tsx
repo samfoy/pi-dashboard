@@ -33,14 +33,40 @@ import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
-import SessionCostBar from './chat/SessionCostBar'
+import ContextWindowBar from './chat/ContextWindowBar'
 import SplitPane from './chat/SplitPane'
-import { SidebarPanelSlot, StatusBarSlot } from '../plugins'
+import { SidebarPanelSlot, StatusBarSlot, useSlotRegistryOrNull } from '../plugins'
 import type { ChatMessage } from '../types'
 
 
 
 
+
+function CollapsibleSidebarPanel({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const registry = useSlotRegistryOrNull()
+  const hasClaims = registry && registry.getClaims('sidebar-panel').length > 0
+  if (!hasClaims) return null
+  return (
+    <div className={`flex flex-col border-l border-border bg-bg transition-all duration-200 shrink-0 ${collapsed ? 'w-7' : 'w-[240px]'}`}>
+      <button
+        className="flex w-7 h-7 items-center justify-center self-start mt-2 bg-transparent border-none text-muted cursor-pointer hover:text-text rounded-md hover:bg-bg-hover transition-colors shrink-0"
+        onClick={onToggle}
+        aria-label={collapsed ? 'Expand workflows panel' : 'Collapse workflows panel'}
+        title={collapsed ? 'Expand workflows panel' : 'Collapse workflows panel'}
+      >
+        <svg viewBox="0 0 24 24" className={`w-4 h-4 stroke-current fill-none transition-transform ${collapsed ? 'rotate-180' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+      </button>
+      {!collapsed && (
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <SidebarPanelSlot />
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ChatPage() {
   const dispatch = useAppDispatch()
@@ -402,9 +428,11 @@ export default function ChatPage() {
   // Sticky-bottom scroll state
   const [isAtBottom, setIsAtBottom] = useState(true)
   const isAtBottomRef = useRef(true)
+  const [newMessageCount, setNewMessageCount] = useState(0)
   const handleAtBottom = useCallback((atBottom: boolean) => {
     setIsAtBottom(atBottom)
     isAtBottomRef.current = atBottom
+    if (atBottom) setNewMessageCount(0)
   }, [])
 
   // followOutput: only auto-scroll when pinned to bottom
@@ -437,12 +465,26 @@ export default function ChatPage() {
       prevSlotRef.current = activeSlot
       setIsAtBottom(true)
       isAtBottomRef.current = true
+      setNewMessageCount(0)
     }
   }, [activeSlot, messages.length, scrollBottom])
 
   // Auto-scroll during streaming — only when pinned to bottom
   const lastMsg = messages[messages.length - 1]
   const isStreaming = lastMsg?.role === 'streaming'
+
+  // Count new assistant messages when scrolled away from bottom
+  const prevMsgCountRef = useRef(messages.length)
+  useEffect(() => {
+    const prev = prevMsgCountRef.current
+    prevMsgCountRef.current = messages.length
+    if (messages.length <= prev) return // slot switch or clear
+    if (isAtBottomRef.current) return   // user is watching, no badge needed
+    // Check if any of the newly arrived messages are from the assistant
+    const newMsgs = messages.slice(prev)
+    const hasAssistant = newMsgs.some(m => m.role === 'assistant' || m.role === 'streaming')
+    if (hasAssistant) setNewMessageCount(c => c + 1)
+  }, [messages])
   const referencedFiles = useReferencedFiles(messages)
 
   const planTaskId = useMemo(() => {
@@ -711,11 +753,17 @@ export default function ChatPage() {
   // Group consecutive tool messages for collapsible rendering
   const groupedMessages = useMemo(() => groupToolMessages(messages), [messages])
 
+  // Collect queued messages (with their absolute index) for the pills UI above the input
+  const queuedMessages = useMemo(
+    () => messages.map((m, idx) => ({ msg: m, idx })).filter(({ msg }) => msg.role === 'queued'),
+    [messages],
+  )
+
   const renderMessage = useCallback((i: number, m: ChatMessage) => {
     const key = m.ts ? `${m.role}-${m.ts}` : `${m.role}-${i}`
     if (m.role === 'thinking') return <ThinkingBlock key={key} content={m.content} />
     if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} />
-    if (m.role === 'queued') return <div key={key} className="bg-warn-subtle border border-warn/15 rounded-md px-3 py-2 text-[13px] text-warn italic animate-scale-in">⏳ <em>Queued:</em> {m.content}</div>
+    if (m.role === 'queued') return null // rendered as pills above the input, not inline
     if (m.role === 'error') return <div key={key} className="bg-danger-subtle text-danger text-[13px] px-3 py-2 rounded-md border border-danger/15 self-center animate-scale-in">{m.content}</div>
     if (m.role === 'system') return <SystemMessage key={key} content={m.content} meta={m.meta} />
     if (m.role === 'permission') {
@@ -770,7 +818,7 @@ export default function ChatPage() {
               })}
             </div>
           ) : (
-            <AssistantMessage content={m.content} isStreaming={isStreaming} slotRunning={slotRunning} onOption={send} onFileOpen={handleFileOpen} planTaskId={planTaskId} onApplyPlan={async (steps: any[]) => {
+            <AssistantMessage content={m.content} isStreaming={isStreaming} slotRunning={slotRunning} onOption={send} onFileOpen={handleFileOpen} planTaskId={planTaskId} turnCost={m.turnCost} turnInputTokens={m.turnInputTokens} turnOutputTokens={m.turnOutputTokens} onApplyPlan={async (steps: any[]) => {
               const r = await api.planFromChat(steps, planTaskId)
               if (r.ok) navigate('/tasks?applied=' + (r.task_id || planTaskId))
               else alert(r.error || 'Failed to apply plan')
@@ -786,6 +834,8 @@ export default function ChatPage() {
   }, [messages, pendingApproval, slotRunning, approve, send, handleFileOpen, chatConfig, navigate, planTaskId])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('mc-chat-sidebar') === '1')
+  const [workflowsPanelCollapsed, setWorkflowsPanelCollapsed] = useState(() => localStorage.getItem('mc-workflows-panel') === '1')
+  const toggleWorkflowsPanel = useCallback(() => setWorkflowsPanelCollapsed(p => { const next = !p; localStorage.setItem('mc-workflows-panel', next ? '1' : '0'); return next }), [])
 
   return (
     <div className="flex flex-1 min-h-0 h-full">
@@ -994,7 +1044,7 @@ export default function ChatPage() {
                 </div>
               )}
               <div className="flex-1 min-h-0 flex flex-col" style={{ display: showTerminal ? 'flex' : 'none' }}><TerminalPage /></div>
-              {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col">
+              {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col relative">
               {showSearch && (
                 <MessageSearch
                   messages={messages}
@@ -1090,15 +1140,24 @@ export default function ChatPage() {
             />
             )}
             {!isAtBottom && messages.length > 0 && (
-              <div className="flex justify-center py-1.5">
+              <div className="absolute bottom-2 right-4 z-10">
                 <button
-                  className="px-3 py-1.5 rounded-full bg-accent text-white text-[13px] font-medium shadow-lg cursor-pointer border-none hover:bg-accent-hover transition-all flex items-center gap-1"
-                  onClick={() => { setIsAtBottom(true); isAtBottomRef.current = true; scrollBottom() }}
+                  className="relative w-9 h-9 rounded-full bg-accent text-white shadow-lg cursor-pointer border-none hover:bg-accent-hover transition-all flex items-center justify-center"
+                  onClick={() => { setNewMessageCount(0); setIsAtBottom(true); isAtBottomRef.current = true; scrollBottom() }}
                   aria-label="Scroll to bottom"
-                >↓ Bottom</button>
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 stroke-current fill-none" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  {newMessageCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                      {newMessageCount > 99 ? '99+' : newMessageCount}
+                    </span>
+                  )}
+                </button>
               </div>
             )}
-            {tokenStats && <SessionCostBar stats={tokenStats} />}
+            {tokenStats && <ContextWindowBar stats={tokenStats} contextUsage={contextUsage} />}
             <SubagentDock />
             {prefillHint && (
               <div className="flex items-center gap-2 px-5 py-2 bg-accent/10 border-t border-accent/30">
@@ -1189,6 +1248,16 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
+                {queuedMessages.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {queuedMessages.map(({ msg, idx }) => (
+                      <div key={idx} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-warn-subtle border border-warn/30 text-warn text-[12px] font-medium max-w-[280px] animate-scale-in" title="Queued in pi as a follow-up">
+                        <span className="text-[11px] opacity-70 shrink-0">{'\u23f3'}</span>
+                        <span className="truncate">{msg.content.length > 40 ? msg.content.slice(0, 40) + '…' : msg.content}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <textarea ref={inputRef} aria-label="Message input" className={`bg-bg-elevated border border-border rounded-lg px-4 py-3 text-text text-base md:text-sm font-body outline-none min-h-[44px] leading-normal transition-all focus-ring placeholder:text-muted overflow-hidden ${prefillHint ? 'resize-y max-h-[50vh]' : 'resize-none max-h-[140px]'} ${slotStopping ? 'opacity-40 pointer-events-none' : ''}`} placeholder={slotStopping ? 'Stopping…' : pendingImages.length > 0 ? 'Add a message about the image(s)…' : pendingFiles.length > 0 ? 'Add a message about the file(s)…' : 'Message Pi…'} rows={1} value={input}
                 onPaste={handlePaste}
                 onDragOver={e => { e.preventDefault(); e.stopPropagation() }}
@@ -1217,7 +1286,7 @@ export default function ChatPage() {
           </>
         )}
       </div>
-      <SidebarPanelSlot />
+      <CollapsibleSidebarPanel collapsed={workflowsPanelCollapsed} onToggle={toggleWorkflowsPanel} />
       {splitSlot && slots.some(s => s.key === splitSlot) && (
         <SplitPane slotKey={splitSlot} onClose={() => setSplitSlot(null)} onFileOpen={handleFileOpen} />
       )}

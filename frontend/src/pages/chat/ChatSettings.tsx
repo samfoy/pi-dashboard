@@ -112,10 +112,10 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
               <span className="text-[12px] text-muted">Model</span>
               <select className="bg-bg-elevated border border-border rounded-md px-2 py-1.5 text-[13px] text-text outline-none cursor-pointer font-mono" value={currentModel || ''} onChange={e => handleModelChange(e.target.value)}>
                 {!currentModel && <option value="">—</option>}
-                {pinnedModels.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{m.name || m.id}</option>)}
+                {pinnedModels.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{`${m.provider} → ${m.name || m.id}`}</option>)}
                 {showAllModels && otherModels.length > 0 && (
                   <optgroup label="All Models">
-                    {otherModels.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{m.name || m.id}</option>)}
+                    {otherModels.map(m => <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>{`${m.provider} → ${m.name || m.id}`}</option>)}
                   </optgroup>
                 )}
               </select>

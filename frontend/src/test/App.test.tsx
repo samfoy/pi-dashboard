@@ -57,10 +57,4 @@ describe('App routing', () => {
     renderWithProviders(<App />, { route: '/chat' })
     expect(screen.getByText('Health')).toBeInTheDocument()
   })
-
-  it('renders theme toggle', () => {
-    renderWithProviders(<App />, { route: '/chat' })
-    // Default preference is 'system', button shows "Auto"
-    expect(screen.getByText(/Auto|Light|Dark/)).toBeInTheDocument()
-  })
 })

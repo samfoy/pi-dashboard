@@ -59,7 +59,7 @@ export function useTheme() {
   }, [])
 
   const cycle = useCallback(() => {
-    const order: (ThemeId | 'system')[] = ['system', ...THEMES.map(t => t.id)]
+    const order: (ThemeId | 'system')[] = ['system', 'light', 'dark']
     const idx = order.indexOf(preference)
     const next = order[(idx + 1) % order.length]
     setTheme(next)

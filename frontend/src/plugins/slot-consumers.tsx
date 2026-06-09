@@ -139,3 +139,27 @@ export function StatusBarSlot() {
     </>
   )
 }
+
+/**
+ * Renders a plugin component for a custom message type emitted by
+ * `pi.sendMessage({ customType, content, details })`. Falls back to
+ * `null` if no plugin claims the given customType — the caller
+ * (SystemMessage.tsx) can then apply its own hardcoded rendering.
+ */
+export function SystemMessageRendererSlot({
+  customType,
+  content,
+  meta,
+}: {
+  customType: string
+  content: string
+  meta?: Record<string, unknown>
+}) {
+  const registry = useSlotRegistryOrNull()
+  if (!registry) return null
+  const claims = registry
+    .getClaims('system-message-renderer')
+    .filter(c => c.customType === customType)
+  if (!claims.length) return null
+  return renderClaim(claims[0], 'system-message-renderer', { customType, content, meta })
+}

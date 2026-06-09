@@ -9,7 +9,7 @@ import { BUILTIN_THEMES } from '../themes'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
 import { SettingsSectionSlot } from '../plugins/slot-consumers'
 import { ACTIONS, formatKey, setShortcut, resetShortcut, resetAllShortcuts, hasCustomShortcuts, subscribeShortcuts, eventToKeyString, type ActionCategory } from '../shortcuts'
-import { normalizeConcreteModelPattern, splitModelFullId, splitThinkingSuffix } from '../utils/modelUtils'
+import { splitModelFullId, splitThinkingSuffix } from '../utils/modelUtils'
 
 type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer' | 'shortcuts'
 
@@ -202,13 +202,10 @@ function usePiSettings() {
 /* ── MODEL TAB ── */
 function ModelTab() {
   const { settings, feedback, set, setNested, save } = usePiSettings()
-  const [providers, setProviders] = useState<string[]>([])
+  const [availableModels, setAvailableModels] = useState<{ id: string; name?: string; provider: string }[]>([])
 
   useEffect(() => {
-    api.models().then((d: any) => {
-      const provs = Array.from(new Set((d.models || []).map((m: any) => m.provider).filter(Boolean))) as string[]
-      setProviders(provs.sort())
-    }).catch(() => {})
+    fetch('/api/models').then(j).then(r => setAvailableModels(r?.models || [])).catch(() => {})
   }, [])
 
   if (!settings) return <div className="text-muted text-[13px] py-4">Loading settings…</div>
@@ -218,14 +215,21 @@ function ModelTab() {
     if (!raw) return ''
     return raw.includes('/') ? raw : settings.defaultProvider ? `${settings.defaultProvider}/${raw}` : raw
   })()
-  const enabledModelOptions = Array.from(new Set((settings.enabledModels || [])
-    .map(normalizeConcreteModelPattern)
-    .filter((m): m is string => !!m)))
-  if (currentDefaultModel && !enabledModelOptions.includes(currentDefaultModel)) enabledModelOptions.unshift(currentDefaultModel)
+
+  // Unique providers from /api/models, plus whatever's in settings (extension providers not in the live list)
+  const providers = Array.from(new Set([
+    ...(settings.defaultProvider ? [settings.defaultProvider] : []),
+    ...availableModels.map(m => m.provider),
+  ])).filter(Boolean).sort()
+
+  // Models for the currently-selected provider (fall back to all models if provider is unset)
+  const providerModels = settings.defaultProvider
+    ? availableModels.filter(m => m.provider === settings.defaultProvider)
+    : availableModels
 
   const updateDefaultModel = (value: string) => {
     if (!value) {
-      save({ ...settings, defaultProvider: undefined, defaultModel: undefined })
+      save({ ...settings, defaultModel: undefined })
       return
     }
     const split = splitModelFullId(value)
@@ -243,30 +247,23 @@ function ModelTab() {
       <Card>
         <CardTitle>Default Model <InfoTip text="Provider and model used for new sessions" /></CardTitle>
         <div className="divide-y divide-border">
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <span className="text-[13px] text-text">Default Provider</span>
-              <div className="text-[12px] text-muted/60 mt-0.5">LLM provider for new sessions</div>
-            </div>
-            <select
-              className="bg-bg-elevated border border-border rounded-md px-2 py-1.5 text-[13px] font-mono text-text cursor-pointer min-w-[160px]"
-              value={settings.defaultProvider || ''}
-              onChange={e => {
-                const val = e.target.value
-                save({ ...settings, defaultProvider: val || undefined })
-              }}
-            >
-              <option value="">— default —</option>
-              {providers.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
+          <SelectRow
+            label="Default Provider"
+            hint="LLM provider for new sessions"
+            value={settings.defaultProvider || ''}
+            options={[
+              { value: '', label: '— default —' },
+              ...providers.map(p => ({ value: p, label: p }))
+            ]}
+            onChange={v => set('defaultProvider', v || undefined)}
+          />
           <SelectRow
             label="Default Model"
             hint="Model used for new sessions"
             value={currentDefaultModel}
             options={[
               { value: '', label: '— default —' },
-              ...enabledModelOptions.map(m => ({ value: m, label: m }))
+              ...providerModels.map(m => ({ value: m.id, label: m.name ? `${m.name} (${m.id})` : m.id }))
             ]}
             onChange={updateDefaultModel}
           />

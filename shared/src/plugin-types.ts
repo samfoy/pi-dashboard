@@ -16,6 +16,7 @@ export type SlotId =
   | 'status-bar'
   | 'session-card-badge'
   | 'content-header'
+  | 'system-message-renderer'
 
 // ── Claim entry ──────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ export interface ClaimEntry {
   trigger?: string
   toolName?: string
   tab?: string
+  customType?: string
   config?: Record<string, unknown>
   predicate?: (props: unknown) => boolean
   /** The resolved React component (set at registration time by generated code). */
@@ -53,6 +55,7 @@ export interface PluginManifest {
     tab?: string
     command?: string
     trigger?: string
+    customType?: string
     config?: Record<string, unknown>
   }>
 }

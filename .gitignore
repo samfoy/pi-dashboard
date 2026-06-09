@@ -26,3 +26,6 @@ build/
 # Contains machine-specific absolute paths and would conflict on every cross-machine push.
 frontend/src/generated/plugin-registry.tsx
 .worktrees/
+
+# pi-workflows — project workflow scripts (commit if you want to share them)
+# .pi/workflows/pi-studio-eval.js
