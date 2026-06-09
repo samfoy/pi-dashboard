@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SlotListView: View {
     @Environment(AppState.self) private var appState
+    @Binding var showWorkflows: Bool
     @State private var viewModel: SlotListViewModel?
     @State private var showSettings = false
 
@@ -12,7 +13,8 @@ struct SlotListView: View {
             if let vm = viewModel {
                 SlotListContent(
                     viewModel: vm,
-                    showSettings: $showSettings
+                    showSettings: $showSettings,
+                    showWorkflows: $showWorkflows
                 )
             } else {
                 ProgressView()
@@ -34,6 +36,7 @@ struct SlotListView: View {
 private struct SlotListContent: View {
     @Bindable var viewModel: SlotListViewModel
     @Binding var showSettings: Bool
+    @Binding var showWorkflows: Bool
     @Environment(AppState.self) private var appState
     @State private var renamingSlot: ChatSlot?
     @State private var renameTitle: String = ""
@@ -145,6 +148,13 @@ private struct SlotListContent: View {
                                 } label: {
                                     Label("Tags", systemImage: "tag")
                                 }
+                                if slot.isStreaming {
+                                    Button(role: .destructive) {
+                                        Task { await viewModel.stopGeneration(slotKey: slot.key) }
+                                    } label: {
+                                        Label("Stop", systemImage: "stop.circle")
+                                    }
+                                }
                                 Button(role: .destructive) {
                                     HapticManager.slotDeleted()
                                     Task { await viewModel.delete(slotKey: slot.key) }
@@ -158,6 +168,14 @@ private struct SlotListContent: View {
                                     Task { await viewModel.delete(slotKey: slot.key) }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
+                                }
+                                if slot.isStreaming {
+                                    Button {
+                                        Task { await viewModel.stopGeneration(slotKey: slot.key) }
+                                    } label: {
+                                        Label("Stop", systemImage: "stop.circle")
+                                    }
+                                    .tint(.orange)
                                 }
                             }
                         }
@@ -217,6 +235,11 @@ private struct SlotListContent: View {
                     showSessionHistory = true
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
+                }
+                Button {
+                    showWorkflows = true
+                } label: {
+                    Image(systemName: "gearshape.2")
                 }
             }
         }

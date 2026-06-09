@@ -108,6 +108,9 @@ final class ChatViewModelTests: XCTestCase {
         let vm = makeVM()
         // Seed a streaming placeholder manually by sending a chunk (creates one when none exists)
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: "Hello", seq: nil))
+        // Chunks are coalesced via a frame-throttled flush in production — drain
+        // synchronously here so we can inspect the resulting message state.
+        vm.flushPendingChunks()
 
         XCTAssertEqual(vm.messages.count, 1)
         XCTAssertEqual(vm.messages[0].content, "Hello")
@@ -118,6 +121,7 @@ final class ChatViewModelTests: XCTestCase {
         let vm = makeVM()
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: "Hello", seq: nil))
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: " world", seq: nil))
+        vm.flushPendingChunks()
 
         XCTAssertEqual(vm.messages.count, 1)
         XCTAssertEqual(vm.messages[0].content, "Hello world")
@@ -126,6 +130,7 @@ final class ChatViewModelTests: XCTestCase {
     func testChatChunkSetsIsStreamingTrue() {
         let vm = makeVM()
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: "hi", seq: nil))
+        // isStreaming flips immediately on chunk arrival (UI feedback) — no flush needed.
         XCTAssertTrue(vm.isStreaming)
     }
 
@@ -173,6 +178,7 @@ final class ChatViewModelTests: XCTestCase {
         let vm = makeVM()
         // Start a streaming session
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: "partial", seq: nil))
+        vm.flushPendingChunks()
         XCTAssertEqual(vm.messages.count, 1)
         XCTAssertTrue(vm.messages[0].isStreaming)
 
@@ -403,14 +409,16 @@ final class ChatViewModelTests: XCTestCase {
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: "Hi", seq: nil))
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: " there", seq: nil))
         XCTAssertTrue(vm.isStreaming)
-        XCTAssertEqual(vm.messages[0].content, "Hi there")
 
+        // chatDone drains the buffer via finalizeStreaming’s flush call.
         vm.handle(event: .chatDone(slot: "chat-1-100"))
         XCTAssertFalse(vm.isStreaming)
+        XCTAssertEqual(vm.messages[0].content, "Hi there")
         XCTAssertFalse(vm.messages[0].isStreaming)
 
         // Second cycle — streaming state resets cleanly
         vm.handle(event: .chatChunk(slot: "chat-1-100", content: "Second", seq: nil))
+        vm.flushPendingChunks()
         XCTAssertTrue(vm.isStreaming)
         XCTAssertEqual(vm.messages.count, 2)
         XCTAssertEqual(vm.messages[1].content, "Second")

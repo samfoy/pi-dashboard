@@ -97,25 +97,6 @@ final class LocalNotificationService: NSObject, UNUserNotificationCenterDelegate
         UNUserNotificationCenter.current().add(request)
     }
     
-    /// Notify for a new assistant message (only when app is backgrounded).
-    func notifyNewMessage(slotKey: String, title: String, preview: String) {
-        guard isAuthorized, slotKey != activeSlotKey else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = String(preview.prefix(200))
-        content.sound = nil  // Silent for message chunks
-        content.threadIdentifier = slotKey
-        content.categoryIdentifier = "chat_message"
-        
-        let request = UNNotificationRequest(
-            identifier: "msg-\(slotKey)",  // Same ID = replaces previous for this slot
-            content: content,
-            trigger: nil
-        )
-        UNUserNotificationCenter.current().add(request)
-    }
-    
     /// Clear notifications for a specific slot (when user opens the chat).
     func clearNotifications(forSlot slotKey: String) {
         let center = UNUserNotificationCenter.current()

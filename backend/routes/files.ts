@@ -4,8 +4,9 @@
 import express, { Request, Response } from 'express'
 import { readdirSync, statSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'fs'
 import { readFile, writeFile, mkdir, open, stat } from 'fs/promises'
-import { join, dirname, basename } from 'path'
+import { join, dirname, basename, extname } from 'path'
 import os from 'os'
+import { execFile } from 'child_process'
 import type { RouteDeps } from './types.js'
 
 const expandHome = (p: string | undefined): string | undefined => p && p.startsWith('~/') ? join(os.homedir(), p.slice(2)) : p
@@ -129,7 +130,31 @@ export function registerFileRoutes(deps: RouteDeps): void {
       const name = `${Date.now()}-${safeName}`
       const filePath = join(uploadDir, name)
       await writeFile(filePath, Buffer.from(f.data, 'base64'))
-      paths.push(filePath)
+      // For PDFs: extract text and produce a readable ref file that includes the
+      // original PDF path (so pi can copy it to vault) + the extracted text content.
+      if (extname(safeName).toLowerCase() === '.pdf') {
+        const txtPath = filePath + '.extracted.txt'
+        const refPath = filePath + '.ref.txt'
+        try {
+          await new Promise<void>((resolve, reject) => {
+            execFile('pdf2txt.py', ['-o', txtPath, filePath], { timeout: 15000 }, (err) => {
+              if (err) reject(err)
+              else resolve()
+            })
+          })
+          const extracted = await readFile(txtPath, 'utf-8')
+          const ref = `Attached file: ${safeName}\nFile path (use this to save or copy the PDF): ${filePath}\n\n--- Extracted text ---\n${extracted}`
+          await writeFile(refPath, ref, 'utf-8')
+          paths.push(refPath)
+        } catch {
+          // pdf2txt failed — write a ref file with just the path so pi still knows where it is
+          const ref = `Attached file: ${safeName}\nFile path: ${filePath}\n\n(Text extraction failed — use the fetch_content tool or read the file path above to access this PDF.)`
+          await writeFile(refPath, ref, 'utf-8').catch(() => {})
+          paths.push(refPath)
+        }
+      } else {
+        paths.push(filePath)
+      }
     }
     res.json({ ok: true, paths })
   })

@@ -670,11 +670,104 @@ struct ModelInfo: Decodable, Identifiable, Hashable {
     let name: String?
     let reasoning: Bool?
     let contextWindow: Int?
+    let thinkingLevelMap: ThinkingLevelMap?
 
     var label: String { name ?? id }
+    var fullId: String { "\(provider)/\(id)" }
+    var supportedThinkingLevels: [String] {
+        if reasoning != true { return ["off"] }
+        return ModelInfo.allThinkingLevels.filter { level in
+            let hasMapping = thinkingLevelMap?.contains(level) ?? false
+            let mapped = thinkingLevelMap?.value(for: level)
+            if hasMapping && mapped == nil { return false }
+            if level == "xhigh" { return hasMapping && mapped != nil }
+            return true
+        }
+    }
+
+    static let allThinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh"]
+    private static let thinkingLevelSet = Set(allThinkingLevels)
+
+    static func splitThinkingSuffix(_ pattern: String) -> (modelPattern: String, thinkingLevel: String?) {
+        guard let colon = pattern.lastIndex(of: ":") else { return (pattern, nil) }
+        let suffix = String(pattern[pattern.index(after: colon)...])
+        guard thinkingLevelSet.contains(suffix) else { return (pattern, nil) }
+        return (String(pattern[..<colon]), suffix)
+    }
+
+    func matches(pattern rawPattern: String) -> Bool {
+        let pattern = Self.splitThinkingSuffix(rawPattern.trimmingCharacters(in: .whitespacesAndNewlines)).modelPattern
+        guard !pattern.isEmpty else { return false }
+        let lastSegment = pattern.split(separator: "/").last.map(String.init) ?? pattern
+        if pattern.contains("*") || pattern.contains("?") {
+            return Self.glob(pattern, matches: fullId) || Self.glob(lastSegment, matches: id)
+        }
+        return pattern == fullId || pattern == id || lastSegment == id
+    }
+
+    static func sorted(_ models: [ModelInfo], enabledModels: [String]) -> [ModelInfo] {
+        func rank(_ model: ModelInfo) -> Int {
+            enabledModels.firstIndex { model.matches(pattern: $0) } ?? Int.max
+        }
+        return models.sorted { a, b in
+            let ar = rank(a)
+            let br = rank(b)
+            if ar != br { return ar < br }
+            if a.provider != b.provider { return a.provider < b.provider }
+            return a.label.localizedCaseInsensitiveCompare(b.label) == .orderedAscending
+        }
+    }
+
+    private static func glob(_ pattern: String, matches value: String) -> Bool {
+        var regex = "^"
+        for ch in pattern {
+            switch ch {
+            case "*": regex += ".*"
+            case "?": regex += "."
+            default: regex += NSRegularExpression.escapedPattern(for: String(ch))
+            }
+        }
+        regex += "$"
+        return value.range(of: regex, options: [.regularExpression, .caseInsensitive]) != nil
+    }
 
     // For setModel API call, extract just the model ID portion
     var modelId: String { id }
+}
+
+struct PiSettings: Decodable {
+    let defaultProvider: String?
+    let defaultModel: String?
+    let defaultThinkingLevel: String?
+    let enabledModels: [String]?
+}
+
+struct ThinkingLevelMap: Decodable, Hashable {
+    private let storage: [String: String?]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        var values: [String: String?] = [:]
+        for key in container.allKeys {
+            if try container.decodeNil(forKey: key) {
+                values.updateValue(nil, forKey: key.stringValue)
+            } else {
+                values.updateValue(try container.decode(String.self, forKey: key), forKey: key.stringValue)
+            }
+        }
+        self.storage = values
+    }
+
+    func contains(_ key: String) -> Bool { storage.keys.contains(key) }
+    func value(for key: String) -> String? { storage[key] ?? nil }
+}
+
+struct DynamicCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int? = nil
+
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { return nil }
 }
 
 // MARK: - File I/O

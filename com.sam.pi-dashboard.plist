@@ -23,6 +23,8 @@
         <string>/bin/zsh</string>
         <key>AWS_PROFILE</key>
         <string>openclaw-bedrock</string>
+        <key>BEDROCK_MANTLE_AWS_PROFILE</key>
+        <string>openclaw-bedrock</string>
         <key>AWS_REGION</key>
         <string>us-west-2</string>
         <key>AWS_DEFAULT_REGION</key>

@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var tokenFetchError: String?
     @State private var slotCwds: [String] = []
     @State private var showDefaultModelPicker = false
+    @State private var showLogs = false
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
 
     private func setAppearanceMode(_ mode: Int) {
@@ -224,6 +225,19 @@ struct SettingsView: View {
                         Text(appVersion)
                             .foregroundStyle(.secondary)
                     }
+                    Button {
+                        showLogs = true
+                    } label: {
+                        HStack {
+                            Label("Debug Logs", systemImage: "doc.text.magnifyingglass")
+                            Spacer()
+                            if !Log.entries.isEmpty {
+                                Text("\(Log.entries.count)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                 }
 
                 Section {
@@ -238,6 +252,7 @@ struct SettingsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .sheet(isPresented: $showLogs) { LogView() }
             .sheet(isPresented: $showDefaultModelPicker) {
                 DefaultModelPickerSheet { model in
                     if let model {
@@ -268,7 +283,7 @@ struct SettingsView: View {
         let serverBase = urlText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? appState.serverConfig.baseURL
             : urlText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: "\(serverBase)/api/token") else {
+        guard let url = URL(string: "\(serverBase)/connection-info") else {
             tokenFetchError = "Invalid server URL"
             isFetchingToken = false
             return
@@ -439,8 +454,8 @@ private struct DefaultModelPickerSheet: View {
                         }
                         ForEach(groupedModels, id: \.provider) { section in
                             Section(section.provider) {
-                                ForEach(section.models) { model in
-                                    let modelKey = "\(model.provider)/\(model.modelId)"
+                                ForEach(section.models, id: \.fullId) { model in
+                                    let modelKey = model.fullId
                                     Button {
                                         onSelect(model)
                                         dismiss()
@@ -483,11 +498,13 @@ private struct DefaultModelPickerSheet: View {
         loadError = nil
         do {
             let all = try await appState.apiClient.fetchModels()
+            let piSettings = try? await appState.apiClient.fetchPiSettings()
             // Exclude geographic-prefix duplicates (eu.*, global.*)
-            models = all.filter { m in
+            let filtered = all.filter { m in
                 let id = m.id.lowercased()
                 return !id.hasPrefix("eu.") && !id.hasPrefix("global.")
             }
+            models = ModelInfo.sorted(filtered, enabledModels: piSettings?.enabledModels ?? [])
         } catch {
             loadError = error.localizedDescription
         }

@@ -12,6 +12,7 @@ final class ChatViewModel {
     var inputText: String = ""
     var pendingImages: [PendingImage] = []
     var isStreaming: Bool = false
+    var isStopping: Bool = false
     var isLoadingHistory: Bool = false
     var error: String?
     var tokenStats: TokenStatsDTO?
@@ -25,7 +26,7 @@ final class ChatViewModel {
     var availableModels: [ModelInfo] = []
     var slashCommands: [SlashCommand] = []
     var gitSummary: GitSummaryDTO?
-    static let thinkingLevels = ["off", "minimal", "low", "medium", "high", "xhigh"]
+    static let thinkingLevels = ModelInfo.allThinkingLevels
 
     private let apiClient: APIClient
     private weak var appState: AppState?
@@ -35,6 +36,13 @@ final class ChatViewModel {
     private var watchdogTask: Task<Void, Never>?
     /// Suppress overlapping background reloads.
     private var backgroundReloadInFlight = false
+    /// Buffer of unapplied chunk text. Flushed to the streaming message at most
+    /// once per frame (~33ms) — applying every chunk synchronously caused MainActor
+    /// starvation under fast-streaming models, so chunks accumulated invisibly
+    /// until chat_done freed the render loop.
+    private var pendingChunkBuffer: String = ""
+    private var chunkFlushTask: Task<Void, Never>?
+    private static let chunkFlushIntervalNs: UInt64 = 33_000_000  // ~1 frame @ 30fps
 
     init(slot: ChatSlot, apiClient: APIClient, appState: AppState) {
         self.slotKey = slot.key
@@ -69,11 +77,13 @@ final class ChatViewModel {
         } catch let urlError as URLError where urlError.code == .cancelled {
             // Network request cancelled during navigation — ignore
         } catch let error as APIError {
+            Log.error(error, context: "loadHistory(\(slotKey))", category: "ChatVM")
             self.error = error.errorDescription ?? error.localizedDescription
         } catch where isCancellation(error) {
             // Catch-all cancellation guard
         } catch {
-            self.error = "\(type(of: error)): \(error.localizedDescription)"
+            Log.error(error, context: "loadHistory(\(slotKey)) untyped", category: "ChatVM")
+            self.error = "[\(type(of: error))] \(error.localizedDescription)"
         }
         isLoadingHistory = false
         // If a skill command was queued for this slot (e.g. from the skills rail), send it now.
@@ -154,6 +164,7 @@ final class ChatViewModel {
     // MARK: - Stop generation
 
     func stop() async {
+        isStopping = true
         do {
             try await apiClient.stopGeneration(slot: slotKey)
         } catch where isCancellation(error) {
@@ -168,13 +179,21 @@ final class ChatViewModel {
     func loadModels() async {
         do {
             let allModels = try await apiClient.fetchModels()
+            let piSettings = try? await apiClient.fetchPiSettings()
             // Exclude geographic-prefix duplicates (eu.*, global.*) — same model, different routing
-            availableModels = allModels.filter { m in
+            let filtered = allModels.filter { m in
                 let id = m.id.lowercased()
                 return !id.hasPrefix("eu.") && !id.hasPrefix("global.")
             }
+            availableModels = ModelInfo.sorted(filtered, enabledModels: piSettings?.enabledModels ?? [])
+            if let slotModel = slot.model {
+                currentModel = availableModels.first { $0.fullId == slotModel }
+            }
+            if let currentModel, !currentModel.supportedThinkingLevels.contains(thinkingLevel) {
+                thinkingLevel = Self.clampThinkingLevel(thinkingLevel, for: currentModel)
+            }
         } catch {
-            print("[ChatVM] Failed to load models: \(error)")
+            Log.error(error, context: "loadModels", category: "ChatVM")
         }
     }
 
@@ -182,7 +201,7 @@ final class ChatViewModel {
         do {
             slashCommands = try await apiClient.fetchSlashCommands()
         } catch {
-            print("[ChatVM] Failed to load slash commands: \(error)")
+            Log.error(error, context: "loadSlashCommands", category: "ChatVM")
         }
     }
 
@@ -190,6 +209,12 @@ final class ChatViewModel {
         do {
             try await apiClient.setModel(slot: slotKey, provider: model.provider, modelId: model.modelId)
             currentModel = model
+            slot.model = model.fullId
+            if !model.supportedThinkingLevels.contains(thinkingLevel) {
+                let clamped = Self.clampThinkingLevel(thinkingLevel, for: model)
+                try? await apiClient.setThinking(slot: slotKey, level: clamped)
+                thinkingLevel = clamped
+            }
             HapticManager.messageSent()
         } catch where isCancellation(error) {
             // ignore
@@ -200,14 +225,30 @@ final class ChatViewModel {
 
     func setThinking(_ level: String) async {
         do {
-            try await apiClient.setThinking(slot: slotKey, level: level)
-            thinkingLevel = level
+            let clamped = currentModel.map { Self.clampThinkingLevel(level, for: $0) } ?? level
+            try await apiClient.setThinking(slot: slotKey, level: clamped)
+            thinkingLevel = clamped
             HapticManager.messageSent()
         } catch where isCancellation(error) {
             // ignore
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    static func clampThinkingLevel(_ level: String, for model: ModelInfo) -> String {
+        let available = model.supportedThinkingLevels
+        if available.contains(level) { return level }
+        guard let requested = thinkingLevels.firstIndex(of: level) else { return available.first ?? "off" }
+        for i in requested..<thinkingLevels.count where available.contains(thinkingLevels[i]) {
+            return thinkingLevels[i]
+        }
+        if requested > 0 {
+            for i in stride(from: requested - 1, through: 0, by: -1) where available.contains(thinkingLevels[i]) {
+                return thinkingLevels[i]
+            }
+        }
+        return available.first ?? "off"
     }
 
     func refreshGitSummary() async {
@@ -266,11 +307,11 @@ final class ChatViewModel {
                 await MainActor.run {
                     self.reconcileMessages(result.messages, running: result.running)
                     if let stats = result.tokenStats { self.tokenStats = stats }
-                    print("[ChatVM] backgroundReload (\(reason)) → \(result.messages.count) msgs, running=\(result.running)")
+                    Log.debug("backgroundReload(\(reason)) → \(result.messages.count) msgs running=\(result.running)", category: "ChatVM")
                 }
             } catch {
                 // Quiet — best-effort backfill.
-                print("[ChatVM] backgroundReload failed: \(error.localizedDescription)")
+                Log.error(error, context: "backgroundReload", category: "ChatVM")
             }
         }
     }
@@ -280,6 +321,10 @@ final class ChatViewModel {
     /// watching. After reload, if the server reports the slot is idle and we
     /// still thought we were streaming, clear the streaming state.
     private func reconcileMessages(_ serverMessages: [ChatMessage], running: Bool) {
+        // Drain any in-flight chunk buffer into our local placeholder before
+        // diffing against the server view; otherwise buffered text would be
+        // applied to the merged messages array after we've already overwritten it.
+        flushPendingChunks()
         // If we have a streaming placeholder whose content is ahead of or equal
         // to the server's last assistant message, keep ours; otherwise take server.
         if let sid = streamingMessageId, let localIdx = messages.firstIndex(where: { $0.id == sid }) {
@@ -302,6 +347,51 @@ final class ChatViewModel {
             streamingMessageId = nil
             isStreaming = false
             heartbeatStallMs = nil
+        }
+    }
+
+    /// Drain the pending chunk buffer into the streaming message. Safe to call
+    /// multiple times; cheap when the buffer is empty. Always called via the
+    /// throttled flush task or synchronously before any event that replaces
+    /// the streaming placeholder (chat_done, chat_message, tool_call, error).
+    func flushPendingChunks() {
+        chunkFlushTask?.cancel()
+        chunkFlushTask = nil
+        let pending = pendingChunkBuffer
+        guard !pending.isEmpty else { return }
+        pendingChunkBuffer = ""
+
+        if let id = streamingMessageId,
+           let i = messages.firstIndex(where: { $0.id == id }) {
+            messages[i].content += pending
+            return
+        }
+        // No streaming placeholder yet — create one. A queued user message,
+        // if any, is now being processed.
+        if let qi = messages.firstIndex(where: { $0.role == .user && $0.isQueued }) {
+            messages[qi].isQueued = false
+        }
+        let newId = UUID()
+        streamingMessageId = newId
+        messages.append(ChatMessage(
+            id: newId,
+            slotKey: slotKey,
+            role: .assistant,
+            content: pending,
+            isStreaming: true
+        ))
+    }
+
+    private func scheduleChunkFlush() {
+        guard chunkFlushTask == nil else { return }
+        chunkFlushTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: ChatViewModel.chunkFlushIntervalNs)
+            if Task.isCancelled { return }
+            await MainActor.run {
+                guard let self else { return }
+                self.chunkFlushTask = nil
+                self.flushPendingChunks()
+            }
         }
     }
 
@@ -396,49 +486,43 @@ final class ChatViewModel {
     // MARK: - Private streaming helpers
 
     private func appendStreamingChunk(_ chunk: String) {
-        // Any real chunk clears the heartbeat stall indicator.
-        heartbeatStallMs = nil
+        // Any real chunk clears the heartbeat stall indicator. Guard the write
+        // so we don't invalidate SwiftUI observers on every chunk when the
+        // value is already nil.
+        if heartbeatStallMs != nil { heartbeatStallMs = nil }
         lastStreamEventAt = Date()
-        startStreamingWatchdog()
-        // If we have an existing streaming message, append to it
-        if let id = streamingMessageId,
-           let i = messages.firstIndex(where: { $0.id == id }) {
-            messages[i].content += chunk
-            isStreaming = true
-            return
-        }
-        // New turn starting — if there are queued user messages, the oldest one
-        // is now being processed by pi. Clear its queued flag.
-        if let qi = messages.firstIndex(where: { $0.role == .user && $0.isQueued }) {
-            messages[qi].isQueued = false
-        }
-        // No streaming message yet — create one (handles chunks arriving
-        // before send() or for an already-running session)
-        let newId = UUID()
-        streamingMessageId = newId
-        let msg = ChatMessage(
-            id: newId,
-            slotKey: slotKey,
-            role: .assistant,
-            content: chunk,
-            isStreaming: true
-        )
-        messages.append(msg)
-        isStreaming = true
+        // isStreaming is the spinner / send-button gate — flip it on first chunk
+        // so UI feedback is immediate; subsequent toggles are no-ops thanks to
+        // @Observable's didSet equality check on identical values.
+        if !isStreaming { isStreaming = true }
+        if watchdogTask == nil { startStreamingWatchdog() }
+        // Buffer the chunk and let the throttled flush apply it on the next
+        // frame. This prevents chunk-rate body invalidations from pinning the
+        // main thread and starving SwiftUI's render commit.
+        pendingChunkBuffer += chunk
+        scheduleChunkFlush()
     }
 
     private func finalizeStreaming() {
+        // Drain any buffered chunks before tearing down the placeholder so
+        // we don't lose the last few characters of the response.
+        flushPendingChunks()
         if let id = streamingMessageId,
            let i = messages.firstIndex(where: { $0.id == id }) {
             messages[i].isStreaming = false
         }
         streamingMessageId = nil
         isStreaming = false
+        isStopping = false
         heartbeatStallMs = nil
         stopStreamingWatchdog()
     }
 
     private func handleInboundMessage(role: String, content: String, ts: String?, meta: MessageMetaDTO?) {
+        // If this message is going to replace or sit alongside a streaming
+        // placeholder, drain buffered chunks first so they aren't applied to
+        // a different (or no) placeholder afterwards.
+        flushPendingChunks()
         let date = ts.flatMap { isoDate(from: $0) } ?? Date()
         let msgRole = MessageRole(rawValue: role) ?? .assistant
         let msg = ChatMessage(
@@ -476,6 +560,10 @@ final class ChatViewModel {
     }
 
     private func handleToolCall(tool: String, id: String, args: AnyCodable?) {
+        // Drain buffered chunks into the streaming text bubble before closing it
+        // — otherwise the tail end of the assistant's pre-tool-call text gets
+        // discarded when streamingMessageId is cleared below.
+        flushPendingChunks()
         // Finalize any open streaming text message (text chunk is done) but keep
         // isStreaming=true — the agent is still running (tool calls are mid-turn).
         if let sid = streamingMessageId,

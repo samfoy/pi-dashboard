@@ -128,7 +128,7 @@ final class WebSocketManager: ObservableObject {
     }
 
     private func forceReconnect(reason: String) {
-        print("[WS] Force reconnect: \(reason)")
+        Log.warning("force reconnect: \(reason)", category: "WS")
         reconnectTask?.cancel()
         heartbeatTask?.cancel()
         heartbeatTask = nil
@@ -203,7 +203,7 @@ final class WebSocketManager: ObservableObject {
                 }
 
                 if !result {
-                    print("[WS] Heartbeat failed — forcing reconnect")
+                    Log.warning("heartbeat failed — forcing reconnect", category: "WS")
                     task.cancel(with: .goingAway, reason: nil)
                     // receiveLoop's `try await task.receive()` will throw, breaking the loop.
                     break
@@ -219,7 +219,7 @@ final class WebSocketManager: ObservableObject {
                 switch message {
                 case .string(let text):
                     if let event = decode(text) {
-                        print("[WS] Event: \(envelope(text))")
+                        Log.debug("event: \(envelope(text))", category: "WS")
                         eventContinuation?.yield(event)
                     }
                 case .data(let data):

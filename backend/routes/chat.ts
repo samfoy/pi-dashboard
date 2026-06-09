@@ -322,15 +322,20 @@ export function registerChatRoutes(deps: RouteDeps): void {
       let memoryBlock = ''
       let memoryStats = { semantic: 0, lessons: 0 }
       try {
+        // pi-memory bundles to a single dist/index.js (esbuild) — older code
+        // tried req('./dist/store.js') / './dist/injector.js' which never
+        // existed. Use the bundled exports instead, and fall back to npm-
+        // installed copy when the local Projects checkout is missing.
         const piMemoryCandidates = [
           join(os.homedir(), 'Projects', 'pi-memory'),
           join(os.homedir(), 'scratch', 'pi-memory'),
+          '/opt/homebrew/lib/node_modules/@samfp/pi-memory',
         ]
-        const piMemoryPkg = piMemoryCandidates.find(p => { try { statSync(join(p, 'package.json')); return true } catch { return false } }) || piMemoryCandidates[0]
-        const Module = await import('module')
-        const req = Module.default.createRequire(join(piMemoryPkg, 'package.json'))
-        const { MemoryStore } = req('./dist/store.js')
-        const { buildContextBlock } = req('./dist/injector.js')
+        const piMemoryPkg = piMemoryCandidates.find(p => {
+          try { statSync(join(p, 'dist', 'index.js')); return true } catch { return false }
+        })
+        if (!piMemoryPkg) throw new Error('pi-memory dist/index.js not found in any candidate path')
+        const { MemoryStore, buildContextBlock } = await import(join(piMemoryPkg, 'dist', 'index.js'))
         let dbPath = join(os.homedir(), '.pi', 'memory', 'memory.db')
         try {
           const localSettings = JSON.parse(readFileSync(join(cwd, '.pi', 'settings.json'), 'utf-8'))

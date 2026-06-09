@@ -9,6 +9,7 @@ import { BUILTIN_THEMES } from '../themes'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
 import { SettingsSectionSlot } from '../plugins/slot-consumers'
 import { ACTIONS, formatKey, setShortcut, resetShortcut, resetAllShortcuts, hasCustomShortcuts, subscribeShortcuts, eventToKeyString, type ActionCategory } from '../shortcuts'
+import { normalizeConcreteModelPattern, splitModelFullId, splitThinkingSuffix } from '../utils/modelUtils'
 
 type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer' | 'shortcuts'
 
@@ -200,8 +201,31 @@ function usePiSettings() {
 
 /* ── MODEL TAB ── */
 function ModelTab() {
-  const { settings, feedback, set, setNested } = usePiSettings()
+  const { settings, feedback, set, setNested, save } = usePiSettings()
   if (!settings) return <div className="text-muted text-[13px] py-4">Loading settings…</div>
+
+  const currentDefaultModel = (() => {
+    const raw = settings.defaultModel ? splitThinkingSuffix(settings.defaultModel).modelPattern : ''
+    if (!raw) return ''
+    return raw.includes('/') ? raw : settings.defaultProvider ? `${settings.defaultProvider}/${raw}` : raw
+  })()
+  const enabledModelOptions = Array.from(new Set((settings.enabledModels || [])
+    .map(normalizeConcreteModelPattern)
+    .filter((m): m is string => !!m)))
+  if (currentDefaultModel && !enabledModelOptions.includes(currentDefaultModel)) enabledModelOptions.unshift(currentDefaultModel)
+
+  const updateDefaultModel = (value: string) => {
+    if (!value) {
+      save({ ...settings, defaultProvider: undefined, defaultModel: undefined })
+      return
+    }
+    const split = splitModelFullId(value)
+    if (split) {
+      save({ ...settings, defaultProvider: split.provider, defaultModel: split.modelId })
+    } else {
+      save({ ...settings, defaultModel: value })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -220,12 +244,12 @@ function ModelTab() {
           <SelectRow
             label="Default Model"
             hint="Model used for new sessions"
-            value={settings.defaultModel || ''}
+            value={currentDefaultModel}
             options={[
               { value: '', label: '— default —' },
-              ...(settings.enabledModels || []).map(m => ({ value: m.split('/').pop() || m, label: m }))
+              ...enabledModelOptions.map(m => ({ value: m, label: m }))
             ]}
-            onChange={v => set('defaultModel', v || undefined)}
+            onChange={updateDefaultModel}
           />
         </div>
       </Card>
@@ -264,7 +288,7 @@ function ModelTab() {
 
       <Card>
         <CardTitle>Enabled Models <InfoTip text="Glob patterns to filter which models appear in the model picker. Empty = all models." /></CardTitle>
-        <div className="text-[12px] text-muted/60 mb-2">One pattern per line. Supports wildcards (e.g. <code className="font-mono text-text">claude-*</code>, <code className="font-mono text-text">*/gpt-4o</code>)</div>
+        <div className="text-[12px] text-muted/60 mb-2">One pattern per line. Supports wildcards and optional thinking suffixes (e.g. <code className="font-mono text-text">bedrock-mantle/openai.gpt-5.5:xhigh</code>, <code className="font-mono text-text">*/gpt-4o</code>)</div>
         <textarea
           className="w-full bg-bg-elevated border border-border rounded-md p-3 text-[13px] font-mono text-text resize-none outline-none focus-ring leading-relaxed min-h-[80px]"
           value={(settings.enabledModels || []).join('\n')}
@@ -272,7 +296,7 @@ function ModelTab() {
             const lines = e.target.value.split('\n')
             set('enabledModels', lines.filter(l => l.trim()))
           }}
-          placeholder="claude-*&#10;*/gpt-4o&#10;anthropic/*"
+          placeholder="bedrock-mantle/openai.gpt-5.5:xhigh&#10;claude-*&#10;anthropic/*"
           spellCheck={false}
         />
       </Card>

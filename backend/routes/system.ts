@@ -13,11 +13,24 @@ import * as piEnv from '../pi-env.js'
 
 const execAsync = promisify(exec)
 const PI_AGENT_DIR = join(os.homedir(), '.pi', 'agent')
+const DASHBOARD_TOKEN_PATH = join(os.homedir(), '.pi', 'dashboard-token')
+
+function getDashboardToken(): string {
+  try { return readFileSync(DASHBOARD_TOKEN_PATH, 'utf-8').trim() } catch { return '' }
+}
 
 export function registerSystemRoutes(deps: RouteDeps): void {
   const { app, manager } = deps
 
   app.get('/api/status', (_req: Request, res: Response) => res.json(manager.status()))
+
+  // iOS / mobile connection info — returns token so the iOS app can be configured
+  app.get('/api/connection-info', (req: Request, res: Response) => {
+    const proto = req.headers['x-forwarded-proto'] || 'http'
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost'
+    const serverURL = `${proto}://${host}`
+    res.json({ token: getDashboardToken(), serverURL })
+  })
 
   app.get('/api/system', async (_req: Request, res: Response) => {
     const mem = os.totalmem()

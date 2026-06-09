@@ -13,7 +13,8 @@ enum APIError: Error, LocalizedError {
         switch self {
         case .invalidURL: return "Invalid server URL"
         case .httpError(let code, let msg): return "HTTP \(code): \(msg ?? "Unknown error")"
-        case .decodingError(let e): return "Decode error: \(e.localizedDescription)"
+        case .decodingError(let e):
+            return "Decode error: \(AppLogger.describe(e))"
         case .networkError(let e): return e.localizedDescription
         case .unknown: return "Unknown error"
         }
@@ -76,9 +77,9 @@ actor APIClient {
             let msgs = response.messages.map { $0.toChatMessage(slotKey: key) }
             return SlotDetailResult(messages: msgs, running: response.running ?? false, tokenStats: response.tokenStats, thinkingLevel: response.thinkingLevel)
         } catch {
-            let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
-            print("[APIClient] Decode error for slot detail: \(error)")
-            print("[APIClient] Response preview: \(preview)")
+            let preview = String(data: data.prefix(300), encoding: .utf8) ?? "(binary)"
+            Log.error(error, context: "fetchSlotDetail(\(key))", category: "Decode")
+            Log.error("Response preview: \(preview)", category: "Decode")
             throw APIError.decodingError(error)
         }
     }
@@ -142,6 +143,13 @@ actor APIClient {
         let data = try await get(url: url)
         let response = try decoder.decode(ModelsResponse.self, from: data)
         return response.models
+    }
+
+    /// `GET /api/pi/settings` → pi agent settings (enabled/default models)
+    func fetchPiSettings() async throws -> PiSettings {
+        let url = try requireURL(path: "/pi/settings")
+        let data = try await get(url: url)
+        return try decoder.decode(PiSettings.self, from: data)
     }
 
     /// `POST /api/chat/slots/:key/model`
@@ -441,27 +449,32 @@ actor APIClient {
     }
 
     private func perform(_ request: URLRequest) async throws -> Data {
+        let method = request.httpMethod ?? "?"
+        let urlStr = request.url?.absoluteString ?? "nil"
         do {
-            print("[APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "nil")")
+            Log.debug("→ \(method) \(urlStr)", category: "Network")
             let (data, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse {
-                print("[APIClient] Response: \(http.statusCode) (\(data.count) bytes)")
+                let level = (200..<300).contains(http.statusCode) ? "✓" : "✗"
+                Log.debug("\(level) \(http.statusCode) \(urlStr) (\(data.count)b)", category: "Network")
                 if !(200..<300).contains(http.statusCode) {
                     let body = String(data: data, encoding: .utf8)
+                    let msg = "HTTP \(http.statusCode) \(method) \(urlStr): \(body?.prefix(200) ?? "")"
+                    Log.error(msg, category: "Network")
                     throw APIError.httpError(http.statusCode, body)
                 }
             }
             return data
         } catch let error as APIError {
-            print("[APIClient] APIError: \(error.errorDescription ?? "")")
+            if case .httpError = error { throw error }  // already logged above
+            Log.error(error, context: "\(method) \(urlStr)", category: "Network")
             throw error
         } catch is CancellationError {
             throw CancellationError()
         } catch let urlError as URLError where urlError.code == .cancelled {
             throw CancellationError()
         } catch {
-            print("[APIClient] Error: \(type(of: error)) \(error.localizedDescription)")
-            print("[APIClient] Error detail: \(error)")
+            Log.error(error, context: "Network \(method) \(urlStr)", category: "Network")
             throw APIError.networkError(error)
         }
     }

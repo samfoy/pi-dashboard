@@ -50,9 +50,27 @@ targets:
         product: NetworkImage
       - package: Highlightr
         product: Highlightr
+      - target: PiDashShare
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sam.pidash
         INFOPLIST_FILE: PiDash/Info.plist
         CODE_SIGN_STYLE: "Automatic"
         DEVELOPMENT_TEAM: "ZBL5RZ37FG"
+
+  PiDashShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PiDashShare
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sam.pidash.ShareExtension
+        INFOPLIST_FILE: PiDashShare/Info.plist
+        CODE_SIGN_STYLE: "Automatic"
+        DEVELOPMENT_TEAM: "ZBL5RZ37FG"
+        CODE_SIGN_ENTITLEMENTS: PiDashShare/PiDashShare.entitlements

@@ -136,9 +136,16 @@ struct IntentNetworking {
 
     // MARK: - HTTP helpers
 
+    private static var authToken: String? {
+        ServerConfig.sharedDefaults.string(forKey: ServerConfig.tokenDefaultsKey)
+    }
+
     private static func get(url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
+        if let token = authToken, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         return try await perform(request)
     }
 
@@ -146,6 +153,9 @@ struct IntentNetworking {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = authToken, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONEncoder().encode(body)
         return try await perform(request)
     }

@@ -18,6 +18,7 @@ struct ChatInputBar: View {
     @Binding var text: String
     @Binding var pendingImages: [PendingImage]
     let isStreaming: Bool
+    var isStopping: Bool = false
     var isDisabled: Bool = false
     var contextPercent: Double? = nil
     var heartbeatStallMs: Int? = nil
@@ -258,31 +259,41 @@ struct ChatInputBar: View {
                     .disabled(isDisabled)
                     .focused($isFocused)
 
+                // Persistent stop button — always shown when streaming regardless of input text
+                if isStreaming {
+                    Button(action: { onStop() }) {
+                        VStack(spacing: 2) {
+                            Image(systemName: isStopping ? "stop.circle" : "stop.circle.fill")
+                                .font(.title)
+                                .foregroundStyle(isStopping ? theme.error.opacity(0.5) : theme.error)
+                                .contentTransition(.symbolEffect(.replace))
+                            if isStopping {
+                                Text("Stopping")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundStyle(theme.error.opacity(0.6))
+                            }
+                        }
+                    }
+                    .disabled(isStopping)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isStopping)
+                }
+
                 let sendIcon: String = {
                     if isQueuingFollowUp { return "arrow.up.circle.fill" }
-                    if isStreaming { return "stop.circle.fill" }
                     return "arrow.up.circle.fill"
                 }()
                 let sendTint: Color = {
                     if isQueuingFollowUp { return theme.accent.opacity(0.85) }
-                    if isStreaming { return theme.error }
                     return canSend ? theme.accent : theme.textSecondary
                 }()
                 Button(action: {
-                    if isQueuingFollowUp {
-                        isFocused = false
-                        onSend()
-                    } else if isStreaming {
-                        onStop()
-                    } else {
-                        isFocused = false
-                        onSend()
-                    }
+                    isFocused = false
+                    onSend()
                 }) {
                     sendButtonLabel(icon: sendIcon, tint: sendTint)
                 }
-                .disabled(!isStreaming && !canSend)
-                .scaleEffect(canSend || isStreaming ? 1.0 : 0.82)
+                .disabled(!canSend)
+                .scaleEffect(canSend ? 1.0 : 0.82)
                 .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: canSend)
             }
             .padding(.horizontal, 12)

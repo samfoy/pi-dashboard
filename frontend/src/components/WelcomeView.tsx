@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import SlashCommandMenu from './SlashCommandMenu'
 import DirTree from './DirTree'
+import { modelLabel } from '../utils/modelUtils'
 
 interface Model {
   id: string
-  name: string
+  name?: string | null
   provider: string
   contextWindow?: number
 }
@@ -62,7 +63,7 @@ export default function WelcomeView({
   const filteredModels = models.filter(m => {
     if (!modelSearch) return true
     const q = modelSearch.toLowerCase()
-    return m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q)
+    return modelLabel(m).toLowerCase().includes(q) || m.id.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q)
   })
 
   // Group models by provider
@@ -101,7 +102,7 @@ export default function WelcomeView({
               <optgroup key={provider} label={provider}>
                 {provModels.map(m => (
                   <option key={`${m.provider}/${m.id}`} value={`${m.provider}/${m.id}`}>
-                    {m.name} {m.contextWindow ? `(${Math.round(m.contextWindow / 1000)}K)` : ''}
+                    {modelLabel(m)} {m.contextWindow ? `(${Math.round(m.contextWindow / 1000)}K)` : ''}
                   </option>
                 ))}
               </optgroup>

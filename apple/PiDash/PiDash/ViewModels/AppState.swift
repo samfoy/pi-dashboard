@@ -174,7 +174,7 @@ final class AppState {
                 }
             }
         } catch {
-            print("[AppState] Failed to load notifications: \(error)")
+            Log.error(error, context: "loadInitialNotifications", category: "AppState")
         }
     }
 
@@ -229,13 +229,13 @@ final class AppState {
         chatViewModels[slotKey] = vm
         notificationService.activeSlotKey = slotKey
         notificationService.clearNotifications(forSlot: slotKey)
-        print("[AppState] Registered VM for slot \(slotKey) (total: \(chatViewModels.count))")
+        Log.debug("registered VM slot=\(slotKey) total=\(chatViewModels.count)", category: "AppState")
     }
 
     func unregisterChatViewModel(for slotKey: String) {
         chatViewModels.removeValue(forKey: slotKey)
         notificationService.activeSlotKey = chatViewModels.keys.first  // nil if none left
-        print("[AppState] Unregistered VM for slot \(slotKey) (total: \(chatViewModels.count))")
+        Log.debug("unregistered VM slot=\(slotKey) total=\(chatViewModels.count)", category: "AppState")
     }
 
     // MARK: - WS Event Handling
@@ -259,7 +259,13 @@ final class AppState {
                 notificationService.notifyChatDone(slotKey: slotKey, title: slots[i].title)
             }
         case .chatChunk(let slotKey, _, _):
-            if let i = slots.firstIndex(where: { $0.key == slotKey }) {
+            // CRITICAL: do NOT mutate updatedAt or isStreaming on every chunk.
+            // Each mutation invalidates appState.slots observation, which forces
+            // RootView → ChatsTab → ChatView to re-evaluate at chunk frequency
+            // (10-50× per second), starving the main thread and preventing the
+            // chat content view from ever committing a paint mid-stream.
+            // Only flip isStreaming on the false → true transition.
+            if let i = slots.firstIndex(where: { $0.key == slotKey }), !slots[i].isStreaming {
                 slots[i].isStreaming = true
                 slots[i].updatedAt = Date()
             }
@@ -269,6 +275,7 @@ final class AppState {
                 slots[i].lastMessage = String(content.prefix(100))
             }
         case .toolCall(let slotKey, _, _, _):
+            // Tool calls are infrequent enough to bump updatedAt safely.
             if let i = slots.firstIndex(where: { $0.key == slotKey }) {
                 slots[i].updatedAt = Date()
             }
@@ -291,7 +298,6 @@ final class AppState {
         // Forward to registered chat view models
         if !chatViewModels.isEmpty {
             for (key, vm) in chatViewModels {
-                print("[AppState] Forwarding event to VM for slot \(key)")
                 vm.handle(event: event)
             }
         }

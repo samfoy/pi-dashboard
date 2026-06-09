@@ -62,20 +62,26 @@ enum BackgroundRefreshService {
     
     /// Poll the server and fire notifications for changes.
     static func poll() async {
-        guard let baseURL = UserDefaults.standard.string(forKey: "serverBaseURL")
+        let sharedDefaults = UserDefaults(suiteName: "group.com.sam.pidash") ?? UserDefaults.standard
+        guard let baseURL = sharedDefaults.string(forKey: "serverBaseURL")
                 ?? Optional("http://samuels-macbook-air-1.taile86245.ts.net:7777") else { return }
+        let authToken = sharedDefaults.string(forKey: "serverAuthToken") ?? ""
         
         guard let url = URL(string: "\(baseURL)/api/poll") else { return }
+        var pollRequest = URLRequest(url: url)
+        if !authToken.isEmpty {
+            pollRequest.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+        }
         
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await URLSession.shared.data(for: pollRequest)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return }
             
             let result = try JSONDecoder().decode(PollResponse.self, from: data)
             
             // Check which slots completed since last poll
-            let knownCompleted = Set(UserDefaults.standard.stringArray(forKey: knownCompletedKey) ?? [])
-            let isSeeded = UserDefaults.standard.bool(forKey: seededKey)
+            let knownCompleted = Set(sharedDefaults.stringArray(forKey: knownCompletedKey) ?? [])
+            let isSeeded = sharedDefaults.bool(forKey: seededKey)
             var nowCompleted = Set<String>()
             
             for slot in result.slots {
@@ -98,11 +104,11 @@ enum BackgroundRefreshService {
             
             // Seed the baseline on first poll so subsequent polls detect real changes.
             if !isSeeded {
-                UserDefaults.standard.set(true, forKey: seededKey)
+                sharedDefaults.set(true, forKey: seededKey)
             }
             
             // Notify for unacked notifications from server — dedup by ts
-            var firedIds = Set(UserDefaults.standard.stringArray(forKey: firedNotifIdsKey) ?? [])
+            var firedIds = Set(sharedDefaults.stringArray(forKey: firedNotifIdsKey) ?? [])
             for notif in result.notifications {
                 let notifId = notif.ts ?? UUID().uuidString
                 guard !firedIds.contains(notifId) else { continue }
@@ -117,11 +123,11 @@ enum BackgroundRefreshService {
             }
             // Keep firedIds bounded (last 200)
             let firedArray = Array(firedIds.suffix(200))
-            UserDefaults.standard.set(firedArray, forKey: firedNotifIdsKey)
+            sharedDefaults.set(firedArray, forKey: firedNotifIdsKey)
             
             // Update known state
-            UserDefaults.standard.set(Array(nowCompleted), forKey: knownCompletedKey)
-            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastPollKey)
+            sharedDefaults.set(Array(nowCompleted), forKey: knownCompletedKey)
+            sharedDefaults.set(Date().timeIntervalSince1970, forKey: lastPollKey)
             
         } catch {
             print("[BGRefresh] Poll failed: \(error)")

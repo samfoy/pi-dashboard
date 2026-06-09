@@ -238,7 +238,7 @@ struct CommandPaletteSheet: View {
         if let vm = viewModel {
             let q = searchText.lowercased()
             let models = searchText.isEmpty ? vm.availableModels : vm.availableModels.filter {
-                $0.label.lowercased().contains(q) || $0.provider.lowercased().contains(q)
+                $0.label.lowercased().contains(q) || $0.provider.lowercased().contains(q) || $0.modelId.lowercased().contains(q)
             }
             let grouped = Dictionary(grouping: models) { $0.provider }
                 .sorted { $0.key < $1.key }
@@ -246,7 +246,7 @@ struct CommandPaletteSheet: View {
             List {
                 ForEach(grouped, id: \.key) { provider, providerModels in
                     Section(provider) {
-                        ForEach(providerModels) { model in
+                        ForEach(providerModels, id: \.fullId) { model in
                             Button {
                                 Task { await vm.setModel(model) }
                                 dismiss()
@@ -268,7 +268,7 @@ struct CommandPaletteSheet: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
-                                    if vm.currentModel?.id == model.id {
+                                    if vm.currentModel?.fullId == model.fullId || vm.slot.model == model.fullId {
                                         Image(systemName: "checkmark")
                                             .foregroundStyle(theme.accent)
                                     }
@@ -291,6 +291,7 @@ struct CommandPaletteSheet: View {
         if let vm = viewModel {
             List {
                 ForEach(ChatViewModel.thinkingLevels, id: \.self) { level in
+                    let supported = vm.currentModel?.supportedThinkingLevels.contains(level) ?? true
                     Button {
                         Task { await vm.setThinking(level) }
                         dismiss()
@@ -298,9 +299,9 @@ struct CommandPaletteSheet: View {
                         HStack {
                             Image(systemName: thinkingIcon(level))
                                 .frame(width: 28)
-                                .foregroundStyle(theme.accent)
+                                .foregroundStyle(supported ? theme.accent : .secondary)
                             Text(level.capitalized)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(supported ? .primary : .secondary)
                             Spacer()
                             if vm.thinkingLevel == level {
                                 Image(systemName: "checkmark")
@@ -308,6 +309,7 @@ struct CommandPaletteSheet: View {
                             }
                         }
                     }
+                    .disabled(!supported)
                     .buttonStyle(.plain)
                 }
             }

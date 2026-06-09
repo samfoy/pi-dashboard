@@ -27,6 +27,7 @@ import { ChatFooter, AssistantMessage, ToolGroup, groupToolMessages, ThinkingBlo
 import ChatSidebar from './ChatSidebar'
 
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
+import type { ModelLike } from '../utils/modelUtils'
 import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
@@ -87,7 +88,7 @@ export default function ChatPage() {
 
 
   
-  const [availableModels, setAvailableModels] = useState<{id: string; name: string; provider: string; contextWindow?: number}[]>([])
+  const [availableModels, setAvailableModels] = useState<(ModelLike & { contextWindow?: number })[]>([])
   const [pendingModel, setPendingModel] = useState('')  // agent for next new slot
   const [pendingCwd, setPendingCwd] = useState('')
   const virtuosoRef = useRef<VirtuosoHandle>(null)

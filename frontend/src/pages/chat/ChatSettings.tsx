@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../../api/client'
+import { THINKING_LEVELS, modelFullId, modelPatternMatches, preferredThinkingLevel, supportedThinkingLevels, type ModelLike } from '../../utils/modelUtils'
 
 export interface ChatConfig {
   historyExpanded: boolean
@@ -21,23 +22,22 @@ export function saveChatConfig(cfg: ChatConfig) {
   localStorage.setItem(LS_KEY, JSON.stringify(cfg))
 }
 
-const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh']
-
 interface Props {
   config: ChatConfig
   onChange: (c: ChatConfig) => void
   activeSlot?: string | null
   currentModel?: string | null
   currentThinking?: string | null
-  models?: { id: string; name: string; provider: string }[]
+  models?: ModelLike[]
 }
 
 export default function ChatSettings({ config, onChange, activeSlot, currentModel, currentThinking, models }: Props) {
   const [open, setOpen] = useState(false)
   const [showAllModels, setShowAllModels] = useState(false)
   const [enabledModels, setEnabledModels] = useState<string[]>([])
-  const isOpus = useMemo(() => currentModel ? /opus/i.test(currentModel) : false, [currentModel])
-  const thinkingLevel = currentThinking || (isOpus ? 'xhigh' : 'medium')
+  const currentModelInfo = useMemo(() => models?.find(m => modelFullId(m) === currentModel) || null, [models, currentModel])
+  const availableThinkingLevels = useMemo(() => supportedThinkingLevels(currentModelInfo), [currentModelInfo])
+  const thinkingLevel = currentThinking || preferredThinkingLevel(currentModelInfo, enabledModels, 'medium')
   const btnRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
@@ -54,8 +54,7 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
     const pinned: typeof models = []
     const other: typeof models = []
     for (const m of models) {
-      const fullId = `${m.provider}/${m.id}`
-      if (enabledModels.some(e => fullId === e || m.id === e || m.id === e.split('/').pop())) {
+      if (enabledModels.some(e => modelPatternMatches(e, m))) {
         pinned.push(m)
       } else {
         other.push(m)
@@ -68,9 +67,10 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
   // a value yet — honour whatever the running pi process actually has).
   useEffect(() => {
     if (currentThinking) return
-    const newDefault = isOpus ? 'xhigh' : 'medium'
-    if (activeSlot) api.setSlotThinking(activeSlot, newDefault)
-  }, [isOpus]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!activeSlot || !currentModelInfo) return
+    const newDefault = preferredThinkingLevel(currentModelInfo, enabledModels, 'medium')
+    api.setSlotThinking(activeSlot, newDefault)
+  }, [activeSlot, currentThinking, currentModelInfo, enabledModels])
 
   useEffect(() => {
     if (!open) return
@@ -131,9 +131,10 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
             <div className="flex flex-col gap-1">
               <span className="text-[12px] text-muted">Thinking level</span>
               <div className="flex gap-1">
-                {THINKING_LEVELS.map(l => (
-                  <button key={l} className={`flex-1 px-1 py-1 rounded text-[11px] font-medium border cursor-pointer transition-all ${thinkingLevel === l ? 'bg-accent text-white border-accent' : 'bg-bg-elevated text-muted border-border hover:border-border-strong hover:text-text'}`} onClick={() => handleThinkingChange(l)}>{l}</button>
-                ))}
+                {THINKING_LEVELS.map(l => {
+                  const disabled = !availableThinkingLevels.includes(l)
+                  return <button key={l} disabled={disabled} className={`flex-1 px-1 py-1 rounded text-[11px] font-medium border transition-all ${thinkingLevel === l ? 'bg-accent text-white border-accent' : 'bg-bg-elevated text-muted border-border hover:border-border-strong hover:text-text'} ${disabled ? 'opacity-35 cursor-not-allowed hover:text-muted hover:border-border' : 'cursor-pointer'}`} onClick={() => handleThinkingChange(l)}>{l}</button>
+                })}
               </div>
             </div>
           )}

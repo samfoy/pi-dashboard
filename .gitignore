@@ -25,3 +25,4 @@ build/
 # Generated at build time by dashboardPluginsPlugin (frontend/vite-plugins/dashboard-plugins.ts).
 # Contains machine-specific absolute paths and would conflict on every cross-machine push.
 frontend/src/generated/plugin-registry.tsx
+.worktrees/

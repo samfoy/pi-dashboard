@@ -1,33 +1,16 @@
 import SwiftUI
 
-/// Root view — tab bar with Chats and Workflows.
-/// Each tab owns its own NavigationSplitView / NavigationStack.
+/// Root view — chats with a Workflows sheet accessible from the toolbar.
 struct RootView: View {
     @Environment(AppState.self) private var appState
-    @State private var selectedTab: AppTab = .chats
+    @State private var showWorkflows = false
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            ChatsTab()
-                .tag(AppTab.chats)
-                .tabItem {
-                    Label("Chats", systemImage: "bubble.left.and.bubble.right")
-                }
-
-            WorkflowsTab()
-                .tag(AppTab.workflows)
-                .tabItem {
-                    Label("Workflows", systemImage: "gearshape.2")
-                }
-        }
+        ChatsTab(showWorkflows: $showWorkflows)
+            .sheet(isPresented: $showWorkflows) {
+                WorkflowsTab()
+            }
     }
-}
-
-// MARK: - AppTab
-
-enum AppTab: Hashable {
-    case chats
-    case workflows
 }
 
 // MARK: - ChatsTab
@@ -36,11 +19,12 @@ enum AppTab: Hashable {
 private struct ChatsTab: View {
     @Environment(AppState.self) private var appState
     @State private var columnVisibility = NavigationSplitViewVisibility.all
+    @Binding var showWorkflows: Bool
 
     var body: some View {
         @Bindable var appState = appState
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            SlotListView()
+            SlotListView(showWorkflows: $showWorkflows)
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 360)
         } detail: {
             NavigationStack {

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		01B9A33466EA64DFE5877B91 /* SearchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74447C6661E1A619B03D4C18 /* SearchViewModel.swift */; };
 		01D817C461007EBCF52C5787 /* LineDiffView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DAA311D4727DE3B15770F1 /* LineDiffView.swift */; };
+		0717FFBD7924845AD7FA79BA /* ShareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D827BBABA7E1DC762D34F5A3 /* ShareViewModel.swift */; };
 		0F97F9595C6759D5A45A01F4 /* WorkflowRunDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 883E38B71B2122D6340F2931 /* WorkflowRunDetailView.swift */; };
 		11503C4F14838E3B211E4B4A /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE5F0C47E4102AE435A1B98D /* HealthKitService.swift */; };
 		1238378409A980AA1988538F /* AssistantMessageContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D4D7D6C4DB561619D00CAD4 /* AssistantMessageContent.swift */; };
@@ -17,6 +18,7 @@
 		24806DB610F98A80FC3BE0E9 /* SearchResultsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F28C3416B9C8AAD81CB7E8DB /* SearchResultsView.swift */; };
 		24E8F6F70F26BC3FBE4A8BDF /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E132D16CAF28DCB3B174F28 /* CalendarService.swift */; };
 		2573911977348401137DDA96 /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AAA3212B4C4B2DC1AD5C559 /* LocalNotificationService.swift */; };
+		29F77AA871775CD0B832929F /* LogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23F1A20B88B512C67FC21F28 /* LogView.swift */; };
 		2A3742F5813615FECE00AF38 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 0205208DE628A032B7FC03A5 /* MarkdownUI */; };
 		2C41F770CE1E133AB8AD6A64 /* CheckPiStatusIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48CCCC9CC08E1D08A1A7B8E2 /* CheckPiStatusIntent.swift */; };
 		3049DD06C80C97250B8EF0DB /* SystemMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9DB29049C0B7BF9F84AC64E /* SystemMessageView.swift */; };
@@ -43,6 +45,7 @@
 		907A65175822658595EA7FC5 /* SlashCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C60FEE296873E7810A2906C /* SlashCommand.swift */; };
 		977AFC59317D367DEBA3C618 /* ChatEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FFF6A7E542A794B25A57526 /* ChatEmptyStateView.swift */; };
 		9E826C343BEDE35DB8DA9F78 /* ChatSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = F447C462AA02BA23363BA71B /* ChatSlot.swift */; };
+		A20780292B0101CE23056AD7 /* ShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36F54208DF5542B980A0027 /* ShareView.swift */; };
 		A6771BD726D74F0ECE28A32D /* SlotListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B5DE5265BA22F0B215613C /* SlotListViewModel.swift */; };
 		B3448593FABE47875F7904DA /* TagEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91325F4E1771B2528A81F9F3 /* TagEditorSheet.swift */; };
 		B57D3F87E7A2499E2402965E /* SkillsRailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D45E6C0B725F939996B74A27 /* SkillsRailView.swift */; };
@@ -52,10 +55,13 @@
 		BECE5906E8DBAB7E726CCBF2 /* WorkflowsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44BE1F4B24A787FD7F21FA5A /* WorkflowsViewModel.swift */; };
 		C00B5ADC864C1FF36297C862 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */; };
 		C3E702B869BB720E486311CD /* NetworkImage in Frameworks */ = {isa = PBXBuildFile; productRef = 100E491F5272A14398DEED4C /* NetworkImage */; };
+		C66A91B422F87AA5014B204B /* PiDashShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 788371A341E55F25E52232EA /* PiDashShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD49B269C69BABE939F77B86 /* AppState.swift */; };
 		C756272D812BC761C179B47D /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0887298D39E179DD0FD5986 /* ChatMessage.swift */; };
 		CB06ACC75F082DED10461A0F /* ContactsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F9E3B2F4874A24498C3E33B /* ContactsService.swift */; };
+		D4849796318BF3693FD2C10A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A770AF5030C47C7C8DD285E8 /* ShareViewController.swift */; };
 		D62AD4D2B5DA12A9F9282A12 /* CommandPaletteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5F8753F4F8718234465265 /* CommandPaletteSheet.swift */; };
+		D6ED3BC4AFBF0D97EDD1233C /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44250F21644795288271ACD4 /* AppLogger.swift */; };
 		D74D00F31D2FD729A5CD6BC8 /* InlineImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519D23A51D27EBEE4AE7B00D /* InlineImageView.swift */; };
 		D8C70ECB5E47484F6BB4F9B1 /* SessionHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B5595BF9CE7B191C4011B9 /* SessionHistoryView.swift */; };
 		DA50A60429D0606D519F4751 /* APIModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7329591BD291B8D5E93094E6 /* APIModels.swift */; };
@@ -75,6 +81,30 @@
 		FC6E3F0C6B2656CC2D64AF8E /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC4BB88795149637EA1305F /* EmptyStateView.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		8F5344F9C6599F14D0788D87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F3C83F3BACDF2B76FCEDC61 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9DDB30A3D50949B2F5E6B39C;
+			remoteInfo = PiDashShare;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0CDCD6DC30BB4EBC7C3A931D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				C66A91B422F87AA5014B204B /* PiDashShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		0E132D16CAF28DCB3B174F28 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
 		0EBD7361EF456B5F0436A74A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -83,6 +113,7 @@
 		22694B85988C36300067EA53 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		238BF8BF39C77ED440301D70 /* ToolCallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallView.swift; sourceTree = "<group>"; };
 		23D8B3953FD1381D9884BF6C /* WorkflowsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowsListView.swift; sourceTree = "<group>"; };
+		23F1A20B88B512C67FC21F28 /* LogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogView.swift; sourceTree = "<group>"; };
 		25EF346E0D7D0640CE589D55 /* MarkdownTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownTheme.swift; sourceTree = "<group>"; };
 		28946A6701DF563BB721914B /* BackgroundRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundRefreshService.swift; sourceTree = "<group>"; };
 		2C952B932891A69081772B14 /* AskPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPiIntent.swift; sourceTree = "<group>"; };
@@ -93,12 +124,15 @@
 		3AA39FF90F0008A4838B23D0 /* SystemPromptSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPromptSheet.swift; sourceTree = "<group>"; };
 		3C452C0FBBC4BDEF545341A8 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		3D017AEDBCFD52CCD5A499FF /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		44250F21644795288271ACD4 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		44BE1F4B24A787FD7F21FA5A /* WorkflowsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowsViewModel.swift; sourceTree = "<group>"; };
 		48CCCC9CC08E1D08A1A7B8E2 /* CheckPiStatusIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckPiStatusIntent.swift; sourceTree = "<group>"; };
 		4AAA3212B4C4B2DC1AD5C559 /* LocalNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalNotificationService.swift; sourceTree = "<group>"; };
+		4D090AAEAF050783BFDDB6B4 /* PiDashShare.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashShare.entitlements; sourceTree = "<group>"; };
 		519D23A51D27EBEE4AE7B00D /* InlineImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineImageView.swift; sourceTree = "<group>"; };
 		53726014E532D9828D3B63CC /* GetActiveChatsIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GetActiveChatsIntent.swift; sourceTree = "<group>"; };
 		5A9E46D8D71AA73AA46BF218 /* PiDashShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashShortcuts.swift; sourceTree = "<group>"; };
+		5D40F0F033945A889739E74A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		5D4D7D6C4DB561619D00CAD4 /* AssistantMessageContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantMessageContent.swift; sourceTree = "<group>"; };
 		64FD511FAE1D25366BE99B3F /* ConnectionBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionBanner.swift; sourceTree = "<group>"; };
 		6866FBD30A0F2D4DBFDA8A55 /* SubagentDockSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubagentDockSheet.swift; sourceTree = "<group>"; };
@@ -107,6 +141,7 @@
 		717CC295E1A6ED3DAFC4326F /* APIClient+Workflows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "APIClient+Workflows.swift"; sourceTree = "<group>"; };
 		7329591BD291B8D5E93094E6 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
 		74447C6661E1A619B03D4C18 /* SearchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchViewModel.swift; sourceTree = "<group>"; };
+		788371A341E55F25E52232EA /* PiDashShare.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PiDashShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		789BC0FED50B9B63A997FAA7 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		7FFF6A7E542A794B25A57526 /* ChatEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEmptyStateView.swift; sourceTree = "<group>"; };
 		81FF74731BB0FCBF5DD979F6 /* PiDash.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDash.entitlements; sourceTree = "<group>"; };
@@ -120,11 +155,13 @@
 		A36737BF7D4BC57735B57ABC /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A55A63DAAA5085318A112FC9 /* SlotRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlotRow.swift; sourceTree = "<group>"; };
 		A6C0956DDB33362A723DD498 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		A770AF5030C47C7C8DD285E8 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		AA952F94452AF6ACD4F8E7D7 /* WorkflowModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowModels.swift; sourceTree = "<group>"; };
 		AB26ED87DCA9DA3D5290C8FC /* ForkPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForkPickerSheet.swift; sourceTree = "<group>"; };
 		ABE979D338BBFAC6FCAE7017 /* FileViewerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileViewerSheet.swift; sourceTree = "<group>"; };
 		AF70333902B6EE893FC3174A /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
 		B2F316DA0D49B4A53FC0CE4F /* ChatInputBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInputBar.swift; sourceTree = "<group>"; };
+		B36F54208DF5542B980A0027 /* ShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareView.swift; sourceTree = "<group>"; };
 		B9DB29049C0B7BF9F84AC64E /* SystemMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMessageView.swift; sourceTree = "<group>"; };
 		BBFF5D72F491675D639A0E31 /* PiDash.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PiDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BD49B269C69BABE939F77B86 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -133,6 +170,7 @@
 		CB87FB21C374364D3A414939 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
 		CE5F0C47E4102AE435A1B98D /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		D45E6C0B725F939996B74A27 /* SkillsRailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillsRailView.swift; sourceTree = "<group>"; };
+		D827BBABA7E1DC762D34F5A3 /* ShareViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewModel.swift; sourceTree = "<group>"; };
 		DACF277B8CC99355686B1C6F /* ProjectPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPickerSheet.swift; sourceTree = "<group>"; };
 		DBA38927A210B8A6BFB78498 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
 		E118465ADB43D4E6A8AF59CD /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
@@ -179,6 +217,7 @@
 				81FF74731BB0FCBF5DD979F6 /* PiDash.entitlements */,
 				A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */,
 				3D017AEDBCFD52CCD5A499FF /* RootView.swift */,
+				641AC128F0232113C58E2427 /* Debug */,
 				05889173E299BAFD980030AF /* Intents */,
 				362CDBE2489801C680958006 /* Models */,
 				5FAC22AC1835E9B04C4250FC /* Networking */,
@@ -230,6 +269,18 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		4BC8928640FB63E08755018D /* PiDashShare */ = {
+			isa = PBXGroup;
+			children = (
+				5D40F0F033945A889739E74A /* Info.plist */,
+				4D090AAEAF050783BFDDB6B4 /* PiDashShare.entitlements */,
+				B36F54208DF5542B980A0027 /* ShareView.swift */,
+				A770AF5030C47C7C8DD285E8 /* ShareViewController.swift */,
+				D827BBABA7E1DC762D34F5A3 /* ShareViewModel.swift */,
+			);
+			path = PiDashShare;
+			sourceTree = "<group>";
+		};
 		5280E3E8819BCFFD2393577C /* Chat */ = {
 			isa = PBXGroup;
 			children = (
@@ -263,10 +314,20 @@
 			path = Networking;
 			sourceTree = "<group>";
 		};
+		641AC128F0232113C58E2427 /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				44250F21644795288271ACD4 /* AppLogger.swift */,
+				23F1A20B88B512C67FC21F28 /* LogView.swift */,
+			);
+			path = Debug;
+			sourceTree = "<group>";
+		};
 		8050E845E70EDEAD920DD7C3 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				BBFF5D72F491675D639A0E31 /* PiDash.app */,
+				788371A341E55F25E52232EA /* PiDashShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -316,6 +377,7 @@
 			isa = PBXGroup;
 			children = (
 				0FBD0B08711010CA9B546724 /* PiDash */,
+				4BC8928640FB63E08755018D /* PiDashShare */,
 				8050E845E70EDEAD920DD7C3 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -344,10 +406,12 @@
 				6D6F3F15225EAAC233D3AF45 /* Sources */,
 				5D383E056272AB421E5DE30D /* Resources */,
 				5D7C591675B45D41B1FB4A53 /* Frameworks */,
+				0CDCD6DC30BB4EBC7C3A931D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				1A0921AD09C4D2E59B69BE46 /* PBXTargetDependency */,
 			);
 			name = PiDash;
 			packageProductDependencies = (
@@ -359,6 +423,23 @@
 			productReference = BBFF5D72F491675D639A0E31 /* PiDash.app */;
 			productType = "com.apple.product-type.application";
 		};
+		9DDB30A3D50949B2F5E6B39C /* PiDashShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CE15105865E8461F267FDCC5 /* Build configuration list for PBXNativeTarget "PiDashShare" */;
+			buildPhases = (
+				C4C313A8A935109DE4B41A70 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PiDashShare;
+			packageProductDependencies = (
+			);
+			productName = PiDashShare;
+			productReference = 788371A341E55F25E52232EA /* PiDashShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -369,6 +450,10 @@
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					777CC3B5B79BBAA6C06F1A7A = {
+						DevelopmentTeam = ZBL5RZ37FG;
+						ProvisioningStyle = Automatic;
+					};
+					9DDB30A3D50949B2F5E6B39C = {
 						DevelopmentTeam = ZBL5RZ37FG;
 						ProvisioningStyle = Automatic;
 					};
@@ -394,6 +479,7 @@
 			projectRoot = "";
 			targets = (
 				777CC3B5B79BBAA6C06F1A7A /* PiDash */,
+				9DDB30A3D50949B2F5E6B39C /* PiDashShare */,
 			);
 		};
 /* End PBXProject section */
@@ -417,6 +503,7 @@
 				EEAA7F0C3C69559DBFB0080B /* APIClient+Workflows.swift in Sources */,
 				406290EEA5DD8454C4308998 /* APIClient.swift in Sources */,
 				DA50A60429D0606D519F4751 /* APIModels.swift in Sources */,
+				D6ED3BC4AFBF0D97EDD1233C /* AppLogger.swift in Sources */,
 				C6F915FF86AE9E9E91442954 /* AppState.swift in Sources */,
 				878EB4797E74FBB81BAFE1ED /* AppTheme.swift in Sources */,
 				EA4B3C5C02D14B25B795B0DF /* AskPiIntent.swift in Sources */,
@@ -445,6 +532,7 @@
 				01D817C461007EBCF52C5787 /* LineDiffView.swift in Sources */,
 				2573911977348401137DDA96 /* LocalNotificationService.swift in Sources */,
 				42988D7BC2211B3BC2486CAF /* LocationService.swift in Sources */,
+				29F77AA871775CD0B832929F /* LogView.swift in Sources */,
 				BA98B3CEBA5C03C0AC353ADB /* MarkdownTheme.swift in Sources */,
 				81A79FD9C8ABC818863B101B /* MessageBubble.swift in Sources */,
 				3568E9A59A2673F94DA7A9F2 /* PiDashApp.swift in Sources */,
@@ -479,9 +567,46 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C4C313A8A935109DE4B41A70 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A20780292B0101CE23056AD7 /* ShareView.swift in Sources */,
+				D4849796318BF3693FD2C10A /* ShareViewController.swift in Sources */,
+				0717FFBD7924845AD7FA79BA /* ShareViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		1A0921AD09C4D2E59B69BE46 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9DDB30A3D50949B2F5E6B39C /* PiDashShare */;
+			targetProxy = 8F5344F9C6599F14D0788D87 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		23CC8C00A84F6D61C43FCB06 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PiDashShare/PiDashShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZBL5RZ37FG;
+				INFOPLIST_FILE = PiDashShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sam.pidash.ShareExtension;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		34F62811FD185594390F4777 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -567,6 +692,25 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.sam.pidash;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7A98C3207B3D115DCF3319DB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PiDashShare/PiDashShare.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZBL5RZ37FG;
+				INFOPLIST_FILE = PiDashShare/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sam.pidash.ShareExtension;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -663,6 +807,15 @@
 			buildConfigurations = (
 				9C4CA1313A001B38C4D84083 /* Debug */,
 				401DC73DB6800D2286774FF5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CE15105865E8461F267FDCC5 /* Build configuration list for PBXNativeTarget "PiDashShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				23CC8C00A84F6D61C43FCB06 /* Debug */,
+				7A98C3207B3D115DCF3319DB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

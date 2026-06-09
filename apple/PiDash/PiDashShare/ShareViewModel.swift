@@ -82,7 +82,7 @@ final class ShareViewModel {
     // MARK: Private
     private let extensionContext: NSExtensionContext
     private let serverURL: String
-    private let authToken: String
+    private var authToken: String
     private let session: URLSession
 
     private static let appGroupSuite = "group.com.sam.pidash"
@@ -100,8 +100,14 @@ final class ShareViewModel {
     init(extensionContext: NSExtensionContext) {
         self.extensionContext = extensionContext
         let defaults = UserDefaults(suiteName: Self.appGroupSuite) ?? .standard
-        self.serverURL = defaults.string(forKey: Self.serverKey) ?? Self.defaultServer
-        self.authToken = defaults.string(forKey: Self.tokenKey) ?? ""
+        self.serverURL = defaults.string(forKey: Self.serverKey)
+            ?? UserDefaults.standard.string(forKey: Self.serverKey)
+            ?? Self.defaultServer
+        // Try shared suite first, then standard defaults as fallback (handles devices where
+        // the app group entitlement isn't active, and pre-migration installs).
+        self.authToken = defaults.string(forKey: Self.tokenKey)
+            ?? UserDefaults.standard.string(forKey: Self.tokenKey)
+            ?? ""
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         // Match main app: tolerate self-signed / local-network HTTPS via delegate.
@@ -115,6 +121,20 @@ final class ShareViewModel {
         }
     }
 
+    /// Fetch token from the public /connection-info endpoint and persist it.
+    private func bootstrapToken() async {
+        guard let url = URL(string: "\(serverURL)/connection-info") else { return }
+        guard let (data, response) = try? await session.data(from: url),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let token = json["token"] as? String, !token.isEmpty else { return }
+        authToken = token
+        // Persist so next launch doesn't need to fetch.
+        let defaults = UserDefaults(suiteName: Self.appGroupSuite) ?? .standard
+        defaults.set(token, forKey: Self.tokenKey)
+        UserDefaults.standard.set(token, forKey: Self.tokenKey)
+    }
+
     /// Attach `Authorization: Bearer <token>` if a token is configured.
     private func attachAuth(_ request: inout URLRequest) {
         if !authToken.isEmpty {
@@ -126,6 +146,10 @@ final class ShareViewModel {
 
     func loadContent() async {
         state = .loadingContent
+        // If token is empty (app group not working / first launch), bootstrap from server.
+        if authToken.isEmpty {
+            await bootstrapToken()
+        }
         guard let item = extensionContext.inputItems.first as? NSExtensionItem else {
             state = .error("No content to share.")
             return
@@ -314,6 +338,28 @@ final class ShareViewModel {
                       userInfo: [NSLocalizedDescriptionKey: "Failed to create slot"])
     }
 
+    // MARK: - API: Upload File
+
+    /// Upload binary file data to the server. Returns the server-side path (PDF text is
+    /// extracted server-side; a readable .txt path is returned instead of the raw binary).
+    private func uploadFile(name: String, data: Data) async throws -> String? {
+        guard let url = URL(string: "\(serverURL)/api/upload-files") else { return nil }
+        let b64 = data.base64EncodedString()
+        let payload: [String: Any] = ["files": [["name": name, "data": b64]]]
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        attachAuth(&req)
+        req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let (responseData, response) = try await session.data(for: req)
+        if let http = response as? HTTPURLResponse, http.statusCode >= 400 { return nil }
+        if let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+           let paths = json["paths"] as? [String], let first = paths.first {
+            return first
+        }
+        return nil
+    }
+
     // MARK: - API: Post Message
 
     private func postMessage(slotKey: String) async throws {
@@ -356,10 +402,12 @@ final class ShareViewModel {
                 if !additionalMessage.isEmpty { msgParts.append(additionalMessage) }
                 body["message"] = msgParts.isEmpty ? "Shared image" : msgParts.joined(separator: "\n\n")
             } else {
-                let note = "Attached file: \(name) (\(data.count) bytes)"
-                let content = actionPrefix + note
-                let msg = additionalMessage.isEmpty ? content : "\(additionalMessage)\n\n\(content)"
-                body["message"] = msg
+                // Upload file to server and prepend the returned path to the message
+                let uploadedPath = try await uploadFile(name: name, data: data)
+                let filePrefix = uploadedPath.map { $0 + "\n\n" } ?? ""
+                let content = actionPrefix + filePrefix
+                let msg = additionalMessage.isEmpty ? content.trimmingCharacters(in: .newlines) : "\(additionalMessage)\n\n\(content)".trimmingCharacters(in: .newlines)
+                body["message"] = msg.isEmpty ? name : msg
             }
 
         case nil:

@@ -82,6 +82,10 @@ final class SlotListViewModel {
         await appState.deleteSlot(key: slotKey)
     }
 
+    func stopGeneration(slotKey: String) async {
+        try? await appState.apiClient.stopGeneration(slot: slotKey)
+    }
+
     func rename(slotKey: String, title: String) async {
         await appState.renameSlot(key: slotKey, title: title)
     }

@@ -211,7 +211,7 @@ export function getRecentSessions(limit: number = 30): SessionSummary[] {
 
   return sessions
     .filter(s => !EXCLUDED_PREFIXES.some(p => s.title.startsWith(p)))
-    .sort((a, b) => b.modified.localeCompare(a.modified))
+    .sort((a, b) => b.created.localeCompare(a.created))
     .slice(0, limit)
 }
 

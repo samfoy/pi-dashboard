@@ -8,6 +8,9 @@ import type { SystemData } from '../types'
 
 export default function SystemPage() {
   const [data, setData] = useState<SystemData | null>(null)
+  const [connectionInfo, setConnectionInfo] = useState<{token: string; serverURL: string} | null>(null)
+  const [tokenVisible, setTokenVisible] = useState(false)
+  const [tokenCopied, setTokenCopied] = useState(false)
   const [skills, setSkills] = useState<{name: string; description: string}[]>([])
   const [extensions, setExtensions] = useState<{name: string; file: string; description: string}[]>([])
   const [crontab, setCrontab] = useState<{schedule: string; command: string}[]>([])
@@ -36,6 +39,7 @@ export default function SystemPage() {
     const iv = setInterval(loadSystem, 5000)
     // Load static data once
     fetch('/api/skills').then(j).then(setSkills).catch(() => {})
+    fetch('/api/connection-info').then(j).then(setConnectionInfo).catch(() => {})
     fetch('/api/pi/extensions').then(j).then(setExtensions).catch(() => {})
     fetch('/api/pi/crontab').then(j).then(setCrontab).catch(() => {})
     fetch('/api/pi/vault').then(j).then(setVault).catch(() => {})
@@ -125,6 +129,47 @@ export default function SystemPage() {
                 <Info k="Recipes" v={vault.recipes} />
                 <Info k="Latest" v={vault.recentDaily} />
               </> : <div className="text-muted text-[13px] py-2">Not configured. Set vault path in <a href="#" className="text-accent" onClick={e => { e.preventDefault(); window.location.hash = '/settings' }}>Settings</a>.</div>}
+            </Card>
+            <Card title="📱 Connect iOS">
+              {connectionInfo ? (
+                <>
+                  <div className="text-[12px] text-muted mb-2">Paste into PiDash iOS → Settings</div>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="text-[11px] text-muted mb-0.5">Server URL</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-mono text-accent truncate flex-1">{connectionInfo.serverURL}</span>
+                        <button
+                          className="text-[11px] px-2 py-0.5 rounded bg-card border border-border hover:bg-accent/10 shrink-0"
+                          onClick={() => navigator.clipboard.writeText(connectionInfo.serverURL)}
+                        >Copy</button>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-muted mb-0.5">Auth Token</div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] font-mono truncate flex-1 select-all">
+                          {tokenVisible ? connectionInfo.token : '•'.repeat(16)}
+                        </span>
+                        <button
+                          className="text-[11px] px-2 py-0.5 rounded bg-card border border-border hover:bg-accent/10 shrink-0"
+                          onClick={() => setTokenVisible(v => !v)}
+                        >{tokenVisible ? 'Hide' : 'Show'}</button>
+                        <button
+                          className="text-[11px] px-2 py-0.5 rounded bg-card border border-border hover:bg-accent/10 shrink-0"
+                          onClick={() => {
+                            navigator.clipboard.writeText(connectionInfo.token)
+                            setTokenCopied(true)
+                            setTimeout(() => setTokenCopied(false), 2000)
+                          }}
+                        >{tokenCopied ? '✓' : 'Copy'}</button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-muted text-[13px] py-2">Loading…</div>
+              )}
             </Card>
           </div>
         )}

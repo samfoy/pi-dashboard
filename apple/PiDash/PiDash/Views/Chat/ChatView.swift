@@ -459,6 +459,18 @@ private struct ChatSettingsMenu: View {
 
     var body: some View {
         Menu {
+            // Stop generation (only when streaming)
+            if viewModel.isStreaming {
+                Button(role: .destructive) {
+                    Task { await viewModel.stop() }
+                } label: {
+                    Label("Stop generation", systemImage: "stop.circle")
+                }
+                .disabled(viewModel.isStopping)
+
+                Divider()
+            }
+
             // Rename
             Button {
                 renameText = viewModel.slot.title
@@ -516,6 +528,7 @@ private struct ChatSettingsMenu: View {
             // Thinking level
             Section("Thinking") {
                 ForEach(ChatViewModel.thinkingLevels, id: \.self) { level in
+                    let supported = viewModel.currentModel?.supportedThinkingLevels.contains(level) ?? true
                     Button {
                         Task { await viewModel.setThinking(level) }
                     } label: {
@@ -526,6 +539,8 @@ private struct ChatSettingsMenu: View {
                             }
                         }
                     }
+                    .disabled(!supported)
+                    .foregroundStyle(supported ? .primary : .secondary)
                 }
             }
         } label: {
@@ -603,7 +618,7 @@ struct ModelPickerSheet: View {
             List {
                 ForEach(groupedModels, id: \.provider) { section in
                     Section(section.provider) {
-                        ForEach(section.models) { model in
+                        ForEach(section.models, id: \.fullId) { model in
                             modelRow(model)
                         }
                     }
@@ -613,7 +628,7 @@ struct ModelPickerSheet: View {
     }
 
     private func modelRow(_ model: ModelInfo) -> some View {
-        let isSelected = viewModel.currentModel?.id == model.id
+        let isSelected = viewModel.currentModel?.fullId == model.fullId || viewModel.slot.model == model.fullId
         return Button {
             Task {
                 await viewModel.setModel(model)

@@ -117,6 +117,16 @@ const wsClients: Set<WebSocket> = new Set()
 
 // ─── Middleware ──────────────────────────────────────────────
 app.use(express.json({ limit: '50mb' }))
+
+// ─── Public endpoints (no auth required) ────────────────────
+// Returns server token so iOS app can bootstrap itself without copy-pasting.
+app.get('/connection-info', (req: Request, res: Response) => {
+  const proto = req.headers['x-forwarded-proto'] || 'http'
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'localhost'
+  const serverURL = `${proto}://${host}`
+  res.json({ token: AUTH_TOKEN, serverURL })
+})
+
 app.use('/api', authMiddleware)
 
 // ─── Broadcast to all WS clients ────────────────────────────
