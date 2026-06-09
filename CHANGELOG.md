@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.1.0](https://github.com/samfoy/pi-dashboard/compare/v1.0.0...v1.1.0) (2026-06-09)
+
+
+### Features
+
+* **android:** add Android app for Boox Palma 2 Pro e-ink ([d12f674](https://github.com/samfoy/pi-dashboard/commit/d12f674d4ee35fbc9e8756aec9d037d1e618033c))
+* deploy.sh — wireless build+install+restart script ([d37036d](https://github.com/samfoy/pi-dashboard/commit/d37036dde4538ebfede5f820aad8793ce2c28176))
+* **ios:** file-picked handler, piReady, piHaptic, send→stop morph, Settings in nav menu, navigate/stop/approve bridge events ([0ab5d82](https://github.com/samfoy/pi-dashboard/commit/0ab5d829a530ef3672ba5263c6f1852caf894677))
+* **ios:** image picker bridge, back swipe, mobile attach button in compose bar ([74baaaf](https://github.com/samfoy/pi-dashboard/commit/74baaaf40a78372999b68cc9dc3162207c5a8f46))
+* **ios:** inline slash command autocomplete above keyboard ([4d5658d](https://github.com/samfoy/pi-dashboard/commit/4d5658de5037581f9ac8bfecdf1d70b262f1bd37))
+* **ios:** left-edge swipe opens session sidebar, remove keyboard accessory bar, bottom nav → hamburger on iOS ([c5cb8b9](https://github.com/samfoy/pi-dashboard/commit/c5cb8b94a7bcdab783159e708d02bc82e611b9a9))
+* **ios:** live activities + conversational voice mode ([dd3f795](https://github.com/samfoy/pi-dashboard/commit/dd3f7951d116034c20443a0a60508f33e55b182f))
+* **ios:** native Settings sheet — long-press, auto-shown when server unreachable or URL empty ([2abea7e](https://github.com/samfoy/pi-dashboard/commit/2abea7eca782d73e2a9fa4257d29a30a3ea98a0c))
+* **ios:** native speech recognition via SFSpeechRecognizer — mic button transcribes to input in real time ([eefe5c8](https://github.com/samfoy/pi-dashboard/commit/eefe5c88764c0bd565e0151520b075bd53de2518))
+* **ios:** replace SwiftUI UI with WKWebView hybrid shell ([380a2e5](https://github.com/samfoy/pi-dashboard/commit/380a2e554d892d189c622a0b8b4aa791845c4d8f))
+* **pi-dashboard:** add system-message-renderer slot + details propagation ([06a7874](https://github.com/samfoy/pi-dashboard/commit/06a7874abd082d762ad32e516661a90090a18459))
+* **pi-dashboard:** pi-workflows plugin (WriteWorkflowRenderer + WorkflowResultCard + WorkflowsPanel) ([5ebf68d](https://github.com/samfoy/pi-dashboard/commit/5ebf68db193533f1fe90e4ac998d95dc055ff651))
+* **settings:** make Default Provider editable — dropdown of available providers ([716c527](https://github.com/samfoy/pi-dashboard/commit/716c527f92789980f2f5c4bbc21512b17049bfca))
+* **ui:** remove mobile avatars, + attach menu, voice mic, model pill in header, borderless compose, polished welcome screen with greeting + suggested prompts ([851577d](https://github.com/samfoy/pi-dashboard/commit/851577d1962413bf2e884edd87499ff4c79195ed))
+* **ui:** single portrait header — app bar hidden on iOS, nav+status folded into chat ⋯ menu ([c1f68a8](https://github.com/samfoy/pi-dashboard/commit/c1f68a8745c6447bb533fe4cd96bdcf0523d2eb3))
+* **ui:** surface context usage bar on mobile, hidden until ≥50% ([1e35f81](https://github.com/samfoy/pi-dashboard/commit/1e35f814180338b997d7b2aaf050bd296d967d8c))
+
+
+### Bug Fixes
+
+* guard malformed tool metadata ([fe3530c](https://github.com/samfoy/pi-dashboard/commit/fe3530cf3dace82a9458707c47659881049fd9a2))
+* harden dashboard streaming UX ([64ce94c](https://github.com/samfoy/pi-dashboard/commit/64ce94cacf6bec28155fd5d0385111d3bb7b8270))
+* **ios:** add PHPicker/DocumentPicker delegate methods to WebView.Coordinator ([6559a9d](https://github.com/samfoy/pi-dashboard/commit/6559a9dcfaae1a6982e0e075ece19ff3da6cfdd6))
+* **ios:** attach button shows Photo Library / Files action sheet ([fbd2217](https://github.com/samfoy/pi-dashboard/commit/fbd221779c731b68e6829f2157147b7dad681422))
+* **ios:** notification actions wired, cold-start bg, cache policy, piOpenSettings bridge, touch-visible copy/remove buttons ([1fb8e94](https://github.com/samfoy/pi-dashboard/commit/1fb8e944cf469d7ed23a6f2b2003c8df87af9dd4))
+* **ios:** notification categories, intent auth, stop from list & menu ([7591952](https://github.com/samfoy/pi-dashboard/commit/7591952af0e7d86eb2973ee757208d74db25df53))
+* **ios:** respect top safe area — status bar overlap ([8367355](https://github.com/samfoy/pi-dashboard/commit/8367355977b1c3ba8c8407f1a128737566a7fb8f))
+* **ui:** back button on all pages for iOS, per-slot model+thinking in mobile ⋯ menu ([4b18e0f](https://github.com/samfoy/pi-dashboard/commit/4b18e0fc2d9e30cb65b05fe6ab0e80b88377280e))
+* **ui:** DocumentPanel fullscreen on mobile portrait — fixed inset-0, no chat squeeze, drag handle hidden ([4ead016](https://github.com/samfoy/pi-dashboard/commit/4ead016b5a9a7bf3628f845ed5f5686e458c9366))
+* **ui:** grid-rows-[0px] on mobile to collapse top bar without breaking layout ([a21745e](https://github.com/samfoy/pi-dashboard/commit/a21745e3cab7ab80b4cb38024b42fc00e3efc63d))
+* **ui:** hide raw/copy affordances on mobile, borderless dimmer tool cards on mobile, tighter message spacing ([ed78d39](https://github.com/samfoy/pi-dashboard/commit/ed78d39a16ae1d3eab997f0dace3c4c88a105a4d))
+* **ui:** hide top bar on mobile, shrink-0 on tool names (no wrap), font-body on tool rows, server restart ([63c9713](https://github.com/samfoy/pi-dashboard/commit/63c9713763c7eb0d6bc18399e4ce63db3bdb71cc))
+* **ui:** hide workflows sidebar panel on mobile — was squeezing chat layout ([ab26540](https://github.com/samfoy/pi-dashboard/commit/ab265403e37aa8903d11680a1999c005ae0bd39e))
+* **ui:** markdown tables scroll horizontally on mobile (no char-wrapping), hide LSP/ctx dev strip on mobile, strip routing prefix from model pill ([edfc78f](https://github.com/samfoy/pi-dashboard/commit/edfc78f67bb0620f36b026eb5f63462262a28170))
+* **ui:** mobile layout polish — hide top bar, relative timestamps, font-body title, smaller avatars, tighter tool rows, accent send button, fix tool name wrap ([e8fc77c](https://github.com/samfoy/pi-dashboard/commit/e8fc77cc1b8f164bd6d8a162fba2212d924db9d7))
+* **ui:** pin main to row-start-2 — grid auto-placement was collapsing it to 0px row on mobile portrait ([0825aab](https://github.com/samfoy/pi-dashboard/commit/0825aabca3044b9167fc6c028fc82312a9847e2a))
+* **ui:** remove overflow-hidden from header — was clipping nav dropdown ([aad25f9](https://github.com/samfoy/pi-dashboard/commit/aad25f984c5105d52501d147b851e644b8d659f4))
+* **ui:** restore proper grid, compact header on iOS — dot-only health, hide logo/text, nav hamburger preserved ([609e6c6](https://github.com/samfoy/pi-dashboard/commit/609e6c6e2874ed735274e6567221a3b9c564aa32))
+
 ## 1.0.0 (2026-05-29)
 
 
