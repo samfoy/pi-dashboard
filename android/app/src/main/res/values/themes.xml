@@ -2,10 +2,8 @@
 <resources>
 
     <!-- Base application theme — high contrast for e-ink readability -->
-    <style name="Theme.PiDash" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <!-- Use NoActionBar and our own Toolbar so we control it fully -->
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
+    <!-- NoActionBar parent avoids the duplicate-ActionBar crash when setSupportActionBar() is called -->
+    <style name="Theme.PiDash" parent="Theme.MaterialComponents.DayNight.NoActionBar">
 
         <!-- High-contrast primary for e-ink (black on white) -->
         <item name="colorPrimary">@color/black</item>
@@ -16,8 +14,16 @@
         <item name="colorSurface">@color/white</item>
         <item name="colorOnSurface">@color/black</item>
 
-        <!-- Disable window animations (e-ink) -->
-        <item name="android:windowAnimationStyle">@null</item>
+        <!-- E-ink: disable Activity enter/exit window transition animations -->
+        <!-- @null causes NPE on some API paths; use an explicit no-op animation style -->
+        <item name="android:windowAnimationStyle">@style/NoWindowAnimation</item>
+    </style>
+
+    <style name="NoWindowAnimation" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@null</item>
+        <item name="android:activityOpenExitAnimation">@null</item>
+        <item name="android:activityCloseEnterAnimation">@null</item>
+        <item name="android:activityCloseExitAnimation">@null</item>
     </style>
 
 </resources>
