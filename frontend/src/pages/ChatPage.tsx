@@ -656,12 +656,20 @@ export default function ChatPage() {
     )}
     const isUser = m.role === 'user'
     const isStreaming = m.role === 'streaming'
-    const msgTime = m.ts ? new Date(m.ts).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+    const msgTime = m.ts ? (() => {
+      const d = new Date(m.ts)
+      const now = Date.now()
+      const diff = now - d.getTime()
+      if (diff < 60_000) return 'just now'
+      if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+      if (diff < 86_400_000) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    })() : ''
     return (
-      <div key={key} className={`pidash-msg-card flex gap-3 items-start mb-3 mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`} data-pidash-sender={isUser ? 'user' : 'assistant'} data-pidash-streaming={isStreaming ? 'true' : undefined}>
+      <div key={key} className={`pidash-msg-card flex gap-2 md:gap-3 items-start mb-2 md:mb-3 mr-2 md:mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`} data-pidash-sender={isUser ? 'user' : 'assistant'} data-pidash-streaming={isStreaming ? 'true' : undefined}>
         {isUser
-          ? <div className="w-8 h-8 rounded-md grid place-items-center font-semibold text-sm shrink-0 self-end mb-0.5 bg-accent-subtle text-accent">U</div>
-          : <img src="/logo.png" alt="Pi Dashboard" className="w-8 h-8 rounded-md shrink-0 self-end mb-0.5 object-cover" />
+          ? <div className="w-6 h-6 md:w-8 md:h-8 rounded-md grid place-items-center font-semibold text-xs shrink-0 self-end mb-0.5 bg-accent-subtle text-accent">U</div>
+          : <img src="/logo.png" alt="Pi" className="w-6 h-6 md:w-8 md:h-8 rounded-md shrink-0 self-end mb-0.5 object-cover" />
         }
         <div className={`flex flex-col gap-0.5 max-w-[min(820px,calc(100%-56px))] ${isUser ? 'items-end' : ''} group/msg relative`}>
           {isUser ? (
@@ -697,7 +705,7 @@ export default function ChatPage() {
             }} />
           )}
           <div className="flex items-center gap-1 px-1">
-            {chatConfig.showTimestamps && msgTime && <span className="text-muted text-[12px] font-mono">{msgTime}</span>}
+            {chatConfig.showTimestamps && msgTime && <span className="text-muted text-[11px] font-body">{msgTime}</span>}
             <button className="opacity-0 group-hover/msg:opacity-100 text-[11px] text-muted hover:text-text cursor-pointer bg-transparent border-none transition-opacity px-1" title="Copy" onClick={() => { navigator.clipboard.writeText(m.content); }}>📋</button>
           </div>
         </div>
@@ -752,9 +760,9 @@ export default function ChatPage() {
                   <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
                 </button>
                 {editingHeader ? (
-                  <input className="text-sm font-semibold font-mono bg-transparent border border-accent rounded px-1 py-0 text-text-strong outline-none min-w-[80px] max-w-[200px]" aria-label="Edit session title" autoFocus maxLength={200} value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={() => { if (!cancelEditRef.current && editingTitle.trim() && editingTitle !== title) { dispatch(sseSlotTitle({ key: activeSlot!, title: editingTitle.trim() })); api.renameSlot(activeSlot!, editingTitle.trim()).catch(() => {}) } cancelEditRef.current = false; setEditingHeader(false) }} onKeyDown={e => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } else if (e.key === 'Escape') { cancelEditRef.current = true; setEditingHeader(false) } }} />
+                  <input className="text-sm font-semibold bg-transparent border border-accent rounded px-1 py-0 text-text-strong outline-none min-w-[80px] max-w-[200px] font-body" aria-label="Edit session title" autoFocus maxLength={200} value={editingTitle} onChange={e => setEditingTitle(e.target.value)} onBlur={() => { if (!cancelEditRef.current && editingTitle.trim() && editingTitle !== title) { dispatch(sseSlotTitle({ key: activeSlot!, title: editingTitle.trim() })); api.renameSlot(activeSlot!, editingTitle.trim()).catch(() => {}) } cancelEditRef.current = false; setEditingHeader(false) }} onKeyDown={e => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() } else if (e.key === 'Escape') { cancelEditRef.current = true; setEditingHeader(false) } }} />
                 ) : (
-                  <TypewriterText className="text-sm font-semibold text-text font-mono truncate" text={title} onDoubleClick={() => { setEditingHeader(true); setEditingTitle(title) }} />
+                  <TypewriterText className="text-sm font-semibold text-text font-body truncate" text={title} onDoubleClick={() => { setEditingHeader(true); setEditingTitle(title) }} />
                 )}
                 {!editingHeader && <span className="hidden md:inline text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
                 {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
@@ -1056,7 +1064,7 @@ export default function ChatPage() {
                 onKeyDown={e => { if (e.key === 'Tab' && !e.shiftKey && !input.startsWith('/')) { e.preventDefault(); setPathMenuOpen(true); setCursorPos(inputRef.current?.selectionStart ?? 0) } else if (e.key === 'Enter' && !e.shiftKey && !e.defaultPrevented && !e.nativeEvent.isComposing && !(inputRef.current as any)?.__composing) { e.preventDefault(); send() } }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; const cap = prefillHint ? 320 : 140; t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, cap) + 'px' }} />
               </div>
-              <button className="btn-sweep bg-accent text-white border-none rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-30 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center" onClick={() => send()} disabled={(!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0) || slotStopping}><span className="md:hidden">↑</span><span className="hidden md:inline">Send</span></button>
+              <button className="btn-sweep bg-accent text-white border-none rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center" onClick={() => send()} disabled={slotStopping}><span className="md:hidden">↑</span><span className="hidden md:inline">Send</span></button>
             </div>
           </div></>}
             </div>

@@ -46,7 +46,7 @@ const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps)
   return (
     <div className="animate-scale-in">
       <button
-        className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-muted font-mono bg-card border border-border rounded-md hover:text-text hover:border-border-strong transition-all cursor-pointer mb-1"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-muted font-body bg-card border border-border rounded-md hover:text-text hover:border-border-strong transition-all cursor-pointer mb-0.5"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
         aria-label={expanded ? 'Collapse tool calls' : 'Expand tool calls'}
@@ -54,7 +54,7 @@ const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps)
         <span className={`text-[11px] transition-transform ${expanded ? 'rotate-90' : ''}`}>▶</span>
         <span className="text-accent font-semibold">{summary.total}</span>
         <span>tool calls</span>
-        <span className="text-muted/60 text-[12px] truncate flex-1 text-left">
+        <span className="text-muted/60 text-[12px] truncate flex-1 text-left min-w-0 break-all">
           {nameStr}
           {summary.files.length > 0 && <span className="text-text/50 ml-1.5">— {summary.files.slice(0, 3).join(', ')}{summary.files.length > 3 ? ` +${summary.files.length - 3}` : ''}</span>}
         </span>
