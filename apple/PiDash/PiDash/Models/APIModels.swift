@@ -841,3 +841,173 @@ struct AnyCodable: Codable {
         return "\(value)"
     }
 }
+import Foundation
+
+// MARK: - ChatSlot
+
+/// Represents an active chat session (slot) on the server.
+struct ChatSlot: Identifiable, Codable, Equatable {
+    let key: String
+    var title: String
+    var createdAt: Date
+    var updatedAt: Date
+    var messageCount: Int
+    var lastMessage: String?
+    var isStreaming: Bool
+    var model: String?
+    var contextPercent: Double?
+    var inputNeeded: Bool
+    var cwd: String?
+    var tags: [String]
+
+    var id: String { key }
+
+    init(
+        key: String,
+        title: String,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        messageCount: Int = 0,
+        lastMessage: String? = nil,
+        isStreaming: Bool = false,
+        model: String? = nil,
+        contextPercent: Double? = nil,
+        inputNeeded: Bool = false,
+        cwd: String? = nil,
+        tags: [String] = []
+    ) {
+        self.key = key
+        self.title = title
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.messageCount = messageCount
+        self.lastMessage = lastMessage
+        self.isStreaming = isStreaming
+        self.model = model
+        self.contextPercent = contextPercent
+        self.inputNeeded = inputNeeded
+        self.cwd = cwd
+        self.tags = tags
+    }
+}
+
+// MARK: - TemporalGroup
+
+/// Groups slots for the list view display.
+enum TemporalGroup: Equatable, Hashable {
+    case today
+    case yesterday
+    case lastSevenDays
+    case lastThirtyDays
+    case month(String)   // e.g. "March 2026"
+
+    var label: String {
+        switch self {
+        case .today:          return "Today"
+        case .yesterday:      return "Yesterday"
+        case .lastSevenDays:  return "Last 7 Days"
+        case .lastThirtyDays: return "Last 30 Days"
+        case .month(let s):   return s
+        }
+    }
+
+    static func group(for date: Date) -> TemporalGroup {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return .today }
+        if calendar.isDateInYesterday(date) { return .yesterday }
+        let daysAgo = calendar.dateComponents([.day], from: date, to: Date()).day ?? 0
+        if daysAgo <= 7  { return .lastSevenDays }
+        if daysAgo <= 30 { return .lastThirtyDays }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return .month(formatter.string(from: date))
+    }
+}
+import Foundation
+
+// MARK: - ChatMessage
+
+/// A single message in a chat conversation.
+struct ChatMessage: Identifiable, Codable, Equatable {
+    var id: UUID
+    let slotKey: String
+    var role: MessageRole
+    var content: String
+    var isStreaming: Bool
+    var isQueued: Bool
+    var timestamp: Date
+    var meta: MessageMeta?
+    /// Raw image data for inline display (transient — not persisted to server)
+    var imageData: [Data]
+
+    init(
+        id: UUID = UUID(),
+        slotKey: String,
+        role: MessageRole,
+        content: String,
+        isStreaming: Bool = false,
+        isQueued: Bool = false,
+        timestamp: Date = Date(),
+        meta: MessageMeta? = nil,
+        imageData: [Data] = []
+    ) {
+        self.id = id
+        self.slotKey = slotKey
+        self.role = role
+        self.content = content
+        self.isStreaming = isStreaming
+        self.isQueued = isQueued
+        self.timestamp = timestamp
+        self.meta = meta
+        self.imageData = imageData
+    }
+
+    // Custom Codable — imageData is transient, decode as empty
+    enum CodingKeys: String, CodingKey {
+        case id, slotKey, role, content, isStreaming, isQueued, timestamp, meta
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        slotKey = try c.decode(String.self, forKey: .slotKey)
+        role = try c.decode(MessageRole.self, forKey: .role)
+        content = try c.decode(String.self, forKey: .content)
+        isStreaming = try c.decode(Bool.self, forKey: .isStreaming)
+        isQueued = try c.decodeIfPresent(Bool.self, forKey: .isQueued) ?? false
+        timestamp = try c.decode(Date.self, forKey: .timestamp)
+        meta = try c.decodeIfPresent(MessageMeta.self, forKey: .meta)
+        imageData = []
+    }
+}
+
+// MARK: - MessageRole
+
+enum MessageRole: String, Codable, Equatable {
+    case user
+    case assistant
+    case system
+    case tool
+    case thinking
+}
+
+// MARK: - MessageMeta
+
+struct MessageMeta: Codable, Equatable {
+    // Assistant metadata
+    var thinking: String?
+    var model: String?
+    var inputTokens: Int?
+    var outputTokens: Int?
+    // Tool message metadata
+    var toolName: String?
+    var toolCallId: String?
+    var toolArgs: String?      // JSON string of args
+    var toolResult: String?
+    /// Partial (streaming) tool output. Rendered while the tool is running;
+    /// replaced by `toolResult` once `tool_result` arrives.
+    var partialResult: String?
+    var isError: Bool?
+    // System/custom message metadata
+    var customType: String?
+}

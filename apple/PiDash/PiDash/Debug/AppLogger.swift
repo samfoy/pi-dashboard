@@ -126,7 +126,7 @@ final class AppLogger: ObservableObject, @unchecked Sendable {
                 return "[\(typeName)] \(String(reflecting: error))"
             }
         }
-        if let apiError = error as? APIError {
+        if let apiError = error as? IntentError {
             return apiError.errorDescription ?? error.localizedDescription
         }
         // Fallback: full reflection so we always see something useful

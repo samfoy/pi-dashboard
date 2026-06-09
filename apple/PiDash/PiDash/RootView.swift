@@ -1,48 +1,45 @@
 import SwiftUI
 
-/// Root view — chats with a Workflows sheet accessible from the toolbar.
 struct RootView: View {
     @Environment(AppState.self) private var appState
-    @State private var showWorkflows = false
 
     var body: some View {
-        ChatsTab(showWorkflows: $showWorkflows)
-            .sheet(isPresented: $showWorkflows) {
-                WorkflowsTab()
+        ZStack {
+            WebView()
+                .ignoresSafeArea()
+
+            if appState.connectionFailed {
+                ConnectionFailedOverlay()
             }
-    }
-}
-
-// MARK: - ChatsTab
-
-/// Preserves the existing NavigationSplitView chat experience.
-private struct ChatsTab: View {
-    @Environment(AppState.self) private var appState
-    @State private var columnVisibility = NavigationSplitViewVisibility.all
-    @Binding var showWorkflows: Bool
-
-    var body: some View {
-        @Bindable var appState = appState
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            SlotListView(showWorkflows: $showWorkflows)
-                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 360)
-        } detail: {
-            NavigationStack {
-                if let key = appState.selectedSlotKey,
-                   let slot = appState.slots.first(where: { $0.key == key }) {
-                    ChatView(slot: slot, scrollToMessageId: appState.selectedScrollTarget)
-                } else {
-                    NoChatSelectedView()
-                }
-            }
+        }
+        .onAppear {
+            Task { await appState.notificationService.requestPermission() }
         }
     }
 }
 
-// MARK: - WorkflowsTab
+// MARK: - Connection Failed Overlay
 
-private struct WorkflowsTab: View {
+private struct ConnectionFailedOverlay: View {
+    @Environment(AppState.self) private var appState
+
     var body: some View {
-        WorkflowsListView()
+        VStack(spacing: 16) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Can't connect to Pi")
+                .font(.headline)
+            Text("Check your server URL in Settings.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Retry") {
+                appState.connectionFailed = false
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(32)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 }
