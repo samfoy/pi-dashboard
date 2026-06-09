@@ -83,6 +83,31 @@ export default function ChatPage() {
   const [showRefs, setShowRefs] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const isNativeIOS = navigator.userAgent.includes('PiDash-iOS')
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [isListeningVoice, setIsListeningVoice] = useState(false)
+
+  const handleVoiceInput = useCallback(() => {
+    if (isNativeIOS) {
+      // On native iOS, trigger speech via WebKit bridge if available
+      ;(window as any).webkit?.messageHandlers?.piSpeech?.postMessage({})
+      return
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SR) return
+    if (isListeningVoice) { setIsListeningVoice(false); return }
+    const recognition = new SR()
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.lang = 'en-US'
+    setIsListeningVoice(true)
+    recognition.onresult = (e: any) => {
+      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join('')
+      setInput(transcript)
+    }
+    recognition.onend = () => setIsListeningVoice(false)
+    recognition.onerror = () => setIsListeningVoice(false)
+    recognition.start()
+  }, [isNativeIOS, isListeningVoice, setInput])
   const [showOverflowMenu, setShowOverflowMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [splitSlot, setSplitSlot] = useState<string | null>(null)
@@ -705,11 +730,12 @@ export default function ChatPage() {
     })() : ''
     return (
       <div key={key} className={`pidash-msg-card flex gap-2 md:gap-3 items-start mb-2 md:mb-3 mr-2 md:mr-4 ${isUser ? 'flex-row-reverse animate-slide-in-right' : 'animate-slide-up'}`} data-pidash-sender={isUser ? 'user' : 'assistant'} data-pidash-streaming={isStreaming ? 'true' : undefined}>
+        {/* Avatars hidden on mobile for more message width — like Claude app */}
         {isUser
-          ? <div className="w-6 h-6 md:w-8 md:h-8 rounded-md grid place-items-center font-semibold text-xs shrink-0 self-end mb-0.5 bg-accent-subtle text-accent">U</div>
-          : <img src="/logo.png" alt="Pi" className="w-6 h-6 md:w-8 md:h-8 rounded-md shrink-0 self-end mb-0.5 object-cover" />
+          ? <div className="hidden md:grid w-8 h-8 rounded-md place-items-center font-semibold text-xs shrink-0 self-end mb-0.5 bg-accent-subtle text-accent">U</div>
+          : <img src="/logo.png" alt="Pi" className="hidden md:block w-8 h-8 rounded-md shrink-0 self-end mb-0.5 object-cover" />
         }
-        <div className={`flex flex-col gap-0.5 max-w-[min(820px,calc(100%-56px))] ${isUser ? 'items-end' : ''} group/msg relative`}>
+        <div className={`flex flex-col gap-0.5 max-w-[min(820px,calc(100%-16px))] md:max-w-[min(820px,calc(100%-56px))] ${isUser ? 'items-end' : ''} group/msg relative`}>
           {isUser ? (
             <div className="pidash-msg-content msg-content px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap rounded-lg bg-accent text-white rounded-br-[4px] overflow-hidden select-text" style={{ overflowWrap: 'anywhere' }}>
               {m.content.split('\n').map((line, li) => {
@@ -804,6 +830,7 @@ export default function ChatPage() {
                 )}
                 {!editingHeader && <span className="hidden md:inline text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
                 {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Model">🧠 {currentSlot.model.split('/').pop()}</span>}
+                {currentSlot?.model && <button className="md:hidden px-2 py-0.5 rounded-md text-[11px] font-mono bg-bg-elevated border border-border text-muted shrink-0 cursor-pointer hover:border-accent hover:text-accent transition-colors" title="Model" onClick={() => setShowOverflowMenu(v => !v)}>{currentSlot.model.split('/').pop()?.split('-').slice(0,2).join('-')}</button>}
                 {contextUsage && <span className="hidden md:inline"><ContextBar usage={contextUsage} /></span>}
                 {currentSlot?.cwd && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
               </div>
@@ -1031,7 +1058,7 @@ export default function ChatPage() {
                 <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={() => setPrefillHint(false)}>✕</button>
               </div>
             )}
-            <div className={`pidash-compose flex flex-row gap-2 items-end px-3 md:px-5 pt-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 border-t border-border bg-chrome transition-colors relative ${dragOver ? 'bg-accent-subtle border-accent' : ''}`}
+            <div className={`pidash-compose flex flex-row gap-2 items-end px-3 md:px-5 pt-2.5 pb-[max(0.875rem,env(safe-area-inset-bottom,0.875rem))] md:pb-3.5 bg-chrome transition-colors relative border-t-0 shadow-[0_-8px_24px_rgba(0,0,0,0.15)] md:border-t md:border-border md:shadow-none ${dragOver ? 'bg-accent-subtle' : ''}`}
               onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
               onDragLeave={e => { if (e.currentTarget === e.target) setDragOver(false) }}
               onDrop={handleDrop}>
@@ -1046,37 +1073,50 @@ export default function ChatPage() {
               {isMac && <button className="hidden md:flex w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={takeScreenshot} disabled={uploading} title="Screenshot (grant Screen Recording to your terminal app in System Settings)">
                 <span className="text-base">📷</span>
               </button>}
-              {/* Mobile attach — native picker in PiDash-iOS app, file input fallback elsewhere */}
-              {(() => {
-                const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
-                return (
+              {/* "+" expandable attach menu */}
+              <div className="relative shrink-0">
+                {!isNativeIOS && (
+                  <input ref={mobileFileInputRef} type="file" accept="image/*,application/pdf,text/*" multiple className="hidden" onChange={handleMobileFileInput} />
+                )}
+                <button
+                  className={`flex w-[40px] h-[40px] rounded-full items-center justify-center shrink-0 cursor-pointer transition-all text-xl font-light border ${
+                    showAttachMenu ? 'bg-accent text-white border-accent rotate-45' : 'bg-bg-elevated border-border text-muted hover:text-text hover:border-accent'
+                  }`}
+                  onClick={() => setShowAttachMenu(v => !v)}
+                  title="Attach"
+                >+</button>
+                {showAttachMenu && (
                   <>
-                    {!isNativeIOS && (
-                      <input
-                        ref={mobileFileInputRef}
-                        type="file"
-                        accept="image/*,application/pdf,text/*"
-                        multiple
-                        className="hidden"
-                        onChange={handleMobileFileInput}
-                      />
-                    )}
-                    <button
-                      className="flex w-[40px] h-[40px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30"
-                      onClick={() => {
-                        if (isNativeIOS) {
-                          ;(window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({})
-                        } else {
-                          mobileFileInputRef.current?.click()
-                        }
-                      }}
-                      title="Attach image"
-                    >
-                      <span className="text-base">📎</span>
-                    </button>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
+                    <div className="absolute left-0 bottom-full mb-2 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeIOS ? (window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({ type: 'photos' }) : mobileFileInputRef.current?.click() }}>
+                        <span>🖼️</span> Photos
+                      </button>
+                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeIOS ? (window as any).webkit?.messageHandlers?.piPickFile?.postMessage({}) : mobileFileInputRef.current?.click() }}>
+                        <span>📄</span> Files
+                      </button>
+                      {isMac && <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); pickFiles() }}>
+                        <span>📂</span> Folder
+                      </button>}
+                    </div>
                   </>
-                )
-              })()}
+                )}
+              </div>
+              {/* Voice input */}
+              <button
+                className={`flex w-[40px] h-[40px] rounded-full items-center justify-center shrink-0 cursor-pointer transition-all border ${
+                  isListeningVoice ? 'bg-danger text-white border-danger animate-pulse' : 'bg-bg-elevated border-border text-muted hover:text-text hover:border-border-strong'
+                }`}
+                onClick={handleVoiceInput}
+                title={isListeningVoice ? 'Stop recording' : 'Voice input'}
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="2" width="6" height="12" rx="3" />
+                  <path d="M5 10a7 7 0 0 0 14 0" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                  <line x1="8" y1="22" x2="16" y2="22" />
+                </svg>
+              </button>
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
               {pathMenuOpen && <PathCompleteMenu input={input} cursorPos={cursorPos} anchorRef={inputRef as React.RefObject<HTMLElement>} onComplete={(before, completed, after) => { const val = before + completed + after; setInput(val); setPathMenuOpen(true); setTimeout(() => { if (inputRef.current) { const pos = before.length + completed.length; inputRef.current.selectionStart = inputRef.current.selectionEnd = pos; setCursorPos(pos) } }, 0) }} onClose={() => setPathMenuOpen(false)} />}
               <div className="flex-1 flex flex-col gap-1.5">
