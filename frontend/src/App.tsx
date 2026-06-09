@@ -180,7 +180,7 @@ export default function App() {
     <div className={`pidash-root relative z-[1] h-[100dvh] grid grid-rows-[52px_1fr_auto] md:grid-rows-[52px_1fr] grid-cols-[1fr] animate-rise overflow-hidden transition-[grid-template-columns] duration-[350ms] ease-in-out ${navCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[220px_minmax(0,1fr)]'}`}>
 
       {/* Topbar */}
-      <header className={`pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2 overflow-hidden`}>
+      <header className={`pidash-topbar topbar-glass flex justify-between items-center px-3 md:px-5 pl-[max(0.75rem,env(safe-area-inset-left,0.75rem))] md:pl-[max(1.25rem,env(safe-area-inset-left,1.25rem))] z-40 standalone-pad md:col-span-2`}>
         <div className="flex items-center gap-3">
           {/* Logo — hidden on mobile iOS to save space */}
           <div className={`flex items-center gap-2.5 opacity-100 w-40 transition-all duration-300 ease-in-out ${isNativeIOS ? 'hidden md:flex' : ''}`}>
