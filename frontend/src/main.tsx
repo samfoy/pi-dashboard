@@ -11,12 +11,10 @@ import './index.css'
 initToken()
 
 // Detect standalone/Electron mode for macOS traffic light padding
-if (
-  window.matchMedia('(display-mode: standalone)').matches ||
-  (navigator as any).standalone ||
-  navigator.userAgent.includes('Electron') ||
-  (window as any).piDash
-) {
+const isElectron = navigator.userAgent.includes('Electron')
+const isPiDashIOS = navigator.userAgent.includes('PiDash-iOS')
+
+if (isElectron || isPiDashIOS) {
   document.documentElement.classList.add('is-standalone')
 }
 

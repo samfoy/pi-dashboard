@@ -576,6 +576,17 @@ export default function ChatPage() {
     if (splitSlot && !slots.some(s => s.key === splitSlot)) setSplitSlot(null)
   }, [slots, splitSlot])
 
+  // Clear split pane on narrow viewports — split view is desktop-only
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const clear = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) setSplitSlot(null)
+    }
+    clear(mq) // run once on mount
+    mq.addEventListener('change', clear as (e: MediaQueryListEvent) => void)
+    return () => mq.removeEventListener('change', clear as (e: MediaQueryListEvent) => void)
+  }, [])
+
   const loadingOlder = useAppSelector(s => s.chat.loadingOlder)
 
   const currentSlot = slots.find(s => s.key === activeSlot)
@@ -745,7 +756,7 @@ export default function ChatPage() {
                 {/* Split view button + picker */}
                 <div className="relative">
                   <button
-                    className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${splitSlot ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`}
+                    className={`hidden md:inline-flex bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${splitSlot ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`}
                     onClick={() => { if (splitSlot) { setSplitSlot(null) } else { setShowSplitPicker(v => !v) } }}
                     aria-label={splitSlot ? 'Close split view' : 'Split view'}
                     title={splitSlot ? 'Close split view' : 'View another session side-by-side'}
