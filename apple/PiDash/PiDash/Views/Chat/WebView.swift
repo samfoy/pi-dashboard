@@ -1,5 +1,7 @@
 import SwiftUI
 import WebKit
+import PhotosUI
+import UniformTypeIdentifiers
 
 struct WebView: UIViewRepresentable {
     @Environment(AppState.self) var appState
@@ -10,7 +12,8 @@ struct WebView: UIViewRepresentable {
         config.mediaTypesRequiringUserActionForPlayback = []
 
         let handlers = ["piHaptic", "piSetActiveSlot", "piOpenShare",
-                        "piOpenInSafari", "piRequestNotificationPermission", "piReady"]
+                        "piOpenInSafari", "piRequestNotificationPermission", "piReady",
+                        "piPickMedia", "piPickFile"]
         for name in handlers {
             config.userContentController.add(context.coordinator, name: name)
         }
@@ -22,6 +25,14 @@ struct WebView: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) PiDash-iOS/1.0"
+
+        // Left-edge back swipe — invokes window.history.back() in the web view.
+        let edgePan = UIScreenEdgePanGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleEdgeSwipe(_:))
+        )
+        edgePan.edges = .left
+        webView.addGestureRecognizer(edgePan)
 
         context.coordinator.webView = webView
         loadURL(in: webView)
@@ -84,9 +95,51 @@ struct WebView: UIViewRepresentable {
             case "piReady":
                 readyFired = true
                 dispatchPending()
+            case "piPickMedia":
+                handlePickMedia()
+            case "piPickFile":
+                handlePickFile()
             default:
                 break
             }
+        }
+
+        // MARK: Pickers
+
+        private func handlePickMedia() {
+            var config = PHPickerConfiguration()
+            config.selectionLimit = 5
+            config.filter = .any(of: [.images])
+            let picker = PHPickerViewController(configuration: config)
+            picker.delegate = self
+            present(picker)
+        }
+
+        private func handlePickFile() {
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.data, .text, .pdf])
+            picker.allowsMultipleSelection = true
+            picker.delegate = self
+            present(picker)
+        }
+
+        private func present(_ vc: UIViewController) {
+            DispatchQueue.main.async {
+                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                      let root = scene.windows.first?.rootViewController else { return }
+                // Walk to the topmost presented controller so we don't try to present
+                // on a controller that's already presenting something.
+                var top: UIViewController = root
+                while let presented = top.presentedViewController { top = presented }
+                top.present(vc, animated: true)
+            }
+        }
+
+        // MARK: Edge swipe
+
+        @objc func handleEdgeSwipe(_ recognizer: UIScreenEdgePanGestureRecognizer) {
+            guard recognizer.state == .recognized else { return }
+            webView?.evaluateJavaScript("window.history.back()", completionHandler: nil)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
 
         private func handleHaptic(_ body: [String: Any]) {
@@ -105,12 +158,8 @@ struct WebView: UIViewRepresentable {
             let urlStr = body["url"] as? String
             var items: [Any] = [text]
             if let u = urlStr.flatMap(URL.init) { items.append(u) }
-            DispatchQueue.main.async {
-                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                      let root = scene.windows.first?.rootViewController else { return }
-                let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
-                root.present(vc, animated: true)
-            }
+            let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+            present(vc)
         }
 
         // MARK: Native → JS

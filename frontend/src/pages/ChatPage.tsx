@@ -93,6 +93,7 @@ export default function ChatPage() {
   const [pendingCwd, setPendingCwd] = useState('')
   const virtuosoRef = useRef<VirtuosoHandle>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const mobileFileInputRef = useRef<HTMLInputElement>(null)
 
   // Migrate old pinned dirs to frequency store (one-time)
   useEffect(() => { migratePinnedDirs() }, [])
@@ -462,6 +463,35 @@ export default function ChatPage() {
 
   const removeImage = useCallback((idx: number) => {
     setPendingImages(prev => prev.filter((_, i) => i !== idx))
+  }, [])
+
+  const handleMobileFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    Array.from(e.target.files ?? []).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string
+        const base64 = dataUrl.split(',')[1]
+        setPendingImages(prev => [...prev, { data: base64, mimeType: file.type, preview: dataUrl }])
+      }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }, [])
+
+  // Receive images picked by native iOS picker via JS bridge
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      if (detail?.type === 'media-picked') {
+        setPendingImages(prev => [...prev, {
+          data: detail.data as string,
+          mimeType: detail.mimeType as string,
+          preview: detail.preview as string
+        }])
+      }
+    }
+    window.addEventListener('pi-native', handler)
+    return () => window.removeEventListener('pi-native', handler)
   }, [])
 
   const removeFile = useCallback((idx: number) => {
@@ -957,6 +987,37 @@ export default function ChatPage() {
               {isMac && <button className="hidden md:flex w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30" onClick={takeScreenshot} disabled={uploading} title="Screenshot (grant Screen Recording to your terminal app in System Settings)">
                 <span className="text-base">📷</span>
               </button>}
+              {/* Mobile attach — native picker in PiDash-iOS app, file input fallback elsewhere */}
+              {(() => {
+                const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
+                return (
+                  <>
+                    {!isNativeIOS && (
+                      <input
+                        ref={mobileFileInputRef}
+                        type="file"
+                        accept="image/*,application/pdf,text/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleMobileFileInput}
+                      />
+                    )}
+                    <button
+                      className="flex md:hidden w-[44px] h-[44px] rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center shrink-0 cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30"
+                      onClick={() => {
+                        if (isNativeIOS) {
+                          ;(window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({})
+                        } else {
+                          mobileFileInputRef.current?.click()
+                        }
+                      }}
+                      title="Attach image"
+                    >
+                      <span className="text-base">📎</span>
+                    </button>
+                  </>
+                )
+              })()}
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
               {pathMenuOpen && <PathCompleteMenu input={input} cursorPos={cursorPos} anchorRef={inputRef as React.RefObject<HTMLElement>} onComplete={(before, completed, after) => { const val = before + completed + after; setInput(val); setPathMenuOpen(true); setTimeout(() => { if (inputRef.current) { const pos = before.length + completed.length; inputRef.current.selectionStart = inputRef.current.selectionEnd = pos; setCursorPos(pos) } }, 0) }} onClose={() => setPathMenuOpen(false)} />}
               <div className="flex-1 flex flex-col gap-1.5">
