@@ -42,6 +42,7 @@ struct ChatInputBar: View {
     var isUploadingFiles: Bool = false
     let onSend: () -> Void
     let onStop: () -> Void
+    var slashCommands: [SlashCommand] = []
     @FocusState private var isFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.appTheme) private var theme
@@ -52,6 +53,20 @@ struct ChatInputBar: View {
     @State private var showFileImporter = false
     @State private var photoSelection: [PhotosPickerItem] = []
     @State private var showCompactConfirm = false
+
+    // MARK: - Slash command autocomplete
+
+    private static let desktopOnly = Set(["/lsp", "/bemol", "/mcp", "/lsp-config", "/lsp-lombok"])
+
+    /// Commands filtered by the current text prefix (non-empty only when text starts with "/").
+    private var slashSuggestions: [SlashCommand] {
+        guard text.hasPrefix("/"), !text.contains(" ") else { return [] }
+        let query = String(text.dropFirst()).lowercased()
+        return slashCommands
+            .filter { !Self.desktopOnly.contains("/" + $0.name) }
+            .filter { query.isEmpty || $0.name.lowercased().contains(query) || $0.displayName.lowercased().contains(query) }
+            .sorted { $0.name < $1.name }
+    }
 
     private var canSend: Bool {
         !isDisabled &&
@@ -238,6 +253,50 @@ struct ChatInputBar: View {
             }
             .padding(.vertical, 4)
 
+            // Slash command inline autocomplete
+            if !slashSuggestions.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(slashSuggestions) { cmd in
+                            Button {
+                                text = "/\(cmd.name) "
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Text(cmd.icon)
+                                        .font(.body)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("/\(cmd.name)")
+                                            .font(.system(.subheadline, design: .monospaced))
+                                            .foregroundStyle(theme.text)
+                                        if !cmd.description.isEmpty {
+                                            Text(cmd.description)
+                                                .font(.caption)
+                                                .foregroundStyle(theme.textSecondary)
+                                                .lineLimit(1)
+                                        }
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            if cmd.id != slashSuggestions.last?.id {
+                                Divider().padding(.leading, 48)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 220)
+                .background(.bar)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.12), radius: 8, y: -2)
+                .padding(.horizontal, 8)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             // Input row
             HStack(alignment: .bottom, spacing: 8) {
                 TextField("Message", text: $text, axis: .vertical)
@@ -301,6 +360,7 @@ struct ChatInputBar: View {
             .padding(.top, 4)
         }
         .background(.bar)
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8), value: slashSuggestions.map(\.id))
         .photosPicker(isPresented: $showPhotoPicker, selection: $photoSelection, maxSelectionCount: 5, matching: .images)
         .fileImporter(
             isPresented: $showFileImporter,

@@ -254,7 +254,8 @@ private struct ChatContentView: View {
                     },
                     isUploadingFiles: isUploadingFiles,
                     onSend: { Task { await viewModel.send() } },
-                    onStop: { Task { await viewModel.stop() } }
+                    onStop: { Task { await viewModel.stop() } },
+                    slashCommands: viewModel.slashCommands
                 )
                 .sheet(isPresented: $showCommandPalette) {
                     CommandPaletteSheet(
