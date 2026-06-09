@@ -202,6 +202,15 @@ function usePiSettings() {
 /* ── MODEL TAB ── */
 function ModelTab() {
   const { settings, feedback, set, setNested, save } = usePiSettings()
+  const [providers, setProviders] = useState<string[]>([])
+
+  useEffect(() => {
+    api.models().then((d: any) => {
+      const provs = Array.from(new Set((d.models || []).map((m: any) => m.provider).filter(Boolean))) as string[]
+      setProviders(provs.sort())
+    }).catch(() => {})
+  }, [])
+
   if (!settings) return <div className="text-muted text-[13px] py-4">Loading settings…</div>
 
   const currentDefaultModel = (() => {
@@ -239,7 +248,17 @@ function ModelTab() {
               <span className="text-[13px] text-text">Default Provider</span>
               <div className="text-[12px] text-muted/60 mt-0.5">LLM provider for new sessions</div>
             </div>
-            <span className="text-[13px] font-mono text-accent">{settings.defaultProvider || '—'}</span>
+            <select
+              className="bg-bg-elevated border border-border rounded-md px-2 py-1.5 text-[13px] font-mono text-text cursor-pointer min-w-[160px]"
+              value={settings.defaultProvider || ''}
+              onChange={e => {
+                const val = e.target.value
+                save({ ...settings, defaultProvider: val || undefined })
+              }}
+            >
+              <option value="">— default —</option>
+              {providers.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
           </div>
           <SelectRow
             label="Default Model"
