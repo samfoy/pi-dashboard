@@ -47,7 +47,7 @@ function CollapsibleSidebarPanel({ collapsed, onToggle }: { collapsed: boolean; 
   const hasClaims = registry && registry.getClaims('sidebar-panel').length > 0
   if (!hasClaims) return null
   return (
-    <div className={`flex flex-col border-l border-border bg-bg transition-all duration-200 shrink-0 ${collapsed ? 'w-7' : 'w-[240px]'}`}>
+    <div className={`flex flex-col border-l border-border bg-bg transition-all duration-200 shrink-0 hidden md:flex ${collapsed ? 'w-7' : 'w-[240px]'}`}>
       <button
         className="flex w-7 h-7 items-center justify-center self-start mt-2 bg-transparent border-none text-muted cursor-pointer hover:text-text rounded-md hover:bg-bg-hover transition-colors shrink-0"
         onClick={onToggle}
