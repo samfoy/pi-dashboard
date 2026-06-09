@@ -14,7 +14,7 @@ enum NotificationAction {
 
 @MainActor @Observable
 final class AppState {
-    let serverConfig = ServerConfig()
+    var serverConfig = ServerConfig()
     let notificationService = LocalNotificationService()
     var pendingDeepLinkKey: String?
     var pendingNotificationAction: NotificationAction?

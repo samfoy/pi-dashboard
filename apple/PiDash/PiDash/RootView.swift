@@ -2,17 +2,33 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppState.self) private var appState
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
             WebView()
                 .ignoresSafeArea(.container, edges: .bottom)
+                .onLongPressGesture(minimumDuration: 1.5) {
+                    showSettings = true
+                }
 
             if appState.connectionFailed {
-                ConnectionFailedOverlay()
+                ConnectionFailedOverlay(showSettings: $showSettings)
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environment(appState)
+        }
+        .onChange(of: appState.connectionFailed) {
+            if appState.connectionFailed && appState.serverConfig.baseURL.isEmpty {
+                showSettings = true
             }
         }
         .onAppear {
+            if appState.serverConfig.baseURL.isEmpty {
+                showSettings = true
+            }
             Task { await appState.notificationService.requestPermission() }
         }
     }
@@ -22,6 +38,7 @@ struct RootView: View {
 
 private struct ConnectionFailedOverlay: View {
     @Environment(AppState.self) private var appState
+    @Binding var showSettings: Bool
 
     var body: some View {
         VStack(spacing: 16) {
@@ -30,16 +47,23 @@ private struct ConnectionFailedOverlay: View {
                 .foregroundStyle(.secondary)
             Text("Can't connect to Pi")
                 .font(.headline)
-            Text("Check your server URL in Settings.")
+            Text("Check your server URL and make sure the dashboard is running.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button("Retry") {
-                appState.connectionFailed = false
+            HStack(spacing: 12) {
+                Button("Settings") {
+                    showSettings = true
+                }
+                .buttonStyle(.bordered)
+                Button("Retry") {
+                    appState.connectionFailed = false
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
         }
         .padding(32)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .padding(.horizontal, 32)
     }
 }
