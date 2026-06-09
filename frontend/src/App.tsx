@@ -400,7 +400,7 @@ export default function App() {
       </aside>
 
       {/* Content */}
-      <main className={`pidash-main flex flex-col min-h-0 overflow-x-hidden min-w-0 ${isChat ? 'overflow-hidden p-0' : 'overflow-y-auto'}`}>
+      <main className={`pidash-main flex flex-col min-h-0 overflow-x-hidden min-w-0 row-start-2 ${isChat ? 'overflow-hidden p-0' : 'overflow-y-auto'}`}>
         <ErrorBoundary>
           <Routes>
             <Route path="/chat" element={<ChatPage />} />
