@@ -28,6 +28,7 @@ import ChatSidebar from './ChatSidebar'
 
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
 import type { ModelLike } from '../utils/modelUtils'
+import { supportedThinkingLevels, modelLabel, modelFullId } from '../utils/modelUtils'
 import ContextBar from './chat/ContextBar'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
@@ -909,7 +910,46 @@ export default function ChatPage() {
                 {showOverflowMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowOverflowMenu(false)} />
-                    <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[220px] max-h-[80vh] overflow-y-auto">
+                      {/* Per-slot settings */}
+                      {activeSlot && (
+                        <>
+                          <div className="px-3 py-1.5 text-[11px] text-muted font-semibold uppercase tracking-wider">Model</div>
+                          <div className="px-3 pb-2">
+                            <select
+                              className="w-full bg-bg-elevated border border-border rounded-md px-2 py-1.5 text-[13px] text-text font-mono cursor-pointer"
+                              value={currentSlot?.model || ''}
+                              onChange={e => {
+                                const val = e.target.value
+                                if (!val) { api.setSlotModel(activeSlot, '', ''); return }
+                                const [provider, ...rest] = val.split('/')
+                                api.setSlotModel(activeSlot, provider, rest.join('/'))
+                              }}
+                            >
+                              <option value="">Default</option>
+                              {availableModels.map(m => {
+                                const id = modelFullId(m)
+                                return <option key={id} value={id}>{modelLabel(m)}</option>
+                              })}
+                            </select>
+                          </div>
+                          <div className="px-3 py-1.5 text-[11px] text-muted font-semibold uppercase tracking-wider">Thinking</div>
+                          <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                            {supportedThinkingLevels(availableModels.find(m => modelFullId(m) === currentSlot?.model) || null).map(level => (
+                              <button
+                                key={level}
+                                className={`px-2.5 py-1 rounded-full text-[12px] font-medium border cursor-pointer transition-all ${
+                                  currentSlot?.thinkingLevel === level
+                                    ? 'bg-accent text-white border-accent'
+                                    : 'bg-bg-elevated border-border text-muted hover:border-accent hover:text-accent'
+                                }`}
+                                onClick={() => api.setSlotThinking(activeSlot, level)}
+                              >{level}</button>
+                            ))}
+                          </div>
+                          <div className="border-t border-border my-1" />
+                        </>
+                      )}
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTree(t => !t); setShowOverflowMenu(false) }}>🌳 Tree</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files</button>

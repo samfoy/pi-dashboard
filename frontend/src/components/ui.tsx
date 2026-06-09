@@ -112,11 +112,23 @@ export function EmptyState({ icon, title, subtitle }: { icon: string; title: str
 }
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  const isNativeIOS = typeof navigator !== 'undefined' && navigator.userAgent.includes('PiDash-iOS')
   return (
     <div className="flex items-end justify-between gap-4 px-6 pt-4 pb-3">
-      <div>
-        <div className="text-2xl font-bold tracking-tight text-text-strong">{title}</div>
-        <div className="text-muted text-sm mt-1">{subtitle}</div>
+      <div className="flex items-center gap-3 min-w-0">
+        {isNativeIOS && (
+          <button
+            className="shrink-0 flex items-center gap-1 text-accent text-[15px] font-medium bg-transparent border-none cursor-pointer p-0 hover:opacity-70 transition-opacity"
+            onClick={() => window.history.back()}
+          >
+            <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            Chat
+          </button>
+        )}
+        <div className="min-w-0">
+          <div className="text-2xl font-bold tracking-tight text-text-strong">{title}</div>
+          <div className="text-muted text-sm mt-1">{subtitle}</div>
+        </div>
       </div>
     </div>
   )
