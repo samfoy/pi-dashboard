@@ -6,7 +6,7 @@ struct RootView: View {
     var body: some View {
         ZStack {
             WebView()
-                .ignoresSafeArea()
+                .ignoresSafeArea(.container, edges: .bottom)
 
             if appState.connectionFailed {
                 ConnectionFailedOverlay()
