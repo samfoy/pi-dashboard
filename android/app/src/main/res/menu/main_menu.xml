@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <!-- Web history back (visible in toolbar) -->
+    <item
+        android:id="@+id/action_back"
+        android:title="Back"
+        android:icon="@drawable/ic_arrow_back_24"
+        app:showAsAction="ifRoom" />
+
+    <!-- Force full e-ink refresh + reload page -->
+    <item
+        android:id="@+id/action_refresh"
+        android:title="Refresh"
+        android:icon="@drawable/ic_refresh_24"
+        app:showAsAction="ifRoom" />
+
+    <!-- Server settings (overflow only) -->
+    <item
+        android:id="@+id/action_settings"
+        android:title="Settings"
+        app:showAsAction="never" />
+
+</menu>

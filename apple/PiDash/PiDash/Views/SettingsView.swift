@@ -5,7 +5,6 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var urlText: String = ""
-    @State private var tokenText: String = ""
 
     var body: some View {
         NavigationStack {
@@ -21,16 +20,6 @@ struct SettingsView: View {
                 } footer: {
                     Text("Your pi-dashboard server address (Tailscale IP or local network).")
                 }
-
-                Section {
-                    SecureField("Auth token (optional)", text: $tokenText)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                } header: {
-                    Text("Auth Token")
-                } footer: {
-                    Text("Leave empty for unauthenticated servers.")
-                }
             }
             .navigationTitle("Pi Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -45,16 +34,13 @@ struct SettingsView: View {
             }
             .onAppear {
                 urlText = appState.serverConfig.baseURL
-                tokenText = appState.serverConfig.token
             }
         }
     }
 
     private func save() {
         let url = urlText.trimmingCharacters(in: .whitespaces)
-        let token = tokenText.trimmingCharacters(in: .whitespaces)
         appState.serverConfig.update(baseURL: url)
-        appState.serverConfig.update(token: token)
         appState.connectionFailed = false
         dismiss()
     }

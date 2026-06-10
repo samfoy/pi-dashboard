@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Keep this dead simple: NoActionBar so setSupportActionBar() works,
+      DayNight so Boox dark/light toggle is respected.
+      No color overrides — Material Components 1.12 text appearances use
+      color state list attributes internally; flat @color overrides break them.
+      E-ink tuning is done via CSS injected into the WebView, not the theme.
+    -->
+    <style name="Theme.PiDash" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+
+</resources>

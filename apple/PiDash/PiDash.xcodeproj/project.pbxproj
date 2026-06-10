@@ -33,6 +33,16 @@
 		EA4B3C5C02D14B25B795B0DF /* AskPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C952B932891A69081772B14 /* AskPiIntent.swift */; };
 		EF746E0917E1EEC44B891544 /* SendToPiIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9163021794CFFBDC993AB76 /* SendToPiIntent.swift */; };
 		F18845C9A0BC1F7E8B4D3F6D /* PiDashShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9E46D8D71AA73AA46BF218 /* PiDashShortcuts.swift */; };
+
+		218637F19B14CE2FF59E6D2F /* PiDashLiveActivityAttributes.swift in Sources (PiDash) */ = {isa = PBXBuildFile; fileRef = CC6A63520D1863068A69176D /* PiDashLiveActivityAttributes.swift */; };
+		30949E0B5359AA5F40326E8C   /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37531DA9C29779C367D43E8 /* LiveActivityManager.swift */; };
+		C0796F8E152F64EF166C6045    /* VoiceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 656B0509CD69D569CA68D85F /* VoiceManager.swift */; };
+		EFFB39121399937D9DF435B8  /* PiDashLiveActivityAttributes.swift in Sources (Widget) */ = {isa = PBXBuildFile; fileRef = CC6A63520D1863068A69176D /* PiDashLiveActivityAttributes.swift */; };
+		E0835F76B684511AE97C9BAE      /* PiDashWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = E613B74E099BB9B7A2872BA4 /* PiDashWidget.swift */; };
+		5C75F3EFB29DFE30DB35877D    /* PiDashWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01A501E253294CCDC6A10AD4 /* PiDashWidgetBundle.swift */; };
+		8026CE234F4FE4070D290547       /* WidgetNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82288EBE53D26598CDBFB7E3 /* WidgetNetworking.swift */; };
+		F87992A265CC327D18A7E459        /* PiDashLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73780903762272FBC68EB53E /* PiDashLiveActivity.swift */; };
+		3538CCF7F24F21C88BF2C20E     /* PiDashWidget.appex in Embed Widget Extensions */ = {isa = PBXBuildFile; fileRef = 181167B8148E43C38D7C8B53 /* PiDashWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,6 +52,14 @@
 			proxyType = 1;
 			remoteGlobalIDString = 9DDB30A3D50949B2F5E6B39C;
 			remoteInfo = PiDashShare;
+		};
+
+		9E567C9FEDBEBBBF187B08CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8F3C83F3BACDF2B76FCEDC61 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0E1ED9BB540E0F943F833D6B;
+			remoteInfo = PiDashWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -55,6 +73,18 @@
 				C66A91B422F87AA5014B204B /* PiDashShare.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		09B165CBBAB8155D51ABBBF9 /* Embed Widget Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				3538CCF7F24F21C88BF2C20E /* PiDashWidget.appex in Embed Widget Extensions */,
+			);
+			name = "Embed Widget Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -88,6 +118,17 @@
 		D827BBABA7E1DC762D34F5A3 /* ShareViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewModel.swift; sourceTree = "<group>"; };
 		DBA38927A210B8A6BFB78498 /* ServerConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfig.swift; sourceTree = "<group>"; };
 		E9163021794CFFBDC993AB76 /* SendToPiIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendToPiIntent.swift; sourceTree = "<group>"; };
+
+		CC6A63520D1863068A69176D   /* PiDashLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		C37531DA9C29779C367D43E8     /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		656B0509CD69D569CA68D85F  /* VoiceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceManager.swift; sourceTree = "<group>"; };
+		E613B74E099BB9B7A2872BA4   /* PiDashWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashWidget.swift; sourceTree = "<group>"; };
+		01A501E253294CCDC6A10AD4 /* PiDashWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashWidgetBundle.swift; sourceTree = "<group>"; };
+		82288EBE53D26598CDBFB7E3    /* WidgetNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetNetworking.swift; sourceTree = "<group>"; };
+		73780903762272FBC68EB53E     /* PiDashLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiDashLiveActivity.swift; sourceTree = "<group>"; };
+		EEC8774AC519FC628980EA1F   /* PiDashWidget/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9C732CD9C00B0902055B31D6    /* PiDashWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PiDashWidget.entitlements; sourceTree = "<group>"; };
+		181167B8148E43C38D7C8B53  /* PiDashWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PiDashWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +162,8 @@
 			isa = PBXGroup;
 			children = (
 				0EBD7361EF456B5F0436A74A /* Assets.xcassets */,
+				239CE2C7C6D9A8A563977AA1 /* LiveActivity */,
+				5B6F15A68F463F0D752925F6 /* Voice */,
 				22694B85988C36300067EA53 /* Info.plist */,
 				81FF74731BB0FCBF5DD979F6 /* PiDash.entitlements */,
 				A17E75D21EAB3EC9B1BC0BC4 /* PiDashApp.swift */,
@@ -246,6 +289,7 @@
 			isa = PBXGroup;
 			children = (
 				0FBD0B08711010CA9B546724 /* PiDash */,
+				80BAB33AB5768441967E411A /* PiDashWidget */,
 				4BC8928640FB63E08755018D /* PiDashShare */,
 				8050E845E70EDEAD920DD7C3 /* Products */,
 			);
@@ -256,6 +300,37 @@
 			children = (
 			);
 			path = SlotList;
+			sourceTree = "<group>";
+		};
+
+		239CE2C7C6D9A8A563977AA1 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				CC6A63520D1863068A69176D /* PiDashLiveActivityAttributes.swift */,
+				C37531DA9C29779C367D43E8   /* LiveActivityManager.swift */,
+			);
+			path = LiveActivity;
+			sourceTree = "<group>";
+		};
+		5B6F15A68F463F0D752925F6 /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				656B0509CD69D569CA68D85F /* VoiceManager.swift */,
+			);
+			path = Voice;
+			sourceTree = "<group>";
+		};
+		80BAB33AB5768441967E411A /* PiDashWidget */ = {
+			isa = PBXGroup;
+			children = (
+				EEC8774AC519FC628980EA1F   /* Info.plist */,
+				9C732CD9C00B0902055B31D6    /* PiDashWidget.entitlements */,
+				E613B74E099BB9B7A2872BA4   /* PiDashWidget.swift */,
+				01A501E253294CCDC6A10AD4 /* PiDashWidgetBundle.swift */,
+				82288EBE53D26598CDBFB7E3    /* WidgetNetworking.swift */,
+				73780903762272FBC68EB53E     /* PiDashLiveActivity.swift */,
+			);
+			path = PiDashWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -269,11 +344,13 @@
 				5D383E056272AB421E5DE30D /* Resources */,
 				5D7C591675B45D41B1FB4A53 /* Frameworks */,
 				0CDCD6DC30BB4EBC7C3A931D /* Embed Foundation Extensions */,
+				09B165CBBAB8155D51ABBBF9 /* Embed Widget Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				1A0921AD09C4D2E59B69BE46 /* PBXTargetDependency */,
+				522F7B17C89F99F587A2C397 /* PBXTargetDependency */,
 			);
 			name = PiDash;
 			packageProductDependencies = (
@@ -302,6 +379,25 @@
 			productReference = 788371A341E55F25E52232EA /* PiDashShare.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+
+		0E1ED9BB540E0F943F833D6B /* PiDashWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5AFD17B2B3603C3D5B2C38C2 /* Build configuration list for PBXNativeTarget "PiDashWidget" */;
+			buildPhases = (
+				538514FDA6A1F27D37DCDBA4 /* Sources */,
+				214843371FD3E6F5F0DD1AEE     /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PiDashWidget;
+			packageProductDependencies = (
+			);
+			productName = PiDashWidget;
+			productReference = 181167B8148E43C38D7C8B53 /* PiDashWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -316,6 +412,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					9DDB30A3D50949B2F5E6B39C = {
+						DevelopmentTeam = ZBL5RZ37FG;
+						ProvisioningStyle = Automatic;
+					};
+					0E1ED9BB540E0F943F833D6B = {
 						DevelopmentTeam = ZBL5RZ37FG;
 						ProvisioningStyle = Automatic;
 					};
@@ -342,6 +442,7 @@
 			targets = (
 				777CC3B5B79BBAA6C06F1A7A /* PiDash */,
 				9DDB30A3D50949B2F5E6B39C /* PiDashShare */,
+				0E1ED9BB540E0F943F833D6B /* PiDashWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -380,7 +481,11 @@
 				7BEFA575A194918088A5F404 /* ServerConfig.swift in Sources */,
 				BAD7200B8A869436F16410BF /* SettingsView.swift in Sources */,
 				E905F289C9955FF64CC5EF8A /* WebView.swift in Sources */,
+				218637F19B14CE2FF59E6D2F /* PiDashLiveActivityAttributes.swift in Sources */,
+				30949E0B5359AA5F40326E8C /* LiveActivityManager.swift in Sources */,
+				C0796F8E152F64EF166C6045 /* VoiceManager.swift in Sources */,
 			);
+
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		C4C313A8A935109DE4B41A70 /* Sources */ = {
@@ -393,6 +498,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+
+		538514FDA6A1F27D37DCDBA4 /* Sources (PiDashWidget) */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EFFB39121399937D9DF435B8 /* PiDashLiveActivityAttributes.swift in Sources */,
+				E0835F76B684511AE97C9BAE     /* PiDashWidget.swift in Sources */,
+				5C75F3EFB29DFE30DB35877D   /* PiDashWidgetBundle.swift in Sources */,
+				8026CE234F4FE4070D290547      /* WidgetNetworking.swift in Sources */,
+				F87992A265CC327D18A7E459       /* PiDashLiveActivity.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		214843371FD3E6F5F0DD1AEE /* Resources (PiDashWidget) */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -400,6 +525,12 @@
 			isa = PBXTargetDependency;
 			target = 9DDB30A3D50949B2F5E6B39C /* PiDashShare */;
 			targetProxy = 8F5344F9C6599F14D0788D87 /* PBXContainerItemProxy */;
+		};
+
+		522F7B17C89F99F587A2C397 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0E1ED9BB540E0F943F833D6B /* PiDashWidget */;
+			targetProxy = 9E567C9FEDBEBBBF187B08CE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -615,6 +746,55 @@
 			};
 			name = Release;
 		};
+
+		0B24B09508F66FEC673BC06F /* Debug (PiDashWidget) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PiDashWidget/PiDashWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZBL5RZ37FG;
+				INFOPLIST_FILE = PiDashWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sam.pidash.PiDashWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D3E3880BAA91174A2722BFF3 /* Release (PiDashWidget) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PiDashWidget/PiDashWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZBL5RZ37FG;
+				INFOPLIST_FILE = PiDashWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.sam.pidash.PiDashWidget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -641,6 +821,16 @@
 			buildConfigurations = (
 				34F62811FD185594390F4777 /* Debug */,
 				E71E0C742650277F6880A896 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+
+		5AFD17B2B3603C3D5B2C38C2 /* Build configuration list for PBXNativeTarget "PiDashWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0B24B09508F66FEC673BC06F   /* Debug */,
+				D3E3880BAA91174A2722BFF3 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

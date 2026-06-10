@@ -22,7 +22,11 @@ struct WebView: UIViewRepresentable {
 
         let handlers = ["piHaptic", "piSetActiveSlot", "piOpenShare",
                         "piOpenInSafari", "piRequestNotificationPermission", "piReady",
-                        "piPickMedia", "piPickFile", "piOpenSettings", "piSpeech", "piSpeechStop"]
+                        "piPickMedia", "piPickFile", "piOpenSettings", "piSpeech", "piSpeechStop",
+                        // Spike: Live Activities
+                        "piLiveActivity", "piLiveActivityUpdate", "piLiveActivityEnd",
+                        // Spike: Voice mode (TTS)
+                        "piSpeak", "piSpeakStop"]
         for name in handlers {
             config.userContentController.add(context.coordinator, name: name)
         }
@@ -60,15 +64,8 @@ struct WebView: UIViewRepresentable {
 
     func loadURL(in webView: WKWebView) {
         let base = appState.serverConfig.baseURL
-        let token = appState.serverConfig.token
-        guard !base.isEmpty, var components = URLComponents(string: base) else { return }
-        components.path = "/"
-        if !token.isEmpty {
-            var items = components.queryItems ?? []
-            items.append(URLQueryItem(name: "token", value: token))
-            components.queryItems = items
-        }
-        guard let url = components.url else { return }
+        guard !base.isEmpty, let components = URLComponents(string: base),
+              let url = components.url else { return }
         var request = URLRequest(url: url)
         request.cachePolicy = .useProtocolCachePolicy
         webView.load(request)
@@ -109,6 +106,18 @@ struct WebView: UIViewRepresentable {
                 startSpeechRecognition()
             case "piSpeechStop":
                 stopSpeechRecognition()
+            case "piLiveActivity":
+                handleLiveActivityStart(body)
+            case "piLiveActivityUpdate":
+                handleLiveActivityUpdate(body)
+            case "piLiveActivityEnd":
+                if let key = body["slotKey"] as? String {
+                    appState.liveActivityManager.end(slotKey: key)
+                }
+            case "piSpeak":
+                if let text = body["text"] as? String { handleSpeak(text) }
+            case "piSpeakStop":
+                appState.voiceManager.stop()
             case "piReady":
                 readyFired = true
                 dispatchPending()
@@ -189,6 +198,40 @@ struct WebView: UIViewRepresentable {
             if let u = urlStr.flatMap(URL.init) { items.append(u) }
             let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
             present(vc)
+        }
+
+        // MARK: Live Activity
+
+        private func handleLiveActivityStart(_ body: [String: Any]) {
+            guard let slotKey = body["slotKey"] as? String else { return }
+            appState.liveActivityManager.start(
+                slotKey: slotKey,
+                slotTitle: body["slotTitle"] as? String ?? "Chat",
+                currentTool: body["currentTool"] as? String,
+                toolInput: body["toolInput"] as? String,
+                pendingApproval: body["pendingApproval"] as? Bool ?? false,
+                tokenCount: body["tokenCount"] as? Int ?? 0
+            )
+        }
+
+        private func handleLiveActivityUpdate(_ body: [String: Any]) {
+            guard let slotKey = body["slotKey"] as? String else { return }
+            appState.liveActivityManager.update(
+                slotKey: slotKey,
+                currentTool: body["currentTool"] as? String,
+                toolInput: body["toolInput"] as? String,
+                pendingApproval: body["pendingApproval"] as? Bool ?? false,
+                tokenCount: body["tokenCount"] as? Int ?? 0
+            )
+        }
+
+        // MARK: Voice (TTS)
+
+        private func handleSpeak(_ text: String) {
+            appState.voiceManager.onSpeakDone = { [weak self] in
+                self?.dispatch("speak-done", payload: [:])
+            }
+            appState.voiceManager.speak(text)
         }
 
         // MARK: Speech Recognition

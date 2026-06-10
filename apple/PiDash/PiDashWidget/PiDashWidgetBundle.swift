@@ -5,5 +5,6 @@ import SwiftUI
 struct PiDashWidgetBundle: WidgetBundle {
     var body: some Widget {
         PiDashWidget()
+        PiDashLiveActivity()
     }
 }

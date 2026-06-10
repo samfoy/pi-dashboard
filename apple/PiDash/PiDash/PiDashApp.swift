@@ -70,7 +70,20 @@ struct PiDashApp: App {
                 }
                 .onOpenURL { url in
                     guard url.scheme == "pidash" else { return }
-                    if url.host == "slot", let key = url.pathComponents.dropFirst().first, !key.isEmpty {
+                    if url.host == "action" {
+                        // Live Activity button taps: pidash://action?type=approve&slot=<key>
+                        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+                        let type = components?.queryItems?.first(where: { $0.name == "type" })?.value
+                        let slot = components?.queryItems?.first(where: { $0.name == "slot" })?.value
+                        if let type, let slot {
+                            switch type {
+                            case "approve": appState.pendingNotificationAction = .approveSlot(slot)
+                            case "reject":  appState.pendingNotificationAction = .rejectSlot(slot)
+                            case "stop":    appState.pendingNotificationAction = .stopSlot(slot)
+                            default: break
+                            }
+                        }
+                    } else if url.host == "slot", let key = url.pathComponents.dropFirst().first, !key.isEmpty {
                         appState.pendingDeepLinkKey = key
                     }
                 }
