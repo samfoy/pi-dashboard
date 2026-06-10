@@ -151,6 +151,53 @@ describe('sseChatMessage', () => {
     expect(state.messages[0].content).toContain('×2')
   })
 
+  it('keeps consecutive ensemble spawns with distinct tool IDs separate', () => {
+    let state = reducer(withSlot, sseChatMessage({
+      slot: 'slot-1', role: 'tool', content: 'ensemble_spawn',
+      meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-1', args: JSON.stringify({ prompt: 'one' }) },
+    }))
+    state = reducer(state, sseChatMessage({
+      slot: 'slot-1', role: 'tool', content: 'ensemble_spawn',
+      meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-2', args: JSON.stringify({ prompt: 'two' }) },
+    }))
+    state = reducer(state, sseChatMessage({
+      slot: 'slot-1', role: 'tool', content: 'ensemble_spawn',
+      meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-3', args: JSON.stringify({ prompt: 'three' }) },
+    }))
+
+    expect(state.messages).toHaveLength(3)
+    expect(state.messages.map(m => (m.meta as any)?.toolCallId)).toEqual(['tc-1', 'tc-2', 'tc-3'])
+    expect(state.messages.every(m => m.content === 'ensemble_spawn')).toBe(true)
+  })
+
+  it('attaches ensemble spawn results to second and third tool IDs', () => {
+    let state = reducer(withSlot, sseChatMessage({
+      slot: 'slot-1', role: 'tool', content: 'ensemble_spawn',
+      meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-1', args: '{}' },
+    }))
+    state = reducer(state, sseChatMessage({
+      slot: 'slot-1', role: 'tool', content: 'ensemble_spawn',
+      meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-2', args: '{}' },
+    }))
+    state = reducer(state, sseChatMessage({
+      slot: 'slot-1', role: 'tool', content: 'ensemble_spawn',
+      meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-3', args: '{}' },
+    }))
+
+    state = reducer(state, sseChatMessage({
+      slot: 'slot-1', role: '_tool_result', content: '',
+      meta: { toolCallId: 'tc-2', result: 'spawned two', isError: false },
+    }))
+    state = reducer(state, sseChatMessage({
+      slot: 'slot-1', role: '_tool_result', content: '',
+      meta: { toolCallId: 'tc-3', result: 'spawned three', isError: false },
+    }))
+
+    expect((state.messages[0].meta as any).result).toBeUndefined()
+    expect((state.messages[1].meta as any).result).toBe('spawned two')
+    expect((state.messages[2].meta as any).result).toBe('spawned three')
+  })
+
   it('appends regular messages', () => {
     const state = reducer(withSlot, sseChatMessage({ slot: 'slot-1', role: 'permission', content: 'run bash?' }))
     expect(state.messages).toHaveLength(1)

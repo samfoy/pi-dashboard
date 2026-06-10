@@ -6,6 +6,8 @@ interface ToolGroupProps {
   renderTool: (i: number, m: ChatMessage) => React.ReactNode
 }
 
+const UNGROUPED_TOOL_NAMES = new Set(['subagent', 'process', 'ensemble_spawn', 'ensemble_send'])
+
 /** Collapsible group of consecutive tool calls with a live counter. */
 const ToolGroup = memo(function ToolGroup({ tools, renderTool }: ToolGroupProps) {
   const [expanded, setExpanded] = useState(false)
@@ -90,9 +92,9 @@ export function groupToolMessages(messages: ChatMessage[]): ({ type: 'single'; i
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i]
     if (m.role === 'tool') {
-      // Never group subagent calls — they're long-running and need individual visibility
+      // Never group long-running/rich-card tools — they need individual visibility
       const toolName = (m.meta?.toolName as string) || ''
-      if (toolName === 'subagent') {
+      if (UNGROUPED_TOOL_NAMES.has(toolName)) {
         if (currentGroup.length > 0) {
           if (currentGroup.length > 2) {
             result.push({ type: 'group', tools: currentGroup })

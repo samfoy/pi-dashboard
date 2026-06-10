@@ -5,6 +5,7 @@ import type { ChatMessage, SessionInfo } from '../types'
 
 const SKIP_ROLES = new Set(['chunk', 'done'])
 const MAX_MESSAGES_PER_SESSION = 500
+const NO_DEDUP_TOOL_MESSAGES = new Set(['subagent', 'process', 'ensemble_spawn', 'ensemble_send'])
 
 const filterMessages = (msgs: ChatMessage[]) => msgs.filter(m => !SKIP_ROLES.has(m.role))
 
@@ -313,8 +314,7 @@ const chatSlice = createSlice({
         state.slotState = 'tool_running'
         const baseTitle = content.replace(/^🔧 /, '')
         // Never dedup tools that need individual messages (long-running, have their own cards)
-        const NO_DEDUP_TOOLS = new Set(['subagent', 'process'])
-        if (!NO_DEDUP_TOOLS.has(meta?.toolName as string ?? '')) {
+        if (!NO_DEDUP_TOOL_MESSAGES.has(meta?.toolName as string ?? '')) {
           // Search for consecutive tool messages, skipping trailing streaming message
           const last = state.messages[state.messages.length - 1]
           const searchFrom = last?.role === 'streaming' ? state.messages.length - 2 : state.messages.length - 1

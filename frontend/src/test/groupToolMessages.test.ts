@@ -38,6 +38,17 @@ describe('groupToolMessages', () => {
     expect(result[2].type).toBe('single')
   })
 
+  it('keeps 3 consecutive ensemble spawns as singles', () => {
+    const msgs = [
+      { ...msg('tool', 'ensemble_spawn'), meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-1' } },
+      { ...msg('tool', 'ensemble_spawn'), meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-2' } },
+      { ...msg('tool', 'ensemble_spawn'), meta: { toolName: 'ensemble_spawn', toolCallId: 'tc-3' } },
+    ]
+    const result = groupToolMessages(msgs)
+    expect(result).toHaveLength(3)
+    expect(result.every(r => r.type === 'single')).toBe(true)
+  })
+
   it('handles trailing tool group (no following non-tool)', () => {
     const msgs = [msg('user'), msg('tool'), msg('tool'), msg('tool')]
     const result = groupToolMessages(msgs)
