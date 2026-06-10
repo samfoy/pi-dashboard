@@ -29,44 +29,15 @@ import ChatSidebar from './ChatSidebar'
 import ChatSettings, { loadChatConfig, type ChatConfig } from './chat/ChatSettings'
 import type { ModelLike } from '../utils/modelUtils'
 import { supportedThinkingLevels, modelLabel, modelFullId } from '../utils/modelUtils'
-import ContextBar from './chat/ContextBar'
+import StatChipRail from './chat/StatChipRail'
 import SessionTree from './chat/SessionTree'
 import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
-import ContextWindowBar from './chat/ContextWindowBar'
+import StatusLine from './chat/StatusLine'
 import SplitPane from './chat/SplitPane'
-import { SidebarPanelSlot, StatusBarSlot, useSlotRegistryOrNull } from '../plugins'
+import MemoryFlash from './chat/MemoryFlash'
+import { StatusBarSlot } from '../plugins'
 import type { ChatMessage } from '../types'
-
-
-
-
-
-function CollapsibleSidebarPanel({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const registry = useSlotRegistryOrNull()
-  const hasClaims = registry && registry.getClaims('sidebar-panel').length > 0
-  if (!hasClaims) return null
-  return (
-    <div className={`flex flex-col border-l border-border bg-bg transition-all duration-200 shrink-0 hidden md:flex ${collapsed ? 'w-7' : 'w-[240px]'}`}>
-      <button
-        className="flex w-7 h-7 items-center justify-center self-start mt-2 bg-transparent border-none text-muted cursor-pointer hover:text-text rounded-md hover:bg-bg-hover transition-colors shrink-0"
-        onClick={onToggle}
-        aria-label={collapsed ? 'Expand workflows panel' : 'Collapse workflows panel'}
-        title={collapsed ? 'Expand workflows panel' : 'Collapse workflows panel'}
-      >
-        <svg viewBox="0 0 24 24" className={`w-4 h-4 stroke-current fill-none transition-transform ${collapsed ? 'rotate-180' : ''}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="15" y1="3" x2="15" y2="21" />
-        </svg>
-      </button>
-      {!collapsed && (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <SidebarPanelSlot />
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function ChatPage() {
   const dispatch = useAppDispatch()
@@ -104,6 +75,13 @@ export default function ChatPage() {
   const pendingInput = useAppSelector(s => s.chat.pendingInput)
 
   const [chatConfig, setChatConfig] = useState<ChatConfig>(loadChatConfig)
+  // Keep chat config in sync with edits made on the Settings page (Chat tab).
+  useEffect(() => {
+    const reload = () => setChatConfig(loadChatConfig())
+    window.addEventListener('mc-chat-config', reload)
+    window.addEventListener('storage', reload)
+    return () => { window.removeEventListener('mc-chat-config', reload); window.removeEventListener('storage', reload) }
+  }, [])
   const [showTerminal, setShowTerminal] = useState(false)
   const [showTree, setShowTree] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
@@ -167,6 +145,15 @@ export default function ChatPage() {
       }, 100)
     }
   }, [pendingInput, dispatch, searchParams, setSearchParams])
+
+  // Handle slot deep links from Jobs / notifications.
+  useEffect(() => {
+    const slotParam = searchParams.get('slot')
+    if (slotParam && slotParam !== activeSlot) {
+      dispatch(switchSlot(slotParam))
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams, dispatch, activeSlot])
 
   // Handle newCwd query param (from command palette)
   useEffect(() => {
@@ -448,8 +435,9 @@ export default function ChatPage() {
   }, [dispatch])
   // Persist active slot to localStorage for refresh recovery
   useEffect(() => { if (activeSlot) { localStorage.setItem('mc-active-slot', activeSlot); wantsNewSession.current = false } }, [activeSlot])
-  // Re-fetch slot messages on mount (handles nav away + back)
-  useEffect(() => { if (activeSlot) dispatch(switchSlot(activeSlot)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-fetch slot messages on mount (handles nav away + back).
+  // Skip if a deep-link slot param is present — the deep-link effect will handle the switch.
+  useEffect(() => { if (activeSlot && !searchParams.get('slot')) dispatch(switchSlot(activeSlot)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Auto-select slot after refresh — restore from localStorage or pick first
   useEffect(() => {
     if (activeSlot || slots.length === 0 || wantsNewSession.current) return
@@ -677,7 +665,7 @@ export default function ChatPage() {
       }
     }
     inputRef.current?.focus()
-  }, [input, pendingImages, pendingFiles, pendingModel, pendingCwd, activeSlot, dispatch, scrollBottom])
+  }, [input, pendingImages, pendingFiles, pendingModel, pendingCwd, activeSlot, slotRunning, dispatch, scrollBottom])
 
   const approve = useCallback(async (action: string) => {
     ;(window as any).webkit?.messageHandlers?.piHaptic?.postMessage({ style: 'medium' })
@@ -838,8 +826,8 @@ export default function ChatPage() {
   }, [messages, pendingApproval, slotRunning, approve, send, handleFileOpen, chatConfig, navigate, planTaskId])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('mc-chat-sidebar') === '1')
-  const [workflowsPanelCollapsed, setWorkflowsPanelCollapsed] = useState(() => localStorage.getItem('mc-workflows-panel') === '1')
-  const toggleWorkflowsPanel = useCallback(() => setWorkflowsPanelCollapsed(p => { const next = !p; localStorage.setItem('mc-workflows-panel', next ? '1' : '0'); return next }), [])
+
+
 
   return (
     <div className="flex flex-1 min-h-0 h-full">
@@ -891,11 +879,9 @@ export default function ChatPage() {
                   <TypewriterText className="text-sm font-semibold text-text font-body truncate" text={title} onDoubleClick={() => { setEditingHeader(true); setEditingTitle(title) }} />
                 )}
                 {!editingHeader && <span className="hidden md:inline text-[11px] text-muted cursor-pointer opacity-40 hover:opacity-100 hover:text-accent transition-all" title="Rename session" onClick={() => { setEditingHeader(true); setEditingTitle(title) }}>✏️</span>}
-                {currentSlot?.model && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title={currentSlot.model}>🧠 {modelDisplay}</span>}
+                {/* Model badge, cwd badge & context pill moved to the status-line footer above the composer (StatusLine.tsx). Mobile keeps a compact model button. */}
                 {currentSlot?.model && <button className="md:hidden px-2 py-0.5 rounded-md text-[11px] font-mono bg-bg-elevated border border-border text-muted shrink-0 cursor-pointer hover:border-accent hover:text-accent transition-colors max-w-[120px] truncate" title={currentSlot.model} onClick={() => setShowOverflowMenu(v => !v)}>{modelDisplay}</button>}
-                {contextUsage && <span className="hidden md:inline"><ContextBar usage={contextUsage} /></span>}
-                {contextUsage && (contextUsage.percent ?? 0) >= 50 && <span className="md:hidden"><ContextBar usage={contextUsage} /></span>}
-                {currentSlot?.cwd && <span className="hidden md:inline px-2 py-0.5 rounded-md text-[12px] font-mono bg-bg-elevated border border-border text-muted" title="Working directory">📂 {currentSlot.cwd.split('/').pop()}</span>}
+                {/* cwd badge moved to status-line footer */}
               </div>
               {/* Desktop toolbar */}
               <div className="hidden md:flex gap-1.5 shrink-0">
@@ -954,7 +940,7 @@ export default function ChatPage() {
                     </>
                   )}
                 </div>
-                <ChatSettings config={chatConfig} onChange={setChatConfig} activeSlot={activeSlot} currentModel={currentSlot?.model} currentThinking={currentSlot?.thinkingLevel} models={availableModels} />
+                <ChatSettings activeSlot={activeSlot} currentModel={currentSlot?.model} currentThinking={currentSlot?.thinkingLevel} models={availableModels} />
                 <button className="bg-transparent border border-border text-muted rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer hover:text-danger hover:border-danger transition-all font-body" aria-label="Close session" onClick={() => { if (activeSlot) dispatch(deleteSlot(activeSlot)) }}>✕</button>
               </div>
               {/* Mobile overflow menu */}
@@ -1014,7 +1000,6 @@ export default function ChatPage() {
                           <div className="border-t border-border my-1" />
                           <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/system'); setShowOverflowMenu(false) }}>🖥 System</button>
                           <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/logs'); setShowOverflowMenu(false) }}>📋 Logs</button>
-                          <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/loops'); setShowOverflowMenu(false) }}>🔁 Loops</button>
                           <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { navigate('/settings'); setShowOverflowMenu(false) }}>⚙️ Settings</button>
                           <button className="w-full text-left px-3 py-2 text-[13px] text-muted hover:bg-bg-hover" onClick={() => { setShowOverflowMenu(false); (window as any).webkit?.messageHandlers?.piOpenSettings?.postMessage({}) }}>🔧 Pi Settings</button>
                         </>
@@ -1161,7 +1146,8 @@ export default function ChatPage() {
                 </button>
               </div>
             )}
-            {tokenStats && <ContextWindowBar stats={tokenStats} contextUsage={contextUsage} />}
+            {tokenStats && <StatChipRail stats={tokenStats} contextUsage={contextUsage} />}
+            <StatusLine slot={currentSlot} modelDisplay={modelDisplay} running={slotRunning} />
             <SubagentDock />
             {prefillHint && (
               <div className="flex items-center gap-2 px-5 py-2 bg-accent/10 border-t border-accent/30">
@@ -1231,6 +1217,7 @@ export default function ChatPage() {
               <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(false) }} onClose={() => setSlashMenuOpen(false)} />
               {pathMenuOpen && <PathCompleteMenu input={input} cursorPos={cursorPos} anchorRef={inputRef as React.RefObject<HTMLElement>} onComplete={(before, completed, after) => { const val = before + completed + after; setInput(val); setPathMenuOpen(true); setTimeout(() => { if (inputRef.current) { const pos = before.length + completed.length; inputRef.current.selectionStart = inputRef.current.selectionEnd = pos; setCursorPos(pos) } }, 0) }} onClose={() => setPathMenuOpen(false)} />}
               <div className="flex-1 flex flex-col gap-1.5">
+                <MemoryFlash slotKey={activeSlot} />
                 {pendingImages.length > 0 && (
                   <div className="flex gap-2 flex-wrap">
                     {pendingImages.map((img, i) => (
@@ -1290,7 +1277,6 @@ export default function ChatPage() {
           </>
         )}
       </div>
-      <CollapsibleSidebarPanel collapsed={workflowsPanelCollapsed} onToggle={toggleWorkflowsPanel} />
       {splitSlot && slots.some(s => s.key === splitSlot) && (
         <SplitPane slotKey={splitSlot} onClose={() => setSplitSlot(null)} onFileOpen={handleFileOpen} />
       )}
