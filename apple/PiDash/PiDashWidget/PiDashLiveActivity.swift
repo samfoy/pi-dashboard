@@ -29,6 +29,10 @@ private extension Color {
     static let piSurface  = Color(red: 0.13,  green: 0.13,  blue: 0.16)
     static let piGreen    = Color(red: 0.2,   green: 0.85,  blue: 0.4)
     static let piYellow   = Color(red: 1.0,   green: 0.75,  blue: 0.1)
+
+    static let piLiveTextPrimary = Color.white
+    static let piLiveTextSecondary = Color.white.opacity(0.78)
+    static let piLiveTextTertiary = Color.white.opacity(0.55)
 }
 
 // MARK: - Lock Screen / Notification Center View
@@ -47,6 +51,7 @@ struct PiDashLockScreenActivityView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(context.attributes.slotTitle)
                         .font(.subheadline.bold())
+                        .foregroundStyle(Color.piLiveTextPrimary)
                         .lineLimit(1)
 
                     if context.state.pendingApproval {
@@ -56,12 +61,12 @@ struct PiDashLockScreenActivityView: View {
                     } else if let tool = context.state.currentTool {
                         Label(context.state.toolInput ?? tool, systemImage: toolIcon(tool))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.piLiveTextSecondary)
                             .lineLimit(1)
                     } else {
                         Text("Idle")
                             .font(.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color.piLiveTextTertiary)
                     }
                 }
 
@@ -70,12 +75,12 @@ struct PiDashLockScreenActivityView: View {
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(context.state.startedAt, style: .timer)
                         .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.piLiveTextSecondary)
 
                     if context.state.tokenCount > 0 {
                         Text("\(formatTokens(context.state.tokenCount)) tok")
                             .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Color.piLiveTextTertiary)
                     }
                 }
             }
@@ -116,10 +121,11 @@ private struct PiDashExpandedLeadingView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(context.attributes.slotTitle)
                 .font(.caption.bold())
+                .foregroundStyle(Color.piLiveTextPrimary)
                 .lineLimit(1)
             Text(context.state.startedAt, style: .timer)
                 .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.piLiveTextSecondary)
         }
         .padding(.leading, 4)
     }
@@ -136,7 +142,7 @@ private struct PiDashExpandedTrailingView: View {
             if context.state.tokenCount > 0 {
                 Text("\(formatTokens(context.state.tokenCount))t")
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Color.piLiveTextTertiary)
             }
         }
         .padding(.trailing, 4)
@@ -176,7 +182,7 @@ private struct PiDashExpandedBottomView: View {
                     .foregroundStyle(Color.piAccent)
                 Text(context.state.toolInput ?? tool)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.piLiveTextSecondary)
                     .lineLimit(1)
                 Spacer()
             }
@@ -210,6 +216,7 @@ struct PiDashLiveActivity: Widget {
                         .font(.system(size: 13))
                     Text(context.attributes.slotTitle)
                         .font(.caption2.bold())
+                        .foregroundStyle(Color.piLiveTextPrimary)
                         .lineLimit(1)
                         .frame(maxWidth: 90, alignment: .leading)
                 }

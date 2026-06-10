@@ -7,6 +7,7 @@ struct ServerConfig {
     static let defaultBaseURL = "http://samuels-macbook-air-1.taile86245.ts.net:7777"
     static let userDefaultsKey = "serverBaseURL"
     static let cwdDefaultsKey = "defaultCwd"
+    static let tokenDefaultsKey = "serverAuthToken"
     static let defaultModelKey = "defaultModel"
     static let defaultThinkingLevelKey = "defaultThinkingLevel"
     static let appGroupSuite = "group.com.sam.pidash"
