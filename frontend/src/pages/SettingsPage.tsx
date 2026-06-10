@@ -9,7 +9,7 @@ import { BUILTIN_THEMES } from '../themes'
 import { loadChatConfig, saveChatConfig, type ChatConfig } from './chat/ChatSettings'
 import { SettingsSectionSlot } from '../plugins/slot-consumers'
 import { ACTIONS, formatKey, setShortcut, resetShortcut, resetAllShortcuts, hasCustomShortcuts, subscribeShortcuts, eventToKeyString, type ActionCategory } from '../shortcuts'
-import { splitModelFullId, splitThinkingSuffix } from '../utils/modelUtils'
+import { modelFullId, splitModelFullId, splitThinkingSuffix } from '../utils/modelUtils'
 
 type Tab = 'general' | 'model' | 'behavior' | 'terminal' | 'skills' | 'chat' | 'display' | 'vault' | 'developer' | 'shortcuts'
 
@@ -263,7 +263,7 @@ function ModelTab() {
             value={currentDefaultModel}
             options={[
               { value: '', label: '— default —' },
-              ...providerModels.map(m => ({ value: m.id, label: m.name ? `${m.name} (${m.id})` : m.id }))
+              ...providerModels.map(m => ({ value: modelFullId(m), label: m.name ? `${m.name} (${m.id})` : m.id }))
             ]}
             onChange={updateDefaultModel}
           />
@@ -1166,49 +1166,98 @@ function ShortcutsTab() {
 }
 
 /* ── SETTINGS PAGE ── */
-export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('model')
+const SETTINGS_GROUPS: { group: string; tabs: { id: Tab; label: string; icon: string; hint: string }[] }[] = [
+  {
+    group: 'Agent',
+    tabs: [
+      { id: 'model', label: 'Model', icon: '🤖', hint: 'Default model & thinking level' },
+      { id: 'behavior', label: 'Behavior', icon: '⚙', hint: 'Permissions, tools, runtime' },
+      { id: 'skills', label: 'Skills', icon: '🛠', hint: 'Enable & manage skills' },
+    ],
+  },
+  {
+    group: 'Interface',
+    tabs: [
+      { id: 'display', label: 'Display', icon: '🎨', hint: 'Theme & appearance' },
+      { id: 'chat', label: 'Chat', icon: '💬', hint: 'Composer & transcript' },
+      { id: 'terminal', label: 'Terminal', icon: '🖥', hint: 'Integrated terminal' },
+      { id: 'shortcuts', label: 'Shortcuts', icon: '⌨', hint: 'Keybindings' },
+    ],
+  },
+  {
+    group: 'System',
+    tabs: [
+      { id: 'general', label: 'Packages', icon: '📦', hint: 'Context files & resources' },
+      { id: 'vault', label: 'Vault', icon: '📁', hint: 'Knowledge vault paths' },
+      { id: 'developer', label: 'Developer', icon: '🔧', hint: 'Advanced & debug' },
+    ],
+  },
+]
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'model', label: 'Model', icon: '🤖' },
-    { id: 'behavior', label: 'Behavior', icon: '⚙' },
-    { id: 'terminal', label: 'Terminal', icon: '🖥' },
-    { id: 'display', label: 'Display', icon: '🎨' },
-    { id: 'chat', label: 'Chat', icon: '💬' },
-    { id: 'general', label: 'Packages', icon: '📦' },
-    { id: 'skills', label: 'Skills', icon: '🛠' },
-    { id: 'shortcuts', label: 'Shortcuts', icon: '⌨' },
-    { id: 'vault', label: 'Vault', icon: '📁' },
-    { id: 'developer', label: 'Developer', icon: '🔧' },
-  ]
+const SETTINGS_LS_KEY = 'mc-settings-tab'
+
+export default function SettingsPage() {
+  const [tab, setTab] = useState<Tab>(() => (localStorage.getItem(SETTINGS_LS_KEY) as Tab) || 'model')
+  const selectTab = (id: Tab) => { setTab(id); localStorage.setItem(SETTINGS_LS_KEY, id) }
+  const activeMeta = SETTINGS_GROUPS.flatMap(g => g.tabs).find(t => t.id === tab)
 
   return (
     <>
       <PageHeader title="Settings" subtitle="Configure Pi Dashboard and TUI preferences" />
-      <div className="px-3 md:px-6 pb-8 overflow-y-auto flex-1 min-h-0">
-        <div className="flex flex-wrap gap-1.5 mb-6 border-b border-border pb-3">
-          {tabs.map(t => (
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Vertical grouped nav */}
+        <nav className="hidden md:flex flex-col gap-4 w-[200px] shrink-0 overflow-y-auto border-r border-border px-3 py-4">
+          {SETTINGS_GROUPS.map(({ group, tabs }) => (
+            <div key={group}>
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted px-2 mb-1">{group}</div>
+              {tabs.map(t => (
+                <button
+                  key={t.id}
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[13px] font-medium cursor-pointer transition-all border text-left ${tab === t.id ? 'bg-accent-subtle text-accent border-accent/30' : 'border-transparent text-muted bg-transparent hover:text-text hover:bg-bg-hover'}`}
+                  onClick={() => selectTab(t.id)}
+                  title={t.hint}
+                >
+                  <span className="shrink-0">{t.icon}</span>
+                  <span className="truncate">{t.label}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        {/* Mobile horizontal nav */}
+        <div className="md:hidden flex flex-wrap gap-1.5 px-3 py-3 border-b border-border w-full">
+          {SETTINGS_GROUPS.flatMap(g => g.tabs).map(t => (
             <button
               key={t.id}
               className={`px-3 py-1.5 rounded-md text-[13px] font-medium cursor-pointer transition-all border ${tab === t.id ? 'bg-accent-subtle text-accent border-accent/30' : 'border-transparent text-muted bg-transparent hover:text-text hover:bg-bg-hover'}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => selectTab(t.id)}
             >
               {t.icon} {t.label}
             </button>
           ))}
         </div>
 
-        <div className="max-w-2xl">
-          {tab === 'model' && <ModelTab />}
-          {tab === 'behavior' && <BehaviorTab />}
-          {tab === 'terminal' && <TerminalTab />}
-          {tab === 'general' && <GeneralTab />}
-          {tab === 'skills' && <SkillsTab />}
-          {tab === 'chat' && <ChatTab />}
-          {tab === 'display' && <DisplayTab />}
-          {tab === 'shortcuts' && <ShortcutsTab />}
-          {tab === 'vault' && <VaultTab />}
-          {tab === 'developer' && <DeveloperTab />}
+        {/* Content pane */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 md:px-6 py-4 md:py-6">
+          {activeMeta && (
+            <div className="max-w-2xl mb-5 hidden md:block">
+              <h2 className="text-[17px] font-semibold text-text-strong font-body">{activeMeta.icon} {activeMeta.label}</h2>
+              <p className="text-[13px] text-muted mt-0.5">{activeMeta.hint}</p>
+            </div>
+          )}
+          <div className="max-w-2xl">
+            {tab === 'model' && <ModelTab />}
+            {tab === 'behavior' && <BehaviorTab />}
+            {tab === 'terminal' && <TerminalTab />}
+            {tab === 'general' && <GeneralTab />}
+            {tab === 'skills' && <SkillsTab />}
+            {tab === 'chat' && <ChatTab />}
+            {tab === 'display' && <DisplayTab />}
+            {tab === 'shortcuts' && <ShortcutsTab />}
+            {tab === 'vault' && <VaultTab />}
+            {tab === 'developer' && <DeveloperTab />}
+          </div>
         </div>
       </div>
     </>

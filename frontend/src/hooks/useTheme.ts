@@ -8,6 +8,7 @@ export const THEMES = [
   { id: 'rose-pine-moon', label: '🌙 Rosé Pine Moon', group: 'rosé pine' },
   { id: 'rose-pine-dawn', label: '🌅 Rosé Pine Dawn', group: 'rosé pine' },
   { id: 'rose-pine-glass', label: '🫧 Rosé Pine Glass', group: 'rosé pine' },
+  { id: 'aurora-glow', label: '🌌 Aurora Glow', group: 'glow' },
 ] as const
 
 export type ThemeId = typeof THEMES[number]['id']

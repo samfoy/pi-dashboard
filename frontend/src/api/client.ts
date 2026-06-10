@@ -94,12 +94,18 @@ export const api = {
     afetch('/api/chat/slots/' + encodeURIComponent(slot) + '/system-prompt').then(j) as Promise<{ static: string; runtime: string; memory: string; memoryStats: { semantic: number; lessons: number } }>,
   setSlotThinking: (slot: string, level: string) =>
     post('/api/chat/slots/' + encodeURIComponent(slot) + '/thinking', { level }).then(j),
-  // Crons
+  // Crons (OS crontab, read-only legacy surface)
   crons: () => get('/api/crons').then(j),
   createCron: (body: object) => post('/api/crons', body).then(j),
   deleteCron: (id: string) => del('/api/crons/' + id).then(j),
   toggleCron: (id: string, enabled: boolean) => post('/api/crons/' + id + '/enable', { enabled }).then(j),
   ackCron: (id: string, summary: string, ts?: string) => post('/api/crons/' + id + '/ack', { summary, ts }).then(j),
+  // Scheduled pi jobs
+  jobs: () => get('/api/jobs').then(j),
+  createJob: (body: object) => post('/api/jobs', body).then(j),
+  updateJob: (id: string, body: object) => fetch('/api/jobs/' + encodeURIComponent(id), { method: 'PATCH', headers: optionalHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(body) }).then(j),
+  deleteJob: (id: string) => del('/api/jobs/' + encodeURIComponent(id)).then(j),
+  runJob: (id: string) => post('/api/jobs/' + encodeURIComponent(id) + '/run').then(j),
   // Lessons
   lessons: () => get('/api/lessons').then(j),
   createLesson: (rule: string, category: string) => post('/api/lessons', { rule, category }).then(j),

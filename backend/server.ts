@@ -24,8 +24,7 @@ import {
   registerFileRoutes,
   registerSystemRoutes,
   registerSessionRoutes,
-  registerAutoloopRoutes,
-  registerWorkflowRoutes,
+  registerJobsRoutes,
 } from './routes/index.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -267,6 +266,48 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     if (_stallTimer) { clearInterval(_stallTimer); _stallTimer = null }
   }
 
+  // ─── Session stats (token/context/cost) ───────────────────────────────────
+  // pi only exposes cumulative stats via get_session_stats, so we query it
+  // both at turn end AND on a poll while a turn is running — otherwise the
+  // telemetry chips (tok/cache/ctx/cost) stay empty until the turn finishes.
+  let _statsTimer: ReturnType<typeof setInterval> | null = null
+  const STATS_POLL_INTERVAL = 4000
+
+  function _fetchStats(requireMidTurn = false): void {
+    pi.request({ type: 'get_session_stats' }, 5000).then((resp: any) => {
+      // Drop a late poll response that resolved after the turn ended, so it
+      // can't race the chat_done per-turn delta annotation.
+      if (requireMidTurn && !midTurn) return
+      const cu = resp?.data?.contextUsage
+      if (cu) {
+        pi._contextUsage = { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
+        broadcast('context_usage', { slot: slotKey, ...pi._contextUsage })
+      }
+      const data = resp?.data
+      if (data) {
+        const tokenStats = {
+          totalInputTokens: data.tokens?.input || 0,
+          totalOutputTokens: data.tokens?.output || 0,
+          totalTokens: data.tokens?.total || 0,
+          totalCost: data.cost || 0,
+          cacheReadTokens: data.tokens?.cacheRead || 0,
+          cacheWriteTokens: data.tokens?.cacheWrite || 0,
+        }
+        pi._tokenStats = tokenStats
+        broadcast('token_stats', { slot: slotKey, ...tokenStats })
+      }
+    }).catch(() => {})
+  }
+
+  function _startStatsPoller(): void {
+    if (_statsTimer) return
+    _statsTimer = setInterval(() => { if (midTurn) _fetchStats(true) }, STATS_POLL_INTERVAL)
+  }
+
+  function _stopStatsPoller(): void {
+    if (_statsTimer) { clearInterval(_statsTimer); _statsTimer = null }
+  }
+
   if (typeof pi.emit === 'function') {
     const origEmit = pi.emit.bind(pi)
     pi.emit = function(event: string | symbol, ...args: any[]): boolean {
@@ -338,6 +379,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     _turnThinking = 0
     console.log(`[server] agent_start slot=${slotKey}`)
     _startStallDetector()
+    _startStatsPoller()
     broadcastSlots()
   })
 
@@ -362,6 +404,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     midTurn = false
     pi._toolsRunning = 0
     _stopStallDetector()
+    _stopStatsPoller()
     streamBuf = ''
     _partialTextMsg = null
     _partialThinkMsg = null
@@ -369,26 +412,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     broadcastSlots()
     persistSlots()
 
-    pi.request({ type: 'get_session_stats' }, 5000).then((resp: any) => {
-      const cu = resp?.data?.contextUsage
-      if (cu) {
-        pi._contextUsage = { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
-        broadcast('context_usage', { slot: slotKey, ...pi._contextUsage })
-      }
-      const data = resp?.data
-      if (data) {
-        const tokenStats = {
-          totalInputTokens: data.tokens?.input || 0,
-          totalOutputTokens: data.tokens?.output || 0,
-          totalTokens: data.tokens?.total || 0,
-          totalCost: data.cost || 0,
-          cacheReadTokens: data.tokens?.cacheRead || 0,
-          cacheWriteTokens: data.tokens?.cacheWrite || 0,
-        }
-        pi._tokenStats = tokenStats
-        broadcast('token_stats', { slot: slotKey, ...tokenStats })
-      }
-    }).catch(() => {})
+    _fetchStats()
 
     pi.request({ type: 'get_state' }, 5000).then((resp: any) => {
       const name = resp?.data?.sessionName
@@ -584,6 +608,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
       console.error(`[pi-manager] Slot ${slotKey} mid-turn error:`, err?.message || err)
       midTurn = false
       _stopStallDetector()
+      _stopStatsPoller()
       streamBuf = ''
       _partialTextMsg = null
       _partialThinkMsg = null
@@ -598,6 +623,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
 
   pi.on('exit', (code: number | null) => {
     _stopStallDetector()
+    _stopStatsPoller()
     if (midTurn) {
       console.error(`[pi-manager] Slot ${slotKey} exited mid-turn (code=${code}) — broadcasting chat_error`)
       midTurn = false
@@ -657,8 +683,7 @@ registerChatRoutes(routeDeps)
 registerFileRoutes(routeDeps)
 registerSystemRoutes(routeDeps)
 registerSessionRoutes(routeDeps)
-registerAutoloopRoutes(routeDeps)
-registerWorkflowRoutes(routeDeps)
+registerJobsRoutes(routeDeps)
 
 // ─── Static files ────────────────────────────────────────────
 app.use(express.static(DIST_DIR))

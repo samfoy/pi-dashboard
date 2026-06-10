@@ -26,9 +26,9 @@ const defaultProps = {
 }
 
 describe('WelcomeView', () => {
-  it('renders New Session heading', () => {
+  it('renders welcome prompt', () => {
     render(<WelcomeView {...defaultProps} />)
-    expect(screen.getByText('New Session')).toBeInTheDocument()
+    expect(screen.getByText('What can I help you with?')).toBeInTheDocument()
   })
 
   it('renders message input', () => {
@@ -38,18 +38,18 @@ describe('WelcomeView', () => {
 
   it('disables send button when input is empty', () => {
     render(<WelcomeView {...defaultProps} />)
-    expect(screen.getByText('Send')).toBeDisabled()
+    expect(screen.getByRole('button', { name: '↑' })).toBeDisabled()
   })
 
   it('enables send button when input has text', () => {
     render(<WelcomeView {...defaultProps} input="hello" />)
-    expect(screen.getByText('Send')).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: '↑' })).not.toBeDisabled()
   })
 
   it('calls send on button click', () => {
     const send = vi.fn()
     render(<WelcomeView {...defaultProps} input="test" send={send} />)
-    fireEvent.click(screen.getByText('Send'))
+    fireEvent.click(screen.getByRole('button', { name: '↑' }))
     expect(send).toHaveBeenCalledOnce()
   })
 
@@ -79,13 +79,15 @@ describe('WelcomeView', () => {
     expect(onDismiss).toHaveBeenCalledOnce()
   })
 
-  it('renders model picker', () => {
+  it('renders model picker when config is expanded', () => {
     render(<WelcomeView {...defaultProps} />)
+    fireEvent.click(screen.getByTitle('Model & workspace'))
     expect(screen.getByText('Model')).toBeInTheDocument()
   })
 
-  it('renders working directory picker', () => {
+  it('renders directory picker when config is expanded', () => {
     render(<WelcomeView {...defaultProps} />)
-    expect(screen.getByText('Working Directory')).toBeInTheDocument()
+    fireEvent.click(screen.getByTitle('Model & workspace'))
+    expect(screen.getByText('Directory')).toBeInTheDocument()
   })
 })

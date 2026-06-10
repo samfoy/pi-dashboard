@@ -1,0 +1,164 @@
+/* Aurora Glow — Catppuccin-Mocha-inspired glassmorphism with colored glow.
+   Visual language ported from the pi-package-webui "Control Deck" look:
+   ambient radial-gradient background, frosted surfaces, and a multi-color
+   glow recipe (inset top-highlight + colored halo + deep drop shadow). */
+:root {
+  /* Catppuccin Mocha palette */
+  --bg:#1e1e2e;--bg-accent:#181825;--bg-elevated:rgba(49,50,68,.55);--bg-hover:rgba(69,71,90,.7);
+  --card:rgba(30,30,46,.62);--card-fg:#cdd6f4;--card-hl:rgba(205,214,244,.06);
+  --panel:rgba(24,24,37,.5);--panel-strong:rgba(30,30,46,.7);
+  --chrome:rgba(17,17,27,.62);
+  --text:#cdd6f4;--text-strong:#f5f5ff;--muted:#a6adc8;--muted-strong:#7f849c;
+  --border:rgba(147,153,178,.22);--border-strong:rgba(166,173,200,.4);--border-hover:rgba(203,166,247,.55);
+  --accent:#cba6f7;--accent-hover:#dec7ff;--accent-subtle:rgba(203,166,247,.18);
+  --accent-glow:rgba(203,166,247,.42);--ring:#cba6f7;
+  --ok:#a6e3a1;--ok-subtle:rgba(166,227,161,.14);
+  --warn:#f9e2af;--warn-subtle:rgba(249,226,175,.14);
+  --danger:#f38ba8;--danger-subtle:rgba(243,139,168,.14);
+  --info:#89b4fa;
+  --aim:#cba6f7;--aim-subtle:rgba(203,166,247,.15);
+  --clarify:#f9e2af;--clarify-subtle:rgba(249,226,175,.06);
+  --diff-add:rgba(166,227,161,.16);--diff-add-text:#a6e3a1;
+  --diff-del:rgba(243,139,168,.16);--diff-del-text:#f38ba8;
+  --diff-hunk:rgba(137,180,250,.16);--diff-hunk-text:#89b4fa;
+  --diff-meta-text:#cdd6f4;
+
+  /* Glow tokens — the heart of the aesthetic */
+  --glow-mauve:rgba(203,166,247,.42);
+  --glow-blue:rgba(137,180,250,.36);
+  --glow-pink:rgba(245,194,231,.34);
+  --glow-teal:rgba(148,226,213,.30);
+  --glow-green:rgba(166,227,161,.42);
+  --glow-peach:rgba(250,179,135,.36);
+
+  --font-body:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,monospace;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 4px 14px rgba(0,0,0,.4),0 0 0 1px rgba(205,214,244,.05);
+  --shadow-lg:0 16px 44px rgba(0,0,0,.55),0 0 2rem rgba(203,166,247,.1);
+  --radius-sm:8px;--radius-md:10px;--radius-lg:14px;--radius-xl:18px;
+  color-scheme:dark;
+}
+
+/* Browser-tab background: layered corner glow blobs over crust, fixed. */
+html[data-theme="aurora-glow"] {
+  background:
+    radial-gradient(circle at 8% -6%, var(--glow-pink) 0, transparent 33rem),
+    radial-gradient(circle at 92% 2%, var(--glow-blue) 0, transparent 36rem),
+    radial-gradient(circle at 52% 114%, var(--glow-teal) 0, transparent 32rem),
+    radial-gradient(circle at 0% 100%, var(--glow-mauve) 0, transparent 30rem),
+    #11111b !important;
+  background-attachment: fixed !important;
+}
+html[data-theme="aurora-glow"] body,
+html[data-theme="aurora-glow"] #root { background: transparent !important; }
+
+/* Desktop (Electron) window: aurora-glow is a dark *glow* theme, not a
+   vibrancy/glass theme, so keep the opaque dark crust + glow backdrop instead
+   of going transparent (which would leak the bare desktop through). Re-assert
+   the same background here to beat the .pi-dash-transparent specificity, and
+   bump surface opacity slightly for readability. */
+html[data-theme="aurora-glow"].pi-dash-transparent {
+  background:
+    radial-gradient(circle at 8% -6%, var(--glow-pink) 0, transparent 33rem),
+    radial-gradient(circle at 92% 2%, var(--glow-blue) 0, transparent 36rem),
+    radial-gradient(circle at 52% 114%, var(--glow-teal) 0, transparent 32rem),
+    radial-gradient(circle at 0% 100%, var(--glow-mauve) 0, transparent 30rem),
+    #11111b !important;
+  background-attachment: fixed !important;
+  --card:rgba(30,30,46,.74);
+  --panel:rgba(24,24,37,.62);
+  --panel-strong:rgba(30,30,46,.8);
+  --chrome:rgba(17,17,27,.7);
+}
+
+/* Restrained ambient layer on top of the html wash. */
+html[data-theme="aurora-glow"] body::before {
+  background:
+    radial-gradient(ellipse at 30% 28%, rgba(203,166,247,.07) 0%, transparent 60%),
+    radial-gradient(ellipse at 72% 74%, rgba(148,226,213,.05) 0%, transparent 60%) !important;
+}
+
+/* Frosted glass on every visible surface. */
+html[data-theme="aurora-glow"] .card,
+html[data-theme="aurora-glow"] .panel,
+html[data-theme="aurora-glow"] aside,
+html[data-theme="aurora-glow"] header,
+html[data-theme="aurora-glow"] nav,
+html[data-theme="aurora-glow"] [role="dialog"],
+html[data-theme="aurora-glow"] [class*="bg-card"],
+html[data-theme="aurora-glow"] [class*="bg-panel"],
+html[data-theme="aurora-glow"] [class*="bg-chrome"],
+html[data-theme="aurora-glow"] [class*="bg-elevated"] {
+  backdrop-filter: blur(20px) saturate(155%);
+  -webkit-backdrop-filter: blur(20px) saturate(155%);
+}
+
+/* "Lit from within" card recipe: inset top-highlight + mauve halo + deep shadow. */
+html[data-theme="aurora-glow"] [class*="bg-card"],
+html[data-theme="aurora-glow"] .card {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 0 1.3rem rgba(203,166,247,.10),
+    0 0.8rem 2rem rgba(0,0,0,.35);
+}
+
+/* Accent buttons get a mauve glow halo + brighten on hover. */
+html[data-theme="aurora-glow"] [class*="bg-accent"]:not([class*="bg-accent-subtle"]):not([class*="/"]) {
+  box-shadow: 0 0 1.2rem var(--glow-mauve), inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+/* Focus ring glows. */
+html[data-theme="aurora-glow"] *:focus-visible {
+  box-shadow: 0 0 0 3px rgba(148,226,213,.18), 0 0 1rem var(--glow-teal) !important;
+}
+
+/* Code surfaces a touch more opaque for legibility. */
+html[data-theme="aurora-glow"] .msg-content :not(pre)>code { background: rgba(205,214,244,.1); }
+html[data-theme="aurora-glow"] .msg-content pre {
+  background: rgba(17,17,27,.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Stat chips glow strongly under this theme (base styling lives in index.css). */
+html[data-theme="aurora-glow"] .stat-chip {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    0 0 .85rem var(--chip-glow, var(--glow-mauve)),
+    0 .5rem 1.1rem rgba(0,0,0,.3);
+  border-color: rgba(205,214,244,.12);
+}
+html[data-theme="aurora-glow"] .stat-chip .stat-chip-dot {
+  box-shadow: 0 0 .5rem currentColor;
+}
+
+/* Syntax highlighting — Catppuccin Mocha. */
+html[data-theme="aurora-glow"] .hljs-keyword,
+html[data-theme="aurora-glow"] .hljs-selector-tag,
+html[data-theme="aurora-glow"] .hljs-built_in,
+html[data-theme="aurora-glow"] .hljs-name,
+html[data-theme="aurora-glow"] .hljs-tag { color:#cba6f7 }
+html[data-theme="aurora-glow"] .hljs-string,
+html[data-theme="aurora-glow"] .hljs-attr,
+html[data-theme="aurora-glow"] .hljs-template-variable,
+html[data-theme="aurora-glow"] .hljs-template-tag,
+html[data-theme="aurora-glow"] .hljs-addition { color:#a6e3a1 }
+html[data-theme="aurora-glow"] .hljs-comment,
+html[data-theme="aurora-glow"] .hljs-quote { color:var(--muted);font-style:italic }
+html[data-theme="aurora-glow"] .hljs-number,
+html[data-theme="aurora-glow"] .hljs-literal,
+html[data-theme="aurora-glow"] .hljs-variable,
+html[data-theme="aurora-glow"] .hljs-regexp { color:#fab387 }
+html[data-theme="aurora-glow"] .hljs-title,
+html[data-theme="aurora-glow"] .hljs-title.function_ { color:#89b4fa }
+html[data-theme="aurora-glow"] .hljs-type,
+html[data-theme="aurora-glow"] .hljs-params { color:#f9e2af }
+html[data-theme="aurora-glow"] .hljs-meta,
+html[data-theme="aurora-glow"] .hljs-meta .hljs-keyword { color:#f38ba8 }
+html[data-theme="aurora-glow"] .hljs-section { color:#cba6f7 }
+html[data-theme="aurora-glow"] .hljs-deletion { color:var(--diff-del-text) }
+html[data-theme="aurora-glow"] .hljs-subst { color:var(--text) }
+html[data-theme="aurora-glow"] .hljs-property { color:#94e2d5 }
+html[data-theme="aurora-glow"] .hljs-punctuation,
+html[data-theme="aurora-glow"] .hljs-operator { color:#9399b2 }

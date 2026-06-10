@@ -91,6 +91,7 @@ function makeMockManager(overrides = {}) {
     })),
     getSlot: vi.fn(() => null),
     getSlotDetail: vi.fn(() => null),
+    getModels: vi.fn(() => []),
     deleteSlot: vi.fn(),
     shutdown: vi.fn(),
     restoreSlot: vi.fn(),
@@ -307,6 +308,40 @@ describe('DELETE /api/chat/slots/:key', () => {
     const body = await res.json()
     expect(body).toMatchObject({ ok: true })
     expect(mockManager.deleteSlot).toHaveBeenCalledWith('chat-1-1000')
+  })
+})
+
+describe('GET /api/models', () => {
+  let srv, port
+  beforeAll(async () => ({ srv, port } = await startServer()))
+  afterAll(() => stopServer(srv))
+
+  it('returns latest Bedrock Opus/Sonnet and latest two Bedrock Mantle GPT aliases', async () => {
+    mockManager.getModels.mockReturnValue([
+      { provider: 'amazon-bedrock', id: 'anthropic.claude-opus-4-20250514-v1:0' },
+      { provider: 'amazon-bedrock', id: 'anthropic.claude-opus-4-1-20250805-v1:0' },
+      { provider: 'amazon-bedrock', id: 'anthropic.claude-opus-4-8' },
+      { provider: 'amazon-bedrock', id: 'eu.anthropic.claude-opus-4-9' },
+      { provider: 'amazon-bedrock', id: 'anthropic.claude-3-7-sonnet-20250219-v1:0' },
+      { provider: 'amazon-bedrock', id: 'anthropic.claude-sonnet-4-20250514-v1:0' },
+      { provider: 'amazon-bedrock', id: 'anthropic.claude-sonnet-4-6' },
+      { provider: 'bedrock-mantle', id: 'openai.gpt-5.3' },
+      { provider: 'bedrock-mantle', id: 'openai.gpt-5.4' },
+      { provider: 'bedrock-mantle', id: 'openai.gpt-5.4-2026-03-05' },
+      { provider: 'bedrock-mantle', id: 'openai.gpt-5.5' },
+      { provider: 'bedrock-mantle', id: 'openai.gpt-oss-120b' },
+      { provider: 'openai', id: 'gpt-5.5' },
+    ])
+
+    const res = await get(port, '/api/models')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.models.map(m => `${m.provider}/${m.id}`)).toEqual([
+      'amazon-bedrock/anthropic.claude-opus-4-8',
+      'amazon-bedrock/anthropic.claude-sonnet-4-6',
+      'bedrock-mantle/openai.gpt-5.5',
+      'bedrock-mantle/openai.gpt-5.4',
+    ])
   })
 })
 

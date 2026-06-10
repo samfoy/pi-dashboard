@@ -202,8 +202,8 @@ const SystemMessage = memo(function SystemMessage({ content, meta }: Props) {
   const registry = useSlotRegistryOrNull()
   const customType = meta?.customType as string | undefined
 
-  // Emit event bridge for sidebar panels (e.g. WorkflowsPanel) that need
-  // to subscribe to custom message types without accessing the message store.
+  // Emit event bridge for sidebar panels / plugins that need to subscribe to
+  // custom message types without accessing the message store.
   useEffect(() => {
     if (!customType) return
     window.dispatchEvent(new CustomEvent('pi-dashboard:system-message', {
@@ -289,18 +289,6 @@ const SystemMessage = memo(function SystemMessage({ content, meta }: Props) {
       subtitle={typeof meta?.totalNotes === 'number' ? `${meta.totalNotes} note${meta.totalNotes === 1 ? '' : 's'}` : undefined}
       content={stripped}
       defaultOpen={false}
-      tone="info"
-    />
-  }
-
-  // ralph hat orchestration message
-  if (customType === 'ralph-hat') {
-    const stripped = content.replace(/^\[[^\]]*\]\s*/, '')
-    return <CollapsibleMarkdownCard
-      icon="🎩"
-      title="Ralph hat"
-      content={stripped}
-      defaultOpen
       tone="info"
     />
   }
@@ -399,7 +387,7 @@ function SubagentResultCard({ content }: { content: string }) {
 }
 
 // ── Generic collapsible markdown card ─────────────────────────────────
-// Used for knowledge-overview, ralph-hat, and any future custom-type that
+// Used for knowledge-overview and any future custom-type that
 // just needs a tidy header + collapsible markdown body.
 
 function CollapsibleMarkdownCard({

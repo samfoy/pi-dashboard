@@ -10,6 +10,77 @@ import type { RouteDeps, ChatMessage } from './types.js'
 import { parseSessionMessages, parseSessionTree, findSessionFile } from '../session-store.js'
 import * as piEnv from '../pi-env.js'
 
+type ModelInfo = {
+  provider?: string
+  id?: string
+  name?: string
+}
+
+// Opus/Sonnet are served via the claude-code provider (us.* inference profiles).
+// The raw `amazon-bedrock` foundation-model IDs (e.g. anthropic.claude-opus-4-8)
+// can't be invoked on-demand and Bedrock rejects them, so select from claude-code.
+const DASHBOARD_BEDROCK_PROVIDER = 'amazon-claude-code'
+const DASHBOARD_MANTLE_PROVIDER = 'bedrock-mantle'
+
+function numericVersionParts(raw: string): number[] {
+  const parts: number[] = []
+  for (const token of raw.split(/[.:_-]/)) {
+    if (/^\d{8}$/.test(token)) break
+    if (/^\d+$/.test(token)) parts.push(Number.parseInt(token, 10))
+  }
+  return parts
+}
+
+function modelVersionParts(id: string, family: string): number[] {
+  const familyIdx = id.toLowerCase().indexOf(family.toLowerCase())
+  if (familyIdx === -1) return []
+  return numericVersionParts(id.slice(familyIdx + family.length + 1))
+}
+
+function claudeVersionParts(id: string): number[] {
+  return numericVersionParts(id.replace(/^(?:us\.)?anthropic\.claude-/i, ''))
+}
+
+function compareVersionParts(a: number[], b: number[]): number {
+  const max = Math.max(a.length, b.length)
+  for (let i = 0; i < max; i++) {
+    const diff = (a[i] || 0) - (b[i] || 0)
+    if (diff !== 0) return diff
+  }
+  return 0
+}
+
+function latestByFamily(models: ModelInfo[], provider: string, family: 'opus' | 'sonnet'): ModelInfo | null {
+  const familyPattern = new RegExp(`^(?:us\\.)?anthropic\\.claude-.*${family}`, 'i')
+  return models
+    .filter(m => m.provider === provider && !!m.id && familyPattern.test(m.id))
+    .sort((a, b) => compareVersionParts(claudeVersionParts(b.id!), claudeVersionParts(a.id!)))
+    [0] || null
+}
+
+function latestGptModels(models: ModelInfo[], provider: string, count: number): ModelInfo[] {
+  return models
+    .filter(m => m.provider === provider && !!m.id && /^openai\.gpt-\d+(?:\.\d+)*$/i.test(m.id))
+    .sort((a, b) => compareVersionParts(modelVersionParts(b.id!, 'gpt'), modelVersionParts(a.id!, 'gpt')))
+    .slice(0, count)
+}
+
+function preferredDashboardModels(models: ModelInfo[]): ModelInfo[] {
+  const selected = [
+    latestByFamily(models, DASHBOARD_BEDROCK_PROVIDER, 'opus'),
+    latestByFamily(models, DASHBOARD_BEDROCK_PROVIDER, 'sonnet'),
+    ...latestGptModels(models, DASHBOARD_MANTLE_PROVIDER, 2),
+  ].filter((m): m is ModelInfo => !!m)
+
+  const seen = new Set<string>()
+  return selected.filter(m => {
+    const key = `${m.provider}/${m.id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 export function registerChatRoutes(deps: RouteDeps): void {
   const { app, manager, broadcast, broadcastSlots, persistSlots, notifications, addNotification, wireSlotEvents } = deps
 
@@ -215,16 +286,19 @@ export function registerChatRoutes(deps: RouteDeps): void {
   app.get('/api/models', async (_req: Request, res: Response) => {
     try {
       const models = await manager.getModels()
-      // Honour `disabledProviders` from pi settings so users can hide entire providers
-      // (e.g. built-in `amazon-bedrock`) from the dashboard model picker.
+      // Prefer the compact dashboard model set when those models are available.
+      // Otherwise fall back to honouring `disabledProviders` from pi settings.
       let disabled: string[] = []
       try {
         const s = JSON.parse(readFileSync(join(os.homedir(), '.pi', 'agent', 'settings.json'), 'utf-8'))
         if (Array.isArray(s.disabledProviders)) disabled = s.disabledProviders
       } catch {}
-      const filtered = disabled.length
-        ? models.filter((m: any) => !disabled.includes(m.provider))
-        : models
+      const preferred = preferredDashboardModels(models)
+      const filtered = preferred.length > 0
+        ? preferred
+        : disabled.length
+          ? models.filter((m: any) => !disabled.includes(m.provider))
+          : models
       res.json({ models: filtered })
     } catch (e: any) {
       res.json({ models: [], error: e.message })

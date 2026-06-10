@@ -20,18 +20,24 @@ export function loadChatConfig(): ChatConfig {
 
 export function saveChatConfig(cfg: ChatConfig) {
   localStorage.setItem(LS_KEY, JSON.stringify(cfg))
+  // Broadcast so open chat views can pick up changes made on the Settings page.
+  window.dispatchEvent(new CustomEvent('mc-chat-config'))
 }
 
 interface Props {
-  config: ChatConfig
-  onChange: (c: ChatConfig) => void
   activeSlot?: string | null
   currentModel?: string | null
   currentThinking?: string | null
   models?: ModelLike[]
 }
 
-export default function ChatSettings({ config, onChange, activeSlot, currentModel, currentThinking, models }: Props) {
+/**
+ * Per-session quick switcher for the active slot's model + thinking level.
+ * Global chat preferences (timestamps, send-on-enter, notif limit, etc.) live
+ * on the Settings page → Chat tab — this popover stays focused on the two
+ * things you change mid-conversation.
+ */
+export default function ChatSettings({ activeSlot, currentModel, currentThinking, models }: Props) {
   const [open, setOpen] = useState(false)
   const [showAllModels, setShowAllModels] = useState(false)
   const [enabledModels, setEnabledModels] = useState<string[]>([])
@@ -48,11 +54,11 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
     }).catch(() => {})
   }, [])
 
-  const { pinnedModels, otherModels } = useMemo(() => {
+  const { pinnedModels, otherModels } = useMemo<{ pinnedModels: ModelLike[]; otherModels: ModelLike[] }>(() => {
     if (!models) return { pinnedModels: [], otherModels: [] }
     if (enabledModels.length === 0) return { pinnedModels: models, otherModels: [] }
-    const pinned: typeof models = []
-    const other: typeof models = []
+    const pinned: ModelLike[] = []
+    const other: ModelLike[] = []
     for (const m of models) {
       if (enabledModels.some(e => modelPatternMatches(e, m))) {
         pinned.push(m)
@@ -60,7 +66,10 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
         other.push(m)
       }
     }
-    return { pinnedModels: pinned, otherModels: other }
+    // /api/models is already the dashboard's hard-filtered selector list.
+    // Keep enabledModels as an ordering hint only; don't hide returned models
+    // behind "Show all" when the backend selected them dynamically.
+    return { pinnedModels: [...pinned, ...other], otherModels: [] }
   }, [models, enabledModels])
 
   // Auto-adjust thinking level when model changes (only if pi hasn't told us
@@ -83,12 +92,6 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
     return () => { clearTimeout(t); document.removeEventListener('click', close) }
   }, [open])
 
-  const set = <K extends keyof ChatConfig>(k: K, v: ChatConfig[K]) => {
-    const next = { ...config, [k]: v }
-    saveChatConfig(next)
-    onChange(next)
-  }
-
   const handleModelChange = (fullId: string) => {
     if (!activeSlot || !fullId) return
     const idx = fullId.indexOf('/')
@@ -102,10 +105,13 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
 
   return (
     <>
-      <button ref={btnRef} className="rounded-md border border-border bg-transparent text-muted px-3 py-[5px] text-[13px] font-medium flex items-center justify-center cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all font-body" onClick={() => setOpen(!open)} title="Chat settings" aria-label="Chat settings">⚙</button>
+      <button ref={btnRef} className="rounded-md border border-border bg-transparent text-muted px-3 py-[5px] text-[13px] font-medium flex items-center justify-center cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all font-body" onClick={() => setOpen(!open)} title="Model & thinking" aria-label="Model & thinking">🧠</button>
       {open && btnRef.current && createPortal(
         <div ref={popoverRef} className="fixed z-[9999] bg-card border border-border rounded-lg shadow-lg w-[320px] p-3 flex flex-col gap-3 animate-slide-up" style={(() => { const r = btnRef.current!.getBoundingClientRect(); const top = r.bottom + 6; const left = Math.max(8, Math.min(r.left, window.innerWidth - 328)); return { top, left } })()}>
-          <div className="text-[13px] font-semibold text-text-strong border-b border-border pb-2">Chat Settings</div>
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="text-[13px] font-semibold text-text-strong">Model &amp; Thinking</span>
+            <span className="text-[11px] text-muted">this session</span>
+          </div>
 
           {activeSlot && models && models.length > 0 && (
             <div className="flex flex-col gap-1">
@@ -138,33 +144,9 @@ export default function ChatSettings({ config, onChange, activeSlot, currentMode
               </div>
             </div>
           )}
-
-          <Toggle label="History expanded by default" checked={config.historyExpanded} onChange={v => set('historyExpanded', v)} />
-          <Toggle label="Show message timestamps" checked={config.showTimestamps} onChange={v => set('showTimestamps', v)} />
-          <Toggle label="Send on Enter" hint={config.sendOnEnter ? "Shift+Enter for newline" : "Click Send to submit"} checked={config.sendOnEnter} onChange={v => set('sendOnEnter', v)} />
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-muted">Notification limit</span>
-            <select className="bg-bg-elevated border border-border rounded-md px-2 py-1 text-[13px] text-text outline-none cursor-pointer" value={config.notifLimit} onChange={e => set('notifLimit', Number(e.target.value))}>
-              {[25, 50, 100, 200].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
         </div>,
         document.body
       )}
     </>
-  )
-}
-
-function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex items-center justify-between cursor-pointer group">
-      <div>
-        <span className="text-[13px] text-muted group-hover:text-text transition-colors">{label}</span>
-        {hint && <div className="text-[11px] text-muted/60">{hint}</div>}
-      </div>
-      <div className={`w-9 h-5 rounded-full relative transition-colors ${checked ? 'bg-accent' : 'bg-border'}`} onClick={() => onChange(!checked)}>
-        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
-      </div>
-    </label>
   )
 }

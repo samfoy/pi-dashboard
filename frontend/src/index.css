@@ -359,3 +359,44 @@ html.is-standalone .standalone-pad [role="button"]{-webkit-app-region:no-drag}
   from { opacity: 0; transform: translateX(-50%) scale(0.96) translateY(-8px); }
   to { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
 }
+
+/* ── Stat chip rail — glanceable telemetry pills (StatChipRail.tsx) ──
+   Neutral, bordered base that reads in every theme; the aurora-glow theme
+   adds the colored halo (see themes/aurora-glow.css). */
+.stat-chip-rail{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:6px 12px 8px;}
+.stat-chip{display:inline-flex;align-items:center;gap:7px;
+  padding:4px 10px;border-radius:9999px;
+  border:1px solid var(--border);background:var(--bg-elevated);
+  font:600 11px/1 var(--mono);color:var(--text);white-space:nowrap;
+  transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease;
+  cursor:default;}
+.stat-chip:hover{border-color:var(--border-hover);transform:translateY(-1px)}
+.stat-chip-dot{width:7px;height:7px;border-radius:9999px;flex:none;
+  background:currentColor}
+.stat-chip-label{color:var(--muted);letter-spacing:.04em;text-transform:uppercase;
+  font-size:9.5px;font-weight:700}
+.stat-chip-value{color:var(--text-strong);font-weight:700;font-size:11.5px;
+  font-variant-numeric:tabular-nums}
+.stat-chip-sub{color:var(--muted);font-weight:600}
+/* Unified rail wrapper: thin context bar stacked over the chip row. */
+.stat-rail{display:flex;flex-direction:column;}
+.stat-rail-bar{width:100%;height:6px;display:flex;overflow:hidden;cursor:default;
+  background:var(--border);border-radius:9999px;margin:2px 12px 0;width:calc(100% - 24px)}
+.stat-rail-bar>div:first-child{border-radius:9999px 0 0 9999px}
+
+/* ── Status-line footer — bordered mono cells (StatusLine.tsx) ── */
+.status-line{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;
+  padding:0 12px 8px;}
+.status-cell{display:inline-flex;align-items:center;gap:6px;
+  padding:3px 9px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--bg-elevated);
+  font:600 11px/1 var(--mono);color:var(--text);white-space:nowrap;
+  max-width:340px;overflow:hidden;}
+.status-cell-label{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
+  font-size:9px;font-weight:700}
+.status-cell-value{color:var(--text-strong);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis}
+html[data-theme="aurora-glow"] .status-cell{
+  border-color:rgba(205,214,244,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 .4rem .9rem rgba(0,0,0,.28);}
