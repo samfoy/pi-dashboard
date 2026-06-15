@@ -496,17 +496,29 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   })
 
   pi.on('extension_ui', (event: any) => {
-    if (event.method === 'confirm') {
-      pi.send({ type: 'extension_ui_response', id: event.id, confirmed: true })
-    } else if (event.method === 'select') {
-      const first = event.options?.[0]
-      if (first) pi.send({ type: 'extension_ui_response', id: event.id, value: first })
+    // Dashboard cannot render extension dialogs. Auto-cancel any
+    // request that requires a response so the extension's init/runtime
+    // can proceed via its `defaultValue` instead of waiting forever.
+    //
+    // Why not auto-confirm or auto-select-first? Many extensions emit
+    // these dialogs from their startup path (pi-computer-use was the
+    // first to expose this) and the "first option" is often something
+    // destructive or a no-op like "Open Settings" that loops back to
+    // the same dialog — wedging every dashboard slot. `cancelled: true`
+    // matches what `ctx.ui.*` resolves to when the user dismisses the
+    // dialog in TUI/print mode, which is the behavior extensions are
+    // already coded against.
+    if (event.method === 'confirm' || event.method === 'select' ||
+        event.method === 'input' || event.method === 'editor') {
+      pi.send({ type: 'extension_ui_response', id: event.id, cancelled: true })
     } else if (event.method === 'setStatus') {
       const clean = (event.statusText || '').replace(/\x1b\[[0-9;]*m/g, '')
       broadcast('extension_status', { slot: slotKey, key: event.statusKey, text: clean || undefined })
     } else if (event.method === 'setWidget') {
       broadcast('extension_widget', { slot: slotKey, key: event.widgetKey, lines: event.lines })
     }
+    // notify, setTitle, set_editor_text, etc. are fire-and-forget
+    // (no response needed) and not displayed in this dashboard yet.
   })
 
   pi.on('log', (data: any) => {
