@@ -475,7 +475,12 @@ export default function CommandPalette({ open, onOpenChange, onToggleSidebar }: 
   return (
     <>
       {open && <div className="cmdk-overlay" onClick={close} />}
-      <Command.Dialog open={open} onOpenChange={onOpenChange} label="Command palette" className="pidash-cmd-palette cmdk-dialog" shouldFilter={true}>
+      {/* contentClassName → the Radix-portaled FIXED wrapper (positioning only, no filter).
+          className → the inner card (visuals + the .pidash-cmd-palette styling hook for custom
+          themes). Keeping backdrop-filter off the fixed element avoids the WebKit/WKWebView bug
+          where filter on a position:fixed element breaks fixed positioning (palette drops to the
+          bottom in the native macOS app). */}
+      <Command.Dialog open={open} onOpenChange={onOpenChange} label="Command palette" contentClassName="cmdk-dialog-host" className="pidash-cmd-palette cmdk-dialog-card" shouldFilter={true}>
         <div className="cmdk-input-wrapper">
           <svg className="cmdk-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />

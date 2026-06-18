@@ -9,7 +9,7 @@ import { ToolRendererSlot } from '../../plugins/slot-consumers'
 import { generateEditDiff, parseEditArgs, parseWriteArgs, langFromPath } from './toolUtils'
 
 /** Expandable tool call block with args and result — shows diff view for edit tool, code preview for write */
-export default function ToolCallBlock({ content, meta, onFileOpen }: { content: string; meta?: Record<string, unknown>; onFileOpen?: (path: string) => void }) {
+export default function ToolCallBlock({ content, meta, onFileOpen, slotKey }: { content: string; meta?: Record<string, unknown>; onFileOpen?: (path: string) => void; slotKey?: string }) {
   const toolName = (meta?.toolName as string) || content.replace('🔧 ', '')
   const [expanded, setExpanded] = useState(false)
   const args = meta?.args as string | undefined
@@ -82,7 +82,7 @@ export default function ToolCallBlock({ content, meta, onFileOpen }: { content: 
   // If a plugin claims this tool, render via ToolRendererSlot
   if (pluginClaimed) {
     const toolInput = args ? (() => { try { return JSON.parse(args) } catch { return {} } })() : {}
-    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} toolResult={result} partialResult={partialResult} isRunning={isRunning} isError={isError} sessionId="" />
+    return <ToolRendererSlot toolName={toolName} toolInput={toolInput} toolResult={result} partialResult={partialResult} isRunning={isRunning} isError={isError} sessionId={slotKey || ''} />
   }
 
   if (isEdit) {

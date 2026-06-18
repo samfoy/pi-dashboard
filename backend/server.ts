@@ -15,7 +15,6 @@ import { readFile } from 'fs/promises'
 import os from 'os'
 import { Duplex } from 'stream'
 import { PiManager, PiProcess } from './pi-manager.js'
-import { handlePtyConnection, shutdownAll as shutdownPty } from './pty-manager.js'
 import { saveSlotState, saveSlotStateSync, loadSlotState, parseSessionMessages, ChatMessage } from './session-store.js'
 import type { Notification } from '@shared/types.js'
 import {
@@ -643,7 +642,6 @@ const routeDeps = {
   startWatching,
   stopWatching,
   cleanupClientWatchers,
-  shutdownPty,
 }
 
 registerChatRoutes(routeDeps)
@@ -659,8 +657,6 @@ app.get('*', (_req: Request, res: Response) => {
 })
 
 // ─── WebSocket ───────────────────────────────────────────────
-const ptyWss = new WebSocketServer({ noServer: true })
-
 server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
   console.log('  WS upgrade:', req.url)
 
@@ -669,9 +665,6 @@ server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req)
     })
-  } else if (wsPath.startsWith('/api/terminal/ws')) {
-    socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n')
-    socket.destroy()
   } else {
     socket.destroy()
   }
@@ -719,13 +712,13 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
 
 process.on('SIGINT', () => {
   saveSlotStateSync(manager.slots as any)
-  manager.gracefulShutdown(55000).finally(() => { shutdownPty(); process.exit(0) })
-  setTimeout(() => { shutdownPty(); process.exit(0) }, 60000).unref()
+  manager.gracefulShutdown(55000).finally(() => { process.exit(0) })
+  setTimeout(() => { process.exit(0) }, 60000).unref()
 })
 process.on('SIGTERM', () => {
   saveSlotStateSync(manager.slots as any)
-  manager.gracefulShutdown(55000).finally(() => { shutdownPty(); process.exit(0) })
-  setTimeout(() => { shutdownPty(); process.exit(0) }, 60000).unref()
+  manager.gracefulShutdown(55000).finally(() => { process.exit(0) })
+  setTimeout(() => { process.exit(0) }, 60000).unref()
 })
 process.on('uncaughtException', (err: any) => {
   if (err.code === 'EADDRINUSE') {

@@ -21,6 +21,11 @@ interface PendingImage {
   preview: string
 }
 
+interface PendingFile {
+  name: string
+  path: string
+}
+
 interface WelcomeViewProps {
   input: string
   setInput: (v: string) => void
@@ -36,6 +41,13 @@ interface WelcomeViewProps {
   pendingImages: PendingImage[]
   onPaste: (e: React.ClipboardEvent) => void
   onRemoveImage: (idx: number) => void
+  pendingFiles?: PendingFile[]
+  onRemoveFile?: (idx: number) => void
+  onPickFiles?: () => void
+  onDrop?: (e: React.DragEvent) => void
+  uploading?: boolean
+  isMac?: boolean
+  isNativeApp?: boolean
   inputRef?: React.RefObject<HTMLTextAreaElement>
 }
 
@@ -61,12 +73,17 @@ export default function WelcomeView({
   workspaces, selectedCwd, onSelectCwd,
   prefillHint, onDismissHint,
   pendingImages, onPaste, onRemoveImage,
+  pendingFiles = [], onRemoveFile, onPickFiles, onDrop, uploading = false,
+  isMac = false, isNativeApp = false,
   inputRef: externalRef,
 }: WelcomeViewProps) {
   const internalRef = useRef<HTMLTextAreaElement>(null)
   const inputRef = externalRef || internalRef
+  const mobileFileInputRef = useRef<HTMLInputElement>(null)
   const [slashMenuOpen, setSlashMenuOpen] = useState(false)
   const [showConfig, setShowConfig] = useState(false)
+  const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
     if (inputRef.current && input) {
@@ -81,7 +98,12 @@ export default function WelcomeView({
   const cwdName = selectedCwd ? selectedCwd.split('/').pop() || selectedCwd : null
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 md:px-8 gap-0">
+    <div
+      className="flex-1 flex flex-col items-center justify-center px-4 md:px-8 gap-0"
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOver(true) }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false) }}
+      onDrop={e => { setDragOver(false); onDrop?.(e) }}
+    >
       {/* Logo + greeting */}
       <div className="flex flex-col items-center gap-3 mb-8">
         <span className="text-5xl select-none">🥧</span>
@@ -111,14 +133,41 @@ export default function WelcomeView({
             <button className="text-muted text-[12px] hover:text-text ml-auto" onClick={onDismissHint}>✕</button>
           </div>
         )}
-        <div className="relative bg-card border border-border rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.15)] overflow-visible">
+        <div className={`relative bg-card border rounded-2xl shadow-[0_2px_20px_rgba(0,0,0,0.15)] overflow-visible transition-colors ${dragOver ? 'border-accent bg-accent/5' : 'border-border'}`}>
           <SlashCommandMenu input={input} anchorRef={inputRef as React.RefObject<HTMLElement>} open={slashMenuOpen} onSelect={cmd => { setInput(cmd); setSlashMenuOpen(true) }} onClose={() => setSlashMenuOpen(false)} />
-          {pendingImages.length > 0 && (
+          {!isNativeApp && (
+            <input ref={mobileFileInputRef} type="file" accept="image/*,application/pdf,text/*" multiple className="hidden" onChange={e => {
+              Array.from(e.target.files ?? []).forEach(file => {
+                const reader = new FileReader()
+                reader.onload = ev => {
+                  const dataUrl = ev.target?.result as string
+                  const base64 = dataUrl.split(',')[1]
+                  // Fake a paste-style ClipboardEvent isn't possible; use a custom path:
+                  // Images go through pendingImages via onPaste's underlying state setter,
+                  // but we can't call that here. So we synthesize a drop-like read:
+                  // For simplicity, post to parent via a synthetic drag object isn't clean —
+                  // instead dispatch a custom event the parent already listens for.
+                  const customEvt = new CustomEvent('pi-native', { detail: { type: 'media-picked', data: base64, mimeType: file.type, preview: dataUrl } })
+                  window.dispatchEvent(customEvt)
+                }
+                reader.readAsDataURL(file)
+              })
+              e.target.value = ''
+            }} />
+          )}
+          {(pendingImages.length > 0 || pendingFiles.length > 0) && (
             <div className="flex gap-2 flex-wrap px-4 pt-3">
               {pendingImages.map((img, i) => (
                 <div key={i} className="relative group">
                   <img src={img.preview} alt="Pasted" className="h-16 rounded-md border border-border object-cover" />
                   <button className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-[11px] border-none cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity flex items-center justify-center" onClick={() => onRemoveImage(i)}>✕</button>
+                </div>
+              ))}
+              {pendingFiles.map((f, i) => (
+                <div key={i} className="relative group flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border bg-bg-elevated text-sm text-text">
+                  <span className="text-base">📄</span>
+                  <span className="max-w-[200px] truncate">{f.name}</span>
+                  <button className="w-4 h-4 rounded-full bg-danger text-white text-[10px] border-none cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity flex items-center justify-center shrink-0" onClick={() => onRemoveFile?.(i)}>✕</button>
                 </div>
               ))}
             </div>
@@ -144,14 +193,55 @@ export default function WelcomeView({
               onClick={() => setShowConfig(v => !v)}
               title="Model & workspace"
             >
-              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-current fill-none" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 stroke-current fill-none" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l-.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               <span className="font-mono">{modelName}{cwdName ? ` · ${cwdName}` : ''}</span>
             </button>
-            <button
-              className="btn-sweep bg-accent text-white border-none rounded-xl w-9 h-9 text-base font-semibold cursor-pointer hover:bg-accent-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
-              onClick={() => send()}
-              disabled={!input.trim() && pendingImages.length === 0}
-            >↑</button>
+            <div className="flex items-center gap-1.5">
+              {/* Mac: direct file picker */}
+              {isMac && (
+                <button
+                  className="hidden md:flex w-8 h-8 rounded-lg border border-border bg-bg-elevated text-muted items-center justify-center cursor-pointer hover:text-text hover:border-border-strong hover:bg-bg-hover transition-all disabled:opacity-30"
+                  onClick={onPickFiles}
+                  disabled={uploading}
+                  title="Attach file or folder"
+                >
+                  {uploading ? <span className="text-[11px] animate-pulse">⏳</span> : <span className="text-sm">📎</span>}
+                </button>
+              )}
+              {/* "+" expandable attach menu */}
+              <div className="relative">
+                <button
+                  className={`flex w-8 h-8 rounded-full items-center justify-center cursor-pointer transition-all text-lg font-light border ${
+                    showAttachMenu ? 'bg-accent text-white border-accent rotate-45' : 'bg-bg-elevated border-border text-muted hover:text-text hover:border-accent'
+                  }`}
+                  onClick={() => setShowAttachMenu(v => !v)}
+                  title="Attach"
+                >+</button>
+                {showAttachMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
+                    <div className="absolute right-0 bottom-full mb-2 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeApp ? (window as any).webkit?.messageHandlers?.piPickMedia?.postMessage({ type: 'photos' }) : mobileFileInputRef.current?.click() }}>
+                        <span>🖼️</span> Photos
+                      </button>
+                      <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); isNativeApp ? (window as any).webkit?.messageHandlers?.piPickFile?.postMessage({}) : mobileFileInputRef.current?.click() }}>
+                        <span>📄</span> Files
+                      </button>
+                      {isMac && (
+                        <button className="flex items-center gap-3 w-full px-4 py-3 text-sm text-text hover:bg-bg-hover border-none bg-transparent cursor-pointer" onClick={() => { setShowAttachMenu(false); onPickFiles?.() }}>
+                          <span>📂</span> Folder
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                className="btn-sweep bg-accent text-white border-none rounded-xl w-9 h-9 text-base font-semibold cursor-pointer hover:bg-accent-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+                onClick={() => send()}
+                disabled={!input.trim() && pendingImages.length === 0 && pendingFiles.length === 0}
+              >↑</button>
+            </div>
           </div>
           {showConfig && (
             <div className="border-t border-border px-4 py-3 flex flex-col md:flex-row gap-3">

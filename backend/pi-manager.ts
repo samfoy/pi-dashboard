@@ -496,6 +496,17 @@ export class PiProcess extends EventEmitter {
     return this.send(cmd)
   }
 
+  /**
+   * Signal a running foreground ensemble_spawn to detach → background.
+   * Creates the sentinel file that pi-conductor polls in RPC mode.
+   * No-op if the pi process is not running.
+   */
+  conductorDetach(): void {
+    if (!this.proc?.pid) return
+    const filePath = `/tmp/pi-conductor-detach-${this.proc.pid}`
+    try { writeFileSync(filePath, '') } catch { /* ignore */ }
+  }
+
   abort(): boolean {
     this._stopping = true
     // If process is already dead, reset state immediately

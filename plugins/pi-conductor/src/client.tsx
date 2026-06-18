@@ -857,7 +857,7 @@ function LiveRunInline({ p, taskInput, sendInput }: {
   )
 }
 
-export function EnsembleSpawnRenderer({ toolInput, toolResult, partialResult, isRunning, isError }: ToolProps) {
+export function EnsembleSpawnRenderer({ toolInput, toolResult, partialResult, isRunning, isError, sessionId }: ToolProps) {
   const persona = (toolInput.persona as string) || ''
   const task = (toolInput.task as string) || ''
   const fg = toolInput.foreground !== false
@@ -867,6 +867,32 @@ export function EnsembleSpawnRenderer({ toolInput, toolResult, partialResult, is
   const isUnknown = parsedFromResult?.status === 'info' && !parsedFromResult.agentId
   const synth = (isRunning || isUnknown) && !isError ? synthFromPartial(partialResult, toolInput, fg) : null
   const parsed = synth || parsedFromResult
+
+  // Show detach button for active foreground spawns in dashboard (RPC) mode.
+  const canDetach = fg && isRunning && parsed?.status === 'running'
+
+  function handleDetach() {
+    if (!sessionId) return
+    fetch(`/api/chat/slots/${encodeURIComponent(sessionId)}/conductor-detach`, { method: 'POST' }).catch(() => {})
+  }
+
+  // Esc detaches the active foreground spawn (TUI parity). Only one
+  // foreground spawn is active at a time — conductor runs tool calls
+  // sequentially — so a card-scoped global listener is unambiguous.
+  useEffect(() => {
+    if (!canDetach) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const t = e.target as HTMLElement | null
+      // Don't hijack Esc while typing in an input/textarea/editable.
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.preventDefault()
+      e.stopPropagation()
+      handleDetach()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [canDetach, sessionId])
 
   return (
     <Shell
@@ -882,6 +908,18 @@ export function EnsembleSpawnRenderer({ toolInput, toolResult, partialResult, is
     >
       {isError && <ErrorBody text={toolResult} />}
       {!isError && parsed && <LiveRunInline p={parsed} taskInput={task} />}
+      {canDetach && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={handleDetach}
+            className="text-[11px] px-2 py-0.5 rounded border border-accent/50 text-accent hover:bg-accent/10 cursor-pointer bg-transparent transition-colors"
+            title="Detach to background (Esc)"
+          >
+            → BG
+          </button>
+          <span className="text-[11px] text-muted">Esc to background</span>
+        </div>
+      )}
     </Shell>
   )
 }

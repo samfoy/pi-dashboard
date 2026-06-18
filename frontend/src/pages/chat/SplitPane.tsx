@@ -65,7 +65,7 @@ export default function SplitPane({ slotKey, onClose, onFileOpen }: SplitPanePro
   const renderMessage = useCallback((i: number, m: ChatMessage) => {
     const key = m.ts ? `${m.role}-${m.ts}` : `${m.role}-${i}`
     if (m.role === 'thinking') return <ThinkingBlock key={key} content={m.content} />
-    if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} />
+    if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} slotKey={slotKey} />
     if (m.role === 'queued') return <div key={key} className="bg-warn-subtle border border-warn/15 rounded-md px-3 py-2 text-[13px] text-warn italic">⏳ <em>Queued:</em> {m.content}</div>
     if (m.role === 'error') return <div key={key} className="bg-danger-subtle text-danger text-[13px] px-3 py-2 rounded-md border border-danger/15 self-center">{m.content}</div>
     if (m.role === 'system') return <SystemMessage key={key} content={m.content} meta={m.meta} />

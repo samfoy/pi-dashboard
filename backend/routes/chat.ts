@@ -178,6 +178,13 @@ export function registerChatRoutes(deps: RouteDeps): void {
     res.json({ ok: true })
   })
 
+  app.post('/api/chat/slots/:key/conductor-detach', (req: Request, res: Response) => {
+    const pi = manager.getSlot(req.params.key as string)
+    if (!pi) return res.status(404).json({ error: 'slot not found' })
+    pi.conductorDetach()
+    res.json({ ok: true })
+  })
+
   app.patch('/api/chat/slots/:key/title', (req: Request, res: Response) => {
     const pi = manager.getSlot(req.params.key as string)
     if (!pi) return res.status(404).json({ error: 'slot not found' })

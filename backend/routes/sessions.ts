@@ -105,7 +105,7 @@ function listRecentSessions(limit: number): SessionSearchResult[] {
 }
 
 export function registerSessionRoutes(deps: RouteDeps): void {
-  const { app, manager, persistSlots, shutdownPty } = deps
+  const { app, manager, persistSlots } = deps
 
   // Session search (uses pi-session-search FTS5 index)
   app.get('/api/sessions/search', (req: Request, res: Response) => {
@@ -145,10 +145,9 @@ export function registerSessionRoutes(deps: RouteDeps): void {
     setTimeout(() => {
       persistSlots()
       manager.gracefulShutdown(55000).finally(() => {
-        shutdownPty()
         process.exit(0)
       })
-      setTimeout(() => { shutdownPty(); process.exit(0) }, 60000).unref()
+      setTimeout(() => { process.exit(0) }, 60000).unref()
     }, 500)
   })
 

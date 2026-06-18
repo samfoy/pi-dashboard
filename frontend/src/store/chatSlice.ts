@@ -48,6 +48,7 @@ interface ChatState {
   extensionWidgets: Record<string, string[]>
   _lastChunkSeq: number
   slotSwitching: boolean
+  foregroundSpawnActive: boolean
 }
 
 const initialState: ChatState = {
@@ -72,6 +73,7 @@ const initialState: ChatState = {
   extensionWidgets: {},
   _lastChunkSeq: -1,
   slotSwitching: false,
+  foregroundSpawnActive: false,
 }
 
 export const fetchHistory = createAsyncThunk(
@@ -259,6 +261,7 @@ const chatSlice = createSlice({
       // WS done — finalize streaming into assistant, rawText preserved for reparse
       if (role === '_done') {
         state.slotState = 'idle'
+        state.foregroundSpawnActive = false
         state._lastChunkSeq = -1 // reset for next stream
         for (let i = state.messages.length - 1; i >= 0; i--) {
           if (state.messages[i].role === 'streaming') {
@@ -292,6 +295,13 @@ const chatSlice = createSlice({
               break
             }
           }
+        }
+        // Track foreground ensemble_spawn: if we're getting streaming updates
+        // for ensemble_spawn, it must be foreground (bg spawns return immediately).
+        if (meta?.toolName === 'ensemble_spawn') {
+          const st = (meta?.partialDetails as Record<string, unknown> | undefined)?.status as string | undefined
+          const ACTIVE = new Set(['running', 'queued', 'paused'])
+          state.foregroundSpawnActive = !!(st && ACTIVE.has(st))
         }
         return
       }
@@ -386,6 +396,7 @@ const chatSlice = createSlice({
           state._waitingForTurnStats = false
           state.extensionStatuses = {}
           state.extensionWidgets = {}
+          state.foregroundSpawnActive = false
         }
       })
       .addCase(switchSlot.fulfilled, (state, action) => {
@@ -418,6 +429,7 @@ const chatSlice = createSlice({
         state.slotState = running ? state.slotState : 'idle'
         state.slotRunning = running
         state.slotStopping = action.payload.stopping ?? false
+        state.foregroundSpawnActive = false // reset on slot switch
         state.slotHasMore = hasMore
         state.slotOldestIndex = hasMore ? total - messages.length : 0
         state.contextUsage = action.payload.contextUsage

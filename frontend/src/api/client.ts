@@ -148,6 +148,7 @@ export const api = {
   createChatSlot: (name?: string, agent?: string, model?: string, cwd?: string) => post('/api/chat/slots', { ...(name ? { name } : {}), ...(agent ? { agent } : {}), ...(model ? { model } : {}), ...(cwd ? { cwd } : {}) }).then(j),
   deleteChatSlot: (slot: string) => del('/api/chat/slots/' + encodeURIComponent(slot)).then(j),
   stopChatSlot: (slot: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/stop').then(j),
+  conductorDetach: (slot: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/conductor-detach').then(j),
   approveChatSlot: (slot: string, action: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/approve', { action }).then(j),
   resumeChatSlot: (key: string, title?: string, file?: string) => post('/api/chat/slots/' + encodeURIComponent(key) + '/resume', { name: key, key, title: title || key, file }).then(j),
   chatMode: (mode: string, slot?: string) => post('/api/chat/mode', { mode, slot: slot || '' }).then(j),

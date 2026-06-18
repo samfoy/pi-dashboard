@@ -29,7 +29,6 @@ export interface RouteDeps {
   cleanupClientWatchers: (ws: WebSocket) => void
 
   // Shutdown helpers
-  shutdownPty: () => void
 }
 
 export type { Request, Response, ChatMessage, PiProcess, PiManager, Notification }

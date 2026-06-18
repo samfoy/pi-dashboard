@@ -31,7 +31,6 @@ import type { ModelLike } from '../utils/modelUtils'
 import { supportedThinkingLevels, modelLabel, modelFullId } from '../utils/modelUtils'
 import StatChipRail from './chat/StatChipRail'
 import SessionTree from './chat/SessionTree'
-import TerminalPage from './TerminalPage'
 import MessageSearch from './chat/MessageSearch'
 import StatusLine from './chat/StatusLine'
 import SplitPane from './chat/SplitPane'
@@ -69,6 +68,7 @@ export default function ChatPage() {
   const slotStopping = useAppSelector(s => s.chat.slotStopping)
   const slotState = useAppSelector(s => s.chat.slotState)
   const slotSwitching = useAppSelector(s => s.chat.slotSwitching)
+  const foregroundSpawnActive = useAppSelector(s => s.chat.foregroundSpawnActive)
   const tokenStats = useAppSelector(s => s.chat.tokenStats)
   const contextUsage = useAppSelector(s => s.chat.contextUsage)
   const extensionStatuses = useAppSelector(s => s.chat.extensionStatuses)
@@ -98,7 +98,6 @@ export default function ChatPage() {
     window.addEventListener('storage', reload)
     return () => { window.removeEventListener('mc-chat-config', reload); window.removeEventListener('storage', reload) }
   }, [])
-  const [showTerminal, setShowTerminal] = useState(false)
   const [showTree, setShowTree] = useState(false)
   const [showFiles, setShowFiles] = useState(false)
   const [showRefs, setShowRefs] = useState(false)
@@ -865,11 +864,11 @@ export default function ChatPage() {
       registerAction('newSession',      { callback: () => { wantsNewSession.current = true; dispatch(switchSlot(null)) } }),
       registerAction('focusInput',      { callback: () => inputRef.current?.focus() }),
       registerAction('searchMessages',  { callback: () => setShowSearch(s => !s) }),
-      registerAction('escape',          { callback: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) api.stopChatSlot(activeSlot) } }),
+      registerAction('escape',          { callback: () => { if (showSearch) setShowSearch(false); else if (activeSlot && slotRunning) { if (foregroundSpawnActive) { api.conductorDetach(activeSlot).catch(() => {}); } else { api.stopChatSlot(activeSlot) } } } }),
       registerAction('closeSession',    { callback: () => { if (activeSlot) dispatch(deleteSlot(activeSlot)) } }),
     ]
     return () => unsubs.forEach(fn => fn())
-  }, [activeSlot, slotRunning, showSearch, dispatch])
+  }, [activeSlot, slotRunning, foregroundSpawnActive, showSearch, dispatch])
 
   // Clear split pane if the slot was deleted
   useEffect(() => {
@@ -921,7 +920,7 @@ export default function ChatPage() {
   const renderMessage = useCallback((i: number, m: ChatMessage) => {
     const key = m.ts ? `${m.role}-${m.ts}` : `${m.role}-${i}`
     if (m.role === 'thinking') return <ThinkingBlock key={key} content={m.content} />
-    if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} />
+    if (m.role === 'tool') return <ToolCallBlock key={key} content={m.content} meta={m.meta} onFileOpen={handleFileOpen} slotKey={activeSlot ?? undefined} />
     if (m.role === 'queued') return null // rendered as pills above the input, not inline
     if (m.role === 'error') return <div key={key} className="bg-danger-subtle text-danger text-[13px] px-3 py-2 rounded-md border border-danger/15 self-center animate-scale-in">{m.content}</div>
     if (m.role === 'system') return <SystemMessage key={key} content={m.content} meta={m.meta} />
@@ -990,7 +989,7 @@ export default function ChatPage() {
         </div>
       </div>
     )
-  }, [messages, pendingApproval, slotRunning, approve, send, handleFileOpen, chatConfig, navigate, planTaskId])
+  }, [messages, pendingApproval, slotRunning, approve, send, handleFileOpen, chatConfig, navigate, planTaskId, activeSlot])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('mc-chat-sidebar') === '1')
 
@@ -1026,6 +1025,13 @@ export default function ChatPage() {
             pendingImages={pendingImages}
             onPaste={handlePaste}
             onRemoveImage={removeImage}
+            pendingFiles={pendingFiles}
+            onRemoveFile={removeFile}
+            onPickFiles={pickFiles}
+            onDrop={handleDrop}
+            uploading={uploading}
+            isMac={isMac}
+            isNativeApp={isNativeApp}
             inputRef={inputRef}
           />
         ) : (
@@ -1056,11 +1062,11 @@ export default function ChatPage() {
                 {/* Panels dropdown — groups Tree, Refs, Files, Terminal */}
                 <div className="relative">
                   <button
-                    className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTree || showRefs || showFiles || showTerminal ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`}
+                    className={`bg-transparent border rounded-md px-3 py-[5px] text-[13px] font-medium cursor-pointer transition-all font-body ${showTree || showRefs || showFiles ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong hover:bg-bg-hover'}`}
                     onClick={() => setShowOverflowMenu(v => !v)}
                     aria-label="Toggle panels"
                   >
-                    ☰ Panels{(showTree || showRefs || showFiles || showTerminal) ? ' ·' : ''}
+                    ☰ Panels{(showTree || showRefs || showFiles) ? ' ·' : ''}
                   </button>
                   {showOverflowMenu && (
                     <>
@@ -1069,7 +1075,6 @@ export default function ChatPage() {
                         <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showTree ? 'text-accent' : 'text-text'}`} onClick={() => { setShowTree(t => !t); setShowOverflowMenu(false) }}>🌳 Tree{showTree ? ' ✓' : ''}</button>
                         <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showRefs ? 'text-accent' : 'text-text'}`} onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}{showRefs ? ' ✓' : ''}</button>
                         <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showFiles ? 'text-accent' : 'text-text'}`} onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files{showFiles ? ' ✓' : ''}</button>
-                        <button className={`w-full text-left px-3 py-2 text-[13px] hover:bg-bg-hover flex items-center gap-2 ${showTerminal ? 'text-accent' : 'text-text'}`} onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal{showTerminal ? ' ✓' : ''}</button>
                       </div>
                     </>
                   )}
@@ -1161,7 +1166,6 @@ export default function ChatPage() {
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTree(t => !t); setShowOverflowMenu(false) }}>🌳 Tree</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowRefs(t => !t); setShowOverflowMenu(false) }}>📎 Refs{referencedFiles.length > 0 ? ` (${referencedFiles.length})` : ''}</button>
                       <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowFiles(t => !t); setShowOverflowMenu(false) }}>📄 Files</button>
-                      <button className="w-full text-left px-3 py-2 text-[13px] text-text hover:bg-bg-hover" onClick={() => { setShowTerminal(t => !t); setShowOverflowMenu(false) }}>▸_ Terminal</button>
                       {isNativeApp && (
                         <>
                           <div className="border-t border-border my-1" />
@@ -1199,8 +1203,7 @@ export default function ChatPage() {
                   <FileBrowser onFileOpen={handleFileOpen} onClose={() => setShowFiles(false)} startPath={currentSlot?.cwd || undefined} />
                 </div>
               )}
-              <div className="flex-1 min-h-0 flex flex-col" style={{ display: showTerminal ? 'flex' : 'none' }}><TerminalPage /></div>
-              {showTerminal ? null : <><div className="flex-1 min-h-0 flex flex-col relative">
+              <div className="flex-1 min-h-0 flex flex-col relative">
               {showSearch && (
                 <MessageSearch
                   messages={messages}
@@ -1458,7 +1461,7 @@ export default function ChatPage() {
                 : <button className="btn-sweep bg-accent text-white border-none rounded-lg shrink-0 w-[40px] h-[40px] md:w-auto md:px-5 md:h-[44px] text-sm font-semibold cursor-pointer hover:bg-accent-hover hover:shadow-[0_0_20px_var(--accent-glow)] disabled:opacity-40 disabled:cursor-not-allowed transition-all font-body flex items-center justify-center" onClick={() => send()} disabled={slotStopping}><span className="md:hidden">↑</span><span className="hidden md:inline">Send</span></button>
               }
             </div>
-          </div></>}
+          </div>
             </div>
           </>
         )}
