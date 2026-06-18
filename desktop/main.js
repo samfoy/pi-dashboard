@@ -136,11 +136,11 @@ function createWindow() {
   if (TRANSPARENT) {
     winOpts.transparent = true
     winOpts.hasShadow = false
-    // macOS: use native vibrancy so the desktop blur matches the TUI look
-    if (process.platform === 'darwin') {
-      winOpts.vibrancy = 'under-window'
-      winOpts.visualEffectState = 'active'
-    }
+    // vibrancy disabled — caused sustained 40%+ GPU usage on macOS (continuous desktop compositing)
+    // if (process.platform === 'darwin') {
+    //   winOpts.vibrancy = 'under-window'
+    //   winOpts.visualEffectState = 'active'
+    // }
   }
   win = new BrowserWindow(winOpts)
 

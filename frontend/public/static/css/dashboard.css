@@ -366,17 +366,7 @@ select.ov-input{cursor:pointer;-webkit-appearance:none;appearance:none;
 .stagger-1{animation-delay:0ms}.stagger-2{animation-delay:60ms}.stagger-3{animation-delay:120ms}
 .stagger-4{animation-delay:180ms}.stagger-5{animation-delay:240ms}.stagger-6{animation-delay:300ms}
 
-/* ── Ambient background ── */
-body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;
-  background:radial-gradient(ellipse at 20% 50%,rgba(245,158,50,.03) 0%,transparent 50%),
-             radial-gradient(ellipse at 80% 20%,rgba(59,130,246,.02) 0%,transparent 50%),
-             radial-gradient(ellipse at 50% 80%,rgba(34,197,94,.02) 0%,transparent 50%);
-  animation:gradient-shift 20s ease infinite;background-size:200% 200%;
-  pointer-events:none;z-index:0}
-[data-theme="light"] body::before{
-  background:radial-gradient(ellipse at 20% 50%,rgba(217,119,6,.04) 0%,transparent 50%),
-             radial-gradient(ellipse at 80% 20%,rgba(37,99,235,.03) 0%,transparent 50%),
-             radial-gradient(ellipse at 50% 80%,rgba(22,163,74,.03) 0%,transparent 50%)}
+/* body::before ambient removed — large fixed layer with no visual value */
 .shell{position:relative;z-index:1}
 
 /* ── Enhanced nav items ── */
@@ -410,8 +400,7 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
 .sess-item:nth-child(4){animation-delay:120ms}
 .sess-item:nth-child(5){animation-delay:160ms}
 
-/* ── Running dot pulse ── */
-.sess-item .s-dot{animation:dot-breathe 2s ease-in-out infinite}
+/* .sess-item .s-dot — dot-breathe animation removed (continuous GPU composite) */
 
 /* ── Chat message entrance ── */
 .chat-group{animation:slide-up .3s var(--ease-out) backwards}
@@ -431,8 +420,7 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
 .sess-new:hover{transform:rotate(90deg) scale(1.1)}
 .sess-new:active{transform:rotate(90deg) scale(.95)}
 
-/* ── Status dot glow animation ── */
-.statusDot.ok{animation:dot-breathe 3s ease-in-out infinite}
+/* .statusDot.ok — dot-breathe animation removed (continuous GPU composite) */
 
 /* ── Page transition ── */
 .page.active{animation:fade-in .2s ease}

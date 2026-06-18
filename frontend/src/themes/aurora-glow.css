@@ -79,17 +79,18 @@ html[data-theme="aurora-glow"] body::before {
     radial-gradient(ellipse at 72% 74%, rgba(148,226,213,.05) 0%, transparent 60%) !important;
 }
 
-/* Frosted glass on every visible surface. */
-html[data-theme="aurora-glow"] .card,
-html[data-theme="aurora-glow"] .panel,
-html[data-theme="aurora-glow"] aside,
-html[data-theme="aurora-glow"] header,
-html[data-theme="aurora-glow"] nav,
-html[data-theme="aurora-glow"] [role="dialog"],
-html[data-theme="aurora-glow"] [class*="bg-card"],
-html[data-theme="aurora-glow"] [class*="bg-panel"],
-html[data-theme="aurora-glow"] [class*="bg-chrome"],
-html[data-theme="aurora-glow"] [class*="bg-elevated"] {
+/* Frosted glass on every visible surface — only when window is transparent.
+   In opaque mode this burns GPU every frame for no visual benefit. */
+html.pi-dash-transparent[data-theme="aurora-glow"] .card,
+html.pi-dash-transparent[data-theme="aurora-glow"] .panel,
+html.pi-dash-transparent[data-theme="aurora-glow"] aside,
+html.pi-dash-transparent[data-theme="aurora-glow"] header,
+html.pi-dash-transparent[data-theme="aurora-glow"] nav,
+html.pi-dash-transparent[data-theme="aurora-glow"] [role="dialog"],
+html.pi-dash-transparent[data-theme="aurora-glow"] [class*="bg-card"],
+html.pi-dash-transparent[data-theme="aurora-glow"] [class*="bg-panel"],
+html.pi-dash-transparent[data-theme="aurora-glow"] [class*="bg-chrome"],
+html.pi-dash-transparent[data-theme="aurora-glow"] [class*="bg-elevated"] {
   backdrop-filter: blur(20px) saturate(155%);
   -webkit-backdrop-filter: blur(20px) saturate(155%);
 }

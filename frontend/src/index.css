@@ -9,8 +9,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body,#root{height:100%}
   body{font:400 14px/1.55 var(--font-body);letter-spacing:-.02em;background:var(--bg);color:var(--text);
-    -webkit-font-smoothing:antialiased;overflow:hidden;
-    transition:background-color .25s ease,color .25s ease}
+    -webkit-font-smoothing:antialiased;overflow:hidden}
   ::selection{background:var(--accent-subtle);color:var(--text-strong)}
   .bg-accent::selection{background:rgba(255,255,255,.25);color:white}
   ::-webkit-scrollbar{width:6px;height:6px}
@@ -19,25 +18,8 @@
   ::-webkit-scrollbar-thumb:hover{background:var(--border-strong)}
 }
 
-/* ── Ambient background ── */
-body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;
-  animation:gradient-shift 20s ease infinite;background-size:200% 200%;
-  pointer-events:none;z-index:0}
-
-/* ── Nav brand glow pseudo-elements ── */
-.nav-brand-glow::before{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse at 50% 40%,var(--accent-glow) 0%,rgba(245,158,50,.08) 40%,transparent 70%);
-  opacity:.8;pointer-events:none;animation:brand-glow 5s ease-in-out infinite alternate}
-.nav-brand-glow::after{content:'';position:absolute;bottom:0;left:16px;right:16px;height:1px;
-  background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.3}
-
 /* ── Streaming cursor ── */
 .streaming-cursor::after{content:'';display:inline-block;width:8px;height:8px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-left:4px}
-
-/* ── Shimmer bar ── */
-.think-bar{width:48px;height:3px;border-radius:2px;
-  background:linear-gradient(90deg,var(--border),var(--accent),var(--border));
-  background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite}
 
 /* ── Typing indicator (bouncing dots) ── */
 .typing-dots{display:flex;align-items:center;gap:5px;padding:2px 0}
@@ -51,15 +33,11 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
   background:var(--muted);--bounce-y:-3px;opacity:.4;animation:typing-bounce 1.4s ease-in-out infinite}
 .typing-dots-sm span:nth-child(2){animation-delay:.2s}
 .typing-dots-sm span:nth-child(3){animation-delay:.4s}
-@keyframes grow{0%{width:15%}50%{width:45%}100%{width:60%}}
-@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
-.animate-shimmer{animation:shimmer 2s ease-in-out infinite}
+
 @keyframes typing-bounce{
   0%,60%,100%{transform:translateY(0);opacity:.4}
   30%{transform:translateY(var(--bounce-y, -6px));opacity:1}
 }
-
-/* ── Pulse dot for loading indicator ── */
 @keyframes pulse-dot{
   0%,100%{opacity:.3;transform:scale(.85)}
   50%{opacity:1;transform:scale(1.1)}
@@ -72,46 +50,24 @@ body::before{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%
 .msg-content :not(pre)>code{padding:.15em .4em;border-radius:4px;overflow-wrap:break-word;word-break:break-all}
 .msg-content pre{border-radius:var(--radius-sm);padding:10px 12px;overflow-x:auto;margin:4px 0;font-size:13px;font-family:var(--mono);line-height:1.5}
 
-/* ── Send button sweep ── */
-.btn-sweep{position:relative;overflow:hidden}
-.btn-sweep::after{content:'';position:absolute;inset:0;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);
-  transform:translateX(-100%);transition:none}
-.btn-sweep:hover::after{transform:translateX(100%);transition:transform .5s ease}
-
-/* ── Card hover glow ── */
-.card-glow{position:relative;overflow:hidden}
-.card-glow::before{content:'';position:absolute;inset:-1px;border-radius:inherit;
-  background:linear-gradient(135deg,rgba(245,158,50,.1),transparent 40%,transparent 60%,rgba(59,130,246,.05));
-  opacity:0;transition:opacity .4s ease;z-index:0;pointer-events:none}
-.card-glow:hover::before{opacity:1}
-.card-glow>*{position:relative;z-index:1}
-
-/* ── Stat top-line accent ── */
-.stat-accent::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,var(--accent),transparent);
-  opacity:0;transition:opacity .3s ease}
-.stat-accent:hover::after{opacity:1}
-
-/* ── Topbar glass ── */
-.topbar-glass{
-  background:var(--chrome);
+/* ── Topbar ── */
+/* No backdrop-filter in opaque mode — it burns GPU every frame for zero visual benefit.
+   Only enabled when window is actually transparent (pi-dash-transparent on <html>). */
+.topbar-glass{background:var(--chrome);border-bottom:1px solid var(--border)}
+html.pi-dash-transparent .topbar-glass{
   backdrop-filter:blur(12px) saturate(1.4);
-  -webkit-backdrop-filter:blur(12px) saturate(1.4);
-  border-bottom:1px solid var(--border);
-  transition:background-color .25s ease}
+  -webkit-backdrop-filter:blur(12px) saturate(1.4)}
 
-/* ── Mobile system font override ── */
+/* ── Mobile system font ── */
 @media (max-width: 768px) {
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 }
 
-/* PWA / Electron standalone mode — pad for macOS traffic lights */
+/* ── PWA / Electron standalone — pad for macOS traffic lights ── */
 @media all and (display-mode: standalone) {
   .standalone-pad{padding-left:80px}
 }
 html.is-standalone .standalone-pad{padding-left:80px}
-/* Ensure content is clickable — only topbar is draggable */
 html.is-standalone #root{-webkit-app-region:no-drag}
 html.is-standalone .standalone-pad{-webkit-app-region:drag}
 html.is-standalone .standalone-pad button,
@@ -120,7 +76,7 @@ html.is-standalone .standalone-pad input,
 html.is-standalone .standalone-pad select,
 html.is-standalone .standalone-pad [role="button"]{-webkit-app-region:no-drag}
 
-/* ── Scroll shadow (fade at top/bottom of scrollable panels) ── */
+/* ── Scroll shadow ── */
 .scroll-shadow{
   mask-image:linear-gradient(to bottom,transparent,black 16px,black calc(100% - 16px),transparent);
   -webkit-mask-image:linear-gradient(to bottom,transparent,black 16px,black calc(100% - 16px),transparent)}
@@ -128,275 +84,103 @@ html.is-standalone .standalone-pad [role="button"]{-webkit-app-region:no-drag}
 /* ── Table row striping ── */
 .table-striped tbody tr:nth-child(even){background:var(--card-hl)}
 
-/* ── Skeleton shimmer placeholder ── */
-.skeleton{
-  background:linear-gradient(90deg,var(--bg-elevated) 25%,var(--bg-hover) 50%,var(--bg-elevated) 75%);
-  background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;
-  border-radius:var(--radius-sm)}
+/* ── Skeleton placeholder (static — no shimmer animation) ── */
+.skeleton{background:var(--bg-elevated);border-radius:var(--radius-sm)}
 
-/* ── Consistent focus ring ── */
+/* ── Focus ring ── */
 .focus-ring:focus{outline:none;border-color:var(--ring);
-  box-shadow:0 0 0 3px var(--accent-subtle),0 0 20px rgba(245,158,50,.06)}
+  box-shadow:0 0 0 3px var(--accent-subtle)}
 
-/* ── Syntax highlighting (highlight.js) — defaults, overridden by theme files ── */
+/* ── Syntax highlighting (highlight.js) ── */
 .hljs{color:var(--text)}
 .hljs-section{color:var(--accent)}
 .hljs-deletion{color:var(--diff-del-text)}
 .hljs-subst{color:var(--text)}
 .hljs-comment,.hljs-quote{color:var(--muted);font-style:italic}
 
-/* ── Command Palette (cmdk) ── */
-.cmdk-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: cmdk-fade-in 0.15s ease;
-}
+/* ── Command Palette ── */
+.cmdk-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,0.5)}
 
-.cmdk-dialog {
-  position: fixed !important;
-  top: 20% !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  z-index: 101;
-  width: min(560px, calc(100vw - 32px));
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
-  overflow: hidden;
-  animation: cmdk-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
+.cmdk-dialog-host{
+  position:fixed !important;top:20% !important;left:0 !important;right:0 !important;
+  margin:0 auto !important;z-index:101;width:min(560px,calc(100vw - 32px))}
 
-.cmdk-dialog.cmdk-dialog--fullview {
-  top: 4vh !important;
-  width: min(780px, calc(100vw - 32px));
-  height: 92vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+.cmdk-dialog-card{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  border-radius:16px;box-shadow:0 24px 80px rgba(0,0,0,0.35);overflow:hidden}
 
-.cmdk-input-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-}
+.cmdk-input-wrapper{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)}
+.cmdk-search-icon{width:18px;height:18px;color:var(--muted);flex-shrink:0}
+.cmdk-input{flex:1;background:transparent;border:none;outline:none;font-size:15px;font-family:inherit;color:var(--text);caret-color:var(--accent)}
+.cmdk-input::placeholder{color:var(--muted)}
 
-.cmdk-search-icon {
-  width: 18px;
-  height: 18px;
-  color: var(--muted);
-  flex-shrink: 0;
-}
+.cmdk-badge{font-size:11px;font-family:var(--font-mono,ui-monospace,monospace);color:var(--muted);
+  background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:2px 6px;line-height:1}
 
-.cmdk-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-size: 15px;
-  font-family: inherit;
-  color: var(--text);
-  caret-color: var(--accent);
-}
-.cmdk-input::placeholder {
-  color: var(--muted);
-}
+.cmdk-list{max-height:min(420px,50vh);overflow-y:auto;overscroll-behavior:contain;padding:8px}
+.cmdk-empty{padding:32px 0;text-align:center;font-size:13px;color:var(--muted)}
+.cmdk-group{margin-bottom:4px}
+.cmdk-group [cmdk-group-heading]{font-size:11px;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.06em;color:var(--muted);padding:8px 10px 4px;user-select:none}
 
-.cmdk-badge {
-  font-size: 11px;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  color: var(--muted);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 2px 6px;
-  line-height: 1;
-}
-
-.cmdk-list {
-  max-height: min(420px, 50vh);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 8px;
-}
-
-.cmdk-empty {
-  padding: 32px 0;
-  text-align: center;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.cmdk-group {
-  margin-bottom: 4px;
-}
-
-.cmdk-group [cmdk-group-heading] {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  padding: 8px 10px 4px;
-  user-select: none;
-}
-
-.cmdk-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: var(--text);
-  transition: background 0.1s;
-  user-select: none;
-}
-
-.cmdk-item[data-selected="true"],
-.cmdk-item.cmdk-item-active {
-  background: var(--accent);
-  color: #fff;
-}
+.cmdk-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;
+  cursor:pointer;font-size:14px;color:var(--text);user-select:none}
+.cmdk-item[data-selected="true"],.cmdk-item.cmdk-item-active{background:var(--accent);color:#fff}
 .cmdk-item[data-selected="true"] .cmdk-kbd,
 .cmdk-item[data-selected="true"] .cmdk-item-meta,
 .cmdk-item[data-selected="true"] .cmdk-item-badge,
 .cmdk-item.cmdk-item-active .cmdk-kbd,
 .cmdk-item.cmdk-item-active .cmdk-item-meta,
 .cmdk-item.cmdk-item-active .cmdk-item-badge,
-.cmdk-item.cmdk-item-active .text-muted {
-  color: rgba(255, 255, 255, 0.7);
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.1);
-}
+.cmdk-item.cmdk-item-active .text-muted{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.1)}
 
-.cmdk-item-icon {
-  width: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 15px;
-}
+.cmdk-item-icon{width:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
+.cmdk-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:block}
+.cmdk-dot-active{background:#22c55e}
+.cmdk-item-content{flex:1;display:flex;align-items:center;gap:8px;min-width:0}
+.cmdk-item-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdk-item-meta{font-size:12px;color:var(--muted);white-space:nowrap}
+.cmdk-item-badge{font-size:11px;font-weight:600;color:var(--accent);
+  background:var(--accent-subtle,rgba(99,102,241,.1));padding:2px 8px;border-radius:999px;white-space:nowrap}
+.cmdk-kbd{font-size:12px;font-family:var(--font-mono,ui-monospace,monospace);color:var(--muted);
+  background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:3px 7px;
+  line-height:1.2;margin-left:auto;white-space:nowrap}
+.cmdk-slash{font-family:var(--font-mono,ui-monospace,monospace);font-size:13px;font-weight:600;color:var(--accent);width:auto !important}
 
-.cmdk-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--muted);
-  display: block;
-}
-.cmdk-dot-active {
-  background: #22c55e;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
-}
-
-.cmdk-item-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.cmdk-item-label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cmdk-item-meta {
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.cmdk-item-badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  background: var(--accent-subtle, rgba(99, 102, 241, 0.1));
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.cmdk-kbd {
-  font-size: 12px;
-  font-family: var(--font-mono, ui-monospace, monospace);
-  color: var(--muted);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 3px 7px;
-  line-height: 1.2;
-  margin-left: auto;
-  white-space: nowrap;
-}
-
-.cmdk-slash {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  width: auto !important;
-}
-
-@keyframes cmdk-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes cmdk-slide-in {
-  from { opacity: 0; transform: translateX(-50%) scale(0.96) translateY(-8px); }
-  to { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
-}
-
-/* ── Stat chip rail — glanceable telemetry pills (StatChipRail.tsx) ──
-   Neutral, bordered base that reads in every theme; the aurora-glow theme
-   adds the colored halo (see themes/aurora-glow.css). */
-.stat-chip-rail{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:6px 12px 8px;}
-.stat-chip{display:inline-flex;align-items:center;gap:7px;
-  padding:4px 10px;border-radius:9999px;
+/* ── Stat chip rail ── */
+.stat-chip-rail{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px 8px}
+.stat-chip{display:inline-flex;align-items:center;gap:7px;padding:4px 10px;border-radius:9999px;
   border:1px solid var(--border);background:var(--bg-elevated);
-  font:600 11px/1 var(--mono);color:var(--text);white-space:nowrap;
-  transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease;
-  cursor:default;}
-.stat-chip:hover{border-color:var(--border-hover);transform:translateY(-1px)}
-.stat-chip-dot{width:7px;height:7px;border-radius:9999px;flex:none;
-  background:currentColor}
-.stat-chip-label{color:var(--muted);letter-spacing:.04em;text-transform:uppercase;
-  font-size:9.5px;font-weight:700}
-.stat-chip-value{color:var(--text-strong);font-weight:700;font-size:11.5px;
-  font-variant-numeric:tabular-nums}
+  font:600 11px/1 var(--mono);color:var(--text);white-space:nowrap;cursor:default}
+.stat-chip-dot{width:7px;height:7px;border-radius:9999px;flex:none;background:currentColor}
+.stat-chip-label{color:var(--muted);letter-spacing:.04em;text-transform:uppercase;font-size:9.5px;font-weight:700}
+.stat-chip-value{color:var(--text-strong);font-weight:700;font-size:11.5px;font-variant-numeric:tabular-nums}
 .stat-chip-sub{color:var(--muted);font-weight:600}
-/* Unified rail wrapper: thin context bar stacked over the chip row. */
-.stat-rail{display:flex;flex-direction:column;}
+.stat-rail{display:flex;flex-direction:column}
 .stat-rail-bar{width:100%;height:6px;display:flex;overflow:hidden;cursor:default;
   background:var(--border);border-radius:9999px;margin:2px 12px 0;width:calc(100% - 24px)}
 .stat-rail-bar>div:first-child{border-radius:9999px 0 0 9999px}
 
-/* ── Status-line footer — bordered mono cells (StatusLine.tsx) ── */
-.status-line{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;
-  padding:0 12px 8px;}
-.status-cell{display:inline-flex;align-items:center;gap:6px;
-  padding:3px 9px;border-radius:var(--radius-sm);
+/* ── Status-line footer ── */
+.status-line{display:flex;align-items:stretch;gap:6px;flex-wrap:wrap;padding:0 12px 8px}
+.status-cell{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:var(--radius-sm);
   border:1px solid var(--border);background:var(--bg-elevated);
-  font:600 11px/1 var(--mono);color:var(--text);white-space:nowrap;
-  max-width:340px;overflow:hidden;}
-.status-cell-label{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
-  font-size:9px;font-weight:700}
-.status-cell-value{color:var(--text-strong);font-weight:600;
-  overflow:hidden;text-overflow:ellipsis}
+  font:600 11px/1 var(--mono);color:var(--text);white-space:nowrap;max-width:340px;overflow:hidden}
+.status-cell-label{color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:9px;font-weight:700}
+.status-cell-value{color:var(--text-strong);font-weight:600;overflow:hidden;text-overflow:ellipsis}
 html[data-theme="aurora-glow"] .status-cell{
   border-color:rgba(205,214,244,.1);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 .4rem .9rem rgba(0,0,0,.28);}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 .4rem .9rem rgba(0,0,0,.28)}
+
+/* ── cmdk-dialog (legacy compat — used directly in CommandPalette + SessionPicker) ── */
+.cmdk-dialog{
+  position:fixed !important;top:20% !important;left:50% !important;
+  transform:translateX(-50%) !important;z-index:101;
+  width:min(560px,calc(100vw - 32px));
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  box-shadow:0 24px 80px rgba(0,0,0,0.35);overflow:hidden}
+.cmdk-dialog.cmdk-dialog--fullview{
+  top:4vh !important;width:min(780px,calc(100vw - 32px));
+  height:92vh;display:flex;flex-direction:column;overflow:hidden}

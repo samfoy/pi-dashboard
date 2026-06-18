@@ -83,18 +83,19 @@ html[data-theme="rose-pine-glass"] body::before {
 }
 
 /* Heavy backdrop blur on every visible surface so text stays readable even at
-   low alpha. Scoped to this theme so nothing else pays the perf tax. */
-html[data-theme="rose-pine-glass"] .card,
-html[data-theme="rose-pine-glass"] .panel,
-html[data-theme="rose-pine-glass"] aside,
-html[data-theme="rose-pine-glass"] header,
-html[data-theme="rose-pine-glass"] nav,
-html[data-theme="rose-pine-glass"] main,
-html[data-theme="rose-pine-glass"] [role="dialog"],
-html[data-theme="rose-pine-glass"] [class*="bg-card"],
-html[data-theme="rose-pine-glass"] [class*="bg-panel"],
-html[data-theme="rose-pine-glass"] [class*="bg-chrome"],
-html[data-theme="rose-pine-glass"] [class*="bg-elevated"] {
+   low alpha. Only active when window is transparent (pi-dash-transparent class
+   on <html>) — otherwise burns GPU every frame with no visual benefit. */
+html.pi-dash-transparent[data-theme="rose-pine-glass"] .card,
+html.pi-dash-transparent[data-theme="rose-pine-glass"] .panel,
+html.pi-dash-transparent[data-theme="rose-pine-glass"] aside,
+html.pi-dash-transparent[data-theme="rose-pine-glass"] header,
+html.pi-dash-transparent[data-theme="rose-pine-glass"] nav,
+html.pi-dash-transparent[data-theme="rose-pine-glass"] main,
+html.pi-dash-transparent[data-theme="rose-pine-glass"] [role="dialog"],
+html.pi-dash-transparent[data-theme="rose-pine-glass"] [class*="bg-card"],
+html.pi-dash-transparent[data-theme="rose-pine-glass"] [class*="bg-panel"],
+html.pi-dash-transparent[data-theme="rose-pine-glass"] [class*="bg-chrome"],
+html.pi-dash-transparent[data-theme="rose-pine-glass"] [class*="bg-elevated"] {
   backdrop-filter: blur(22px) saturate(160%);
   -webkit-backdrop-filter: blur(22px) saturate(160%);
 }
