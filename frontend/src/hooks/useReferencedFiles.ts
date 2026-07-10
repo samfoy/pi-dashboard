@@ -94,6 +94,25 @@ export function useReferencedFiles(messages: ChatMessage[]): ReferencedFile[] {
       }
     })
 
+    // Post-process: drop bare-filename entries (no slash) when we already have
+    // an absolute-path entry for the same filename.  This prevents bare matches
+    // from regex scans from shadowing the full path captured from tool calls —
+    // resolving bare names against the slot cwd often 404s when the file lives
+    // in a subdirectory.
+    const absoluteByBasename = new Map<string, string>()
+    for (const key of seen.keys()) {
+      if (key.includes('/')) {
+        const base = key.split('/').pop()!
+        // Keep the first (earliest-indexed) absolute path for each basename
+        if (!absoluteByBasename.has(base)) absoluteByBasename.set(base, key)
+      }
+    }
+    for (const key of Array.from(seen.keys())) {
+      if (!key.includes('/') && absoluteByBasename.has(key)) {
+        seen.delete(key)
+      }
+    }
+
     // Sort: most recently referenced first
     return Array.from(seen.values()).sort((a, b) => b.firstIndex - a.firstIndex)
   }, [messages])

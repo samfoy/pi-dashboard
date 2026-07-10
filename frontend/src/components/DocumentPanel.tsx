@@ -7,6 +7,7 @@ const PdfRenderer = lazy(() => import('./renderers/PdfRenderer'))
 const DocxRenderer = lazy(() => import('./renderers/DocxRenderer'))
 const SpreadsheetRenderer = lazy(() => import('./renderers/SpreadsheetRenderer'))
 const ImageRenderer = lazy(() => import('./renderers/ImageRenderer'))
+const HtmlRenderer = lazy(() => import('./renderers/HtmlRenderer'))
 
 const LOADING_FALLBACK = <div className="flex items-center justify-center h-full text-muted text-sm">Loading...</div>
 
@@ -49,7 +50,18 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
   const ref = useRef<HTMLDivElement>(null)
   const isOldVersion = selectedVersion !== null
   const fileType = detectFileType(filePath)
-  const isBinary = fileType !== 'text'
+  // html is NOT binary — it keeps Save, the Preview/Source toggle, versions,
+  // and Source-mode commenting enabled.
+  const isBinary = fileType !== 'text' && fileType !== 'html'
+
+  // Cheap rolling hash of content — bumps the iframe key on live-reload so the
+  // artifact's scripts reliably re-execute when the file changes on disk.
+  const htmlReloadKey = useMemo(() => {
+    if (fileType !== 'html') return 0
+    let h = 5381
+    for (let i = 0; i < content.length; i++) h = ((h << 5) + h + content.charCodeAt(i)) | 0
+    return h
+  }, [fileType, content])
 
   const handleSave = useCallback(async () => {
     setSaving(true); setSaveError(null)
@@ -77,6 +89,40 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
 
   const handleChange = useCallback((v: string) => { onContentChange(v) }, [onContentChange])
 
+  // Reverse-map selected rendered text back to source line numbers.
+  // Shared by the Source-mode right-click path and the HTML-preview iframe bridge.
+  const resolveTextToLines = useCallback((selText: string) => {
+    const lines = content.split('\n')
+    let startLine = 1, endLine = 1
+    const needle = selText.split('\n').map(l => l.trim()).filter(Boolean)[0]?.toLowerCase() || ''
+    if (needle.length > 0) {
+      // Strategy 1: exact substring match in raw content
+      const idx = content.toLowerCase().indexOf(needle)
+      if (idx >= 0) {
+        startLine = content.slice(0, idx).split('\n').length
+      } else {
+        // Strategy 2: match against markdown-stripped source lines
+        for (let i = 0; i < lines.length; i++) {
+          const stripped = stripMd(lines[i]).toLowerCase()
+          if (stripped.length > 0 && (stripped.includes(needle) || needle.includes(stripped))) {
+            startLine = i + 1
+            break
+          }
+        }
+      }
+      const selLineCount = selText.split('\n').filter(l => l.trim()).length
+      endLine = Math.min(startLine + Math.max(0, selLineCount - 1), lines.length)
+    }
+    return { startLine, endLine }
+  }, [content])
+
+  // HTML preview: an in-frame selection arrives (via postMessage bridge) as text.
+  // Reverse-map it and open the same floating comment input the Source path uses.
+  const handleIframeSelect = useCallback((text: string) => {
+    const { startLine, endLine } = resolveTextToLines(text)
+    setActiveInputRange({ start: startLine, end: endLine })
+  }, [resolveTextToLines])
+
   // Right-click context menu for adding comments on selected text
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     const sel = window.getSelection()
@@ -84,7 +130,6 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
     e.preventDefault()
 
     let startLine = 1, endLine = 1
-    const lines = content.split('\n')
 
     // Edit mode: precise line from textarea selection
     const ta = (e.currentTarget as HTMLElement).querySelector('textarea')
@@ -93,32 +138,11 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
       endLine = content.slice(0, ta.selectionEnd).split('\n').length
     } else {
       // Preview mode: match selected text back to source lines
-      const selText = sel.toString()
-      const needle = selText.split('\n').map(l => l.trim()).filter(Boolean)[0]?.toLowerCase() || ''
-
-      if (needle.length > 0) {
-        // Strategy 1: exact substring match in raw content
-        const idx = content.toLowerCase().indexOf(needle)
-        if (idx >= 0) {
-          startLine = content.slice(0, idx).split('\n').length
-        } else {
-          // Strategy 2: match against markdown-stripped source lines
-          for (let i = 0; i < lines.length; i++) {
-            const stripped = stripMd(lines[i]).toLowerCase()
-            if (stripped.length > 0 && (stripped.includes(needle) || needle.includes(stripped))) {
-              startLine = i + 1
-              break
-            }
-          }
-        }
-        // Compute end line from selection span
-        const selLineCount = selText.split('\n').filter(l => l.trim()).length
-        endLine = Math.min(startLine + Math.max(0, selLineCount - 1), lines.length)
-      }
+      ;({ startLine, endLine } = resolveTextToLines(sel.toString()))
     }
 
     setContextMenu({ x: e.clientX, y: e.clientY, startLine, endLine })
-  }, [content])
+  }, [content, resolveTextToLines])
 
   // Close context menu on click outside or Escape
   useEffect(() => {
@@ -174,7 +198,7 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
             <button className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${lineNums ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text'}`} onClick={() => setLineNums(!lineNums)} title="Toggle line numbers">#</button>
           )}
           {!isBinary && (['preview', 'edit'] as const).map(m => (
-            <button key={m} className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${mode === m ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong'}`} onClick={() => setMode(m)}>{m[0].toUpperCase() + m.slice(1)}</button>
+            <button key={m} className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${mode === m ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong'}`} onClick={() => setMode(m)}>{m === 'edit' ? (fileType === 'html' ? 'Source' : 'Edit') : 'Preview'}</button>
           ))}
           {!isBinary && versions.length > 0 && (
             <button className={`px-2 py-1 rounded-md text-[12px] font-medium border cursor-pointer transition-all ${diffMode ? 'border-accent text-accent bg-accent-subtle' : 'border-border text-muted hover:text-text hover:border-border-strong'}`} onClick={onToggleDiff} aria-label="Diff">Diff</button>
@@ -206,6 +230,8 @@ export default memo(function DocumentPanel({ filePath, content, onContentChange,
           <Suspense fallback={LOADING_FALLBACK}><SpreadsheetRenderer filePath={filePath} /></Suspense>
         ) : fileType === 'image' ? (
           <Suspense fallback={LOADING_FALLBACK}><ImageRenderer filePath={filePath} /></Suspense>
+        ) : fileType === 'html' && mode === 'preview' ? (
+          <Suspense fallback={LOADING_FALLBACK}><HtmlRenderer content={content} onSelect={handleIframeSelect} reloadKey={htmlReloadKey} /></Suspense>
         ) : (
           <TextRenderer
             content={content}

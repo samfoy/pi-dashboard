@@ -334,9 +334,9 @@ export default function ChatPage() {
     try {
       const ft = detectFileType(filePath)
       let text = ''
-      if (ft === 'text') {
+      if (ft === 'text' || ft === 'html') {
         const res = await fetch('/api/file-read?path=' + encodeURIComponent(filePath))
-        text = res.ok ? await res.text() : `_Error: ${res.status}_`
+        text = res.ok ? await res.text() : `_Error: ${res.status}${res.status === 404 ? ` — file not found:\n\`${filePath}\`` : ''}_`
       }
       panel.openPanel(filePath, text)
       // Fetch versions on open

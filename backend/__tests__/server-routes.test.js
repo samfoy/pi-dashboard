@@ -570,6 +570,32 @@ describe('_wireSlotEvents: chat_error WS broadcasting', () => {
       ws.close()
     }
   })
+
+  // A sandboxed artifact iframe's WS handshake carries Origin: null; the upgrade
+  // must be rejected so it can't use watch_file to read/exfiltrate arbitrary files.
+  it('rejects a WS upgrade with Origin: null (sandboxed iframe)', async () => {
+    const { WebSocket: NodeWS } = await import('ws')
+    const ws = new NodeWS(`ws://127.0.0.1:${wsPort}/api/ws`, { headers: { origin: 'null' } })
+    const outcome = await new Promise((resolve) => {
+      ws.on('open', () => resolve('open'))
+      ws.on('error', () => resolve('rejected'))
+      ws.on('unexpected-response', () => resolve('rejected'))
+    })
+    try { ws.close() } catch { /* already dead */ }
+    expect(outcome).toBe('rejected')
+  })
+
+  it('accepts a WS upgrade with a matching same-origin Origin', async () => {
+    const { WebSocket: NodeWS } = await import('ws')
+    const ws = new NodeWS(`ws://127.0.0.1:${wsPort}/api/ws`, { headers: { origin: `http://127.0.0.1:${wsPort}` } })
+    const outcome = await new Promise((resolve) => {
+      ws.on('open', () => resolve('open'))
+      ws.on('error', () => resolve('rejected'))
+      ws.on('unexpected-response', () => resolve('rejected'))
+    })
+    try { ws.close() } catch { /* noop */ }
+    expect(outcome).toBe('open')
+  })
 })
 
 // ── /api/file-read regression: hyphenated filenames, ~/ expansion, ENOENT ───
@@ -626,5 +652,64 @@ describe('GET /api/file-read', () => {
     const p = '/tmp/has-many-hyphens-and-1-pager.md'
     await get(port, '/api/file-read?path=' + encodeURIComponent(p))
     expect(fsPromises.readFile).toHaveBeenCalledWith(p, 'utf-8')
+  })
+})
+
+// ── Origin guard (sameOriginOnly) ─────────────────────────────────────────────
+// State-mutating /api requests from a sandboxed, opaque-origin iframe carry
+// Origin: null / Sec-Fetch-Site: cross-site and must be rejected 403. Legit
+// same-origin dashboard POSTs and header-less native clients must pass. GETs
+// are never gated.
+describe('Origin guard on state-mutating /api routes', () => {
+  let srv, port
+  beforeAll(async () => ({ srv, port } = await startServer()))
+  afterAll(() => stopServer(srv))
+
+  async function rawPost(path, headers) {
+    return fetch(`http://127.0.0.1:${port}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ path: '/tmp/x.md', content: 'hi' }),
+    })
+  }
+
+  it('rejects file-write with Origin: null (sandboxed iframe)', async () => {
+    const res = await rawPost('/api/file-write', { origin: 'null' })
+    expect(res.status).toBe(403)
+    expect((await res.json()).error).toMatch(/cross-origin/)
+  })
+
+  it('rejects file-write with Sec-Fetch-Site: cross-site', async () => {
+    const res = await rawPost('/api/file-write', { 'sec-fetch-site': 'cross-site' })
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects file-comments POST from a null origin', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/file-comments`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'null' },
+      body: JSON.stringify({ path: '/tmp/x.md', comments: [] }),
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('passes a legit same-origin POST (Origin matches Host, Sec-Fetch-Site: same-origin)', async () => {
+    const res = await rawPost('/api/file-write', {
+      origin: `http://127.0.0.1:${port}`,
+      'sec-fetch-site': 'same-origin',
+    })
+    expect(res.status).not.toBe(403)
+  })
+
+  it('passes a header-less client (no Origin, no Sec-Fetch-Site — e.g. native app)', async () => {
+    const res = await rawPost('/api/file-write', {})
+    expect(res.status).not.toBe(403)
+  })
+
+  it('leaves GET /api/file-read open even with Origin: null', async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/api/file-read?path=${encodeURIComponent('/tmp/x.md')}`, {
+      headers: { origin: 'null' },
+    })
+    expect(res.status).not.toBe(403)
   })
 })

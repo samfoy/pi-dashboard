@@ -1,0 +1,186 @@
+/* Manuscript — warm ink-on-paper, editorial serif typography.
+   Inspired by fine-press book design and typographic weblogs: a warm cream
+   sheet, ink-black text, an ink-blue accent with an oxblood secondary,
+   hairline rules, crisp low radii, and a serif reading face. The visual
+   language is "printed page", not "app chrome": restraint over glow. */
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap');
+
+:root {
+  /* --- paper & ink --- */
+  --bg:#f4efe3;--bg-accent:#efe8d9;--bg-elevated:#f7f3ea;--bg-hover:#ece4d3;
+  /* Cards sit barely above the page — a warm tint, not a stark white sheet. */
+  --card:#f7f3ea;--card-fg:#2a2620;--card-hl:rgba(63,92,133,.03);
+  --panel:#f3ede1;--panel-strong:#ece4d3;
+  --chrome:rgba(244,239,227,.94);
+  --text:#38332b;--text-strong:#211e18;--muted:#8a8172;--muted-strong:#67604f;
+  --border:#e0d8c8;--border-strong:#d0c5ae;--border-hover:#b6a988;
+  /* ink blue accent, oxblood secondary */
+  --accent:#3f5c85;--accent-hover:#517099;--accent-subtle:rgba(63,92,133,.11);
+  --accent-glow:rgba(63,92,133,.15);--ring:#3f5c85;
+  --ok:#1a7f37;--ok-subtle:rgba(26,127,55,.12);
+  --warn:#9a6b00;--warn-subtle:rgba(154,107,0,.12);
+  --danger:#b3122a;--danger-subtle:rgba(179,18,42,.11);
+  --info:#3f5c85;
+  --aim:#6d4a86;--aim-subtle:rgba(109,74,134,.13);
+  --clarify:#9a6b00;--clarify-subtle:rgba(154,107,0,.06);
+  --diff-add:rgba(26,127,55,.12);--diff-add-text:#1a7f37;
+  --diff-del:rgba(179,18,42,.12);--diff-del-text:#b3122a;
+  --diff-hunk:rgba(63,92,133,.13);--diff-hunk-text:#3f5c85;
+  --diff-meta-text:#2a2620;
+  /* Newsreader for reading; Fraunces reserved for display headings. */
+  --font-body:'Newsreader','Iowan Old Style','Palatino Linotype',Palatino,Georgia,Charter,serif;
+  --font-display:'Fraunces','Newsreader',Georgia,serif;
+  --font-ui:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* Soft ink-on-paper shadows (warm, low, diffuse). */
+  --shadow-sm:0 1px 2px rgba(60,50,30,.06);
+  --shadow-md:0 4px 14px rgba(60,50,30,.09),0 0 0 1px rgba(60,50,30,.04);
+  --shadow-lg:0 16px 40px rgba(60,50,30,.16);
+  /* Crisp, print-like corners. */
+  --radius-sm:3px;--radius-md:4px;--radius-lg:6px;--radius-xl:10px;
+  color-scheme:light;
+}
+
+/* Browser-tab base: warm paper with a faint printed vignette so the page
+   reads as a physical sheet rather than a flat #fff canvas. */
+html[data-theme="manuscript"] {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,253,248,.7) 0%, transparent 55%),
+    radial-gradient(ellipse at 100% 100%, rgba(63,92,133,.03) 0%, transparent 45%),
+    #f4efe3 !important;
+  background-attachment: fixed !important;
+}
+html[data-theme="manuscript"] body,
+html[data-theme="manuscript"] #root { background: transparent !important; }
+
+/* Ambient warm wash — kept very restrained. */
+html[data-theme="manuscript"] body::before {
+  background:
+    radial-gradient(ellipse at 22% 26%, rgba(154,107,0,.035) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 70%, rgba(63,92,133,.03) 0%, transparent 55%) !important;
+}
+
+/* Reading face: serif body, generous rhythm, optimised rendering. */
+html[data-theme="manuscript"] body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Display headings in Fraunces with tight tracking — the "masthead" voice. */
+html[data-theme="manuscript"] h1,
+html[data-theme="manuscript"] h2,
+html[data-theme="manuscript"] h3,
+html[data-theme="manuscript"] .msg-content h1,
+html[data-theme="manuscript"] .msg-content h2,
+html[data-theme="manuscript"] .msg-content h3 {
+  font-family: var(--font-display);
+  letter-spacing: -.012em;
+  font-weight: 600;
+}
+
+/* Long-form assistant prose gets book measure + serif. */
+html[data-theme="manuscript"] .msg-content {
+  font-family: var(--font-body);
+  font-size: 1.02em;
+  line-height: 1.66;
+}
+html[data-theme="manuscript"] .msg-content p { margin: .55em 0; }
+html[data-theme="manuscript"] blockquote {
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted-strong);
+  font-style: italic;
+}
+
+/* Keep functional chrome legible: tiny labels, buttons, inputs, terminal-ish
+   bits, and monospaced values stay in a clean sans so micro-type doesn't turn
+   mushy at 9–12px in a serif. Prose and headings remain serif. */
+html[data-theme="manuscript"] button,
+html[data-theme="manuscript"] input,
+html[data-theme="manuscript"] select,
+html[data-theme="manuscript"] textarea,
+html[data-theme="manuscript"] .stat-chip,
+html[data-theme="manuscript"] .stat-chip-label,
+html[data-theme="manuscript"] [class*="uppercase"],
+html[data-theme="manuscript"] [class*="text-xs"],
+html[data-theme="manuscript"] [class*="text-[10"],
+html[data-theme="manuscript"] [class*="text-[11"],
+html[data-theme="manuscript"] [class*="tracking-"] {
+  font-family: var(--font-ui);
+}
+
+/* Structural cards (tool calls, process/subagent blocks) read as faint
+   pressings on the page: hairline rule, no lift, no glow. */
+html[data-theme="manuscript"] [class*="bg-card"],
+html[data-theme="manuscript"] .card {
+  box-shadow: none;
+}
+
+/* Assistant prose is written directly on the paper — no bubble, no border,
+   no shadow. The text is the object; the page is the ground. Scoped to the
+   assistant bubble (bg-card) so the user's ink-blue bubble is untouched. */
+html[data-theme="manuscript"] .pidash-msg-content[class*="bg-card"] {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+/* Thinking / notes blocks: warm the hardcoded lavender accent rule to plum. */
+html[data-theme="manuscript"] [class*="border-l-[#a78bfa]"] {
+  border-left-color: var(--aim) !important;
+}
+
+/* Focus ring: ink underline glow, subtle. */
+html[data-theme="manuscript"] *:focus-visible {
+  box-shadow: 0 0 0 3px rgba(63,92,133,.16) !important;
+}
+
+/* Code surfaces: a slightly deeper cream inset, hairline ruled. */
+html[data-theme="manuscript"] .msg-content :not(pre)>code {
+  background: rgba(63,92,133,.07);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: .5px 5px;
+  color: #40556f;
+}
+html[data-theme="manuscript"] .msg-content pre {
+  background: #eee7d8;
+  border: 1px solid var(--border);
+}
+
+/* Scrollbar: ink-tinted, thin. */
+html[data-theme="manuscript"] ::-webkit-scrollbar-thumb { background: var(--border-strong); }
+html[data-theme="manuscript"] ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* Syntax highlighting — warm ink scheme (One-Light, warmed toward paper). */
+html[data-theme="manuscript"] .hljs-keyword,
+html[data-theme="manuscript"] .hljs-selector-tag,
+html[data-theme="manuscript"] .hljs-built_in,
+html[data-theme="manuscript"] .hljs-name,
+html[data-theme="manuscript"] .hljs-tag { color:#8a3a34 }
+html[data-theme="manuscript"] .hljs-string,
+html[data-theme="manuscript"] .hljs-attr,
+html[data-theme="manuscript"] .hljs-template-variable,
+html[data-theme="manuscript"] .hljs-template-tag,
+html[data-theme="manuscript"] .hljs-addition { color:#4a7a3f }
+html[data-theme="manuscript"] .hljs-comment,
+html[data-theme="manuscript"] .hljs-quote { color:#a89c86;font-style:italic }
+html[data-theme="manuscript"] .hljs-number,
+html[data-theme="manuscript"] .hljs-literal,
+html[data-theme="manuscript"] .hljs-variable,
+html[data-theme="manuscript"] .hljs-regexp { color:#9a6b00 }
+html[data-theme="manuscript"] .hljs-title,
+html[data-theme="manuscript"] .hljs-title.function_ { color:#3f5c85 }
+html[data-theme="manuscript"] .hljs-type,
+html[data-theme="manuscript"] .hljs-params { color:#8a6d1a }
+html[data-theme="manuscript"] .hljs-meta,
+html[data-theme="manuscript"] .hljs-meta .hljs-keyword { color:#b3122a }
+html[data-theme="manuscript"] .hljs-section { color:#8a3a34 }
+html[data-theme="manuscript"] .hljs-deletion { color:var(--diff-del-text) }
+html[data-theme="manuscript"] .hljs-subst { color:var(--text) }
+html[data-theme="manuscript"] .hljs-property { color:#3f7d78 }
+html[data-theme="manuscript"] .hljs-punctuation,
+html[data-theme="manuscript"] .hljs-operator { color:#67604f }

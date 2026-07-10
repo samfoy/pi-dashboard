@@ -17,9 +17,11 @@ export interface Comment {
   anchor?: string
 }
 
-export type FileType = 'text' | 'pdf' | 'docx' | 'spreadsheet' | 'image' | 'unknown'
+export type FileType = 'text' | 'html' | 'pdf' | 'docx' | 'spreadsheet' | 'image' | 'unknown'
 
 const EXT_MAP: Record<string, FileType> = {
+  '.html': 'html',
+  '.htm': 'html',
   '.pdf': 'pdf',
   '.docx': 'docx',
   '.xlsx': 'spreadsheet',
@@ -35,7 +37,7 @@ const EXT_MAP: Record<string, FileType> = {
 
 const TEXT_EXTS = new Set([
   '.md', '.txt', '.ts', '.tsx', '.js', '.jsx', '.py', '.json', '.yaml', '.yml',
-  '.toml', '.sh', '.css', '.html', '.xml', '.rs', '.java', '.go', '.rb', '.sql',
+  '.toml', '.sh', '.css', '.xml', '.rs', '.java', '.go', '.rb', '.sql',
   '.kt', '.cfg', '.env', '.ini', '.conf', '.log',
 ])
 

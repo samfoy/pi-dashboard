@@ -1,307 +1,530 @@
-# Design: Hybrid WKWebView iOS App
+# Design: HTML/JS viewer + markup sidecar for pi-dashboard
 
 ## Goal
-
-Replace the ~3,500-line SwiftUI chat/slot-list UI with a WKWebView shell that renders the existing React frontend, while keeping the four native components that genuinely need native APIs: widgets, share extension, App Intents, and notification/background-refresh infrastructure. The result is a ~400-line Swift app that never diverges from the web frontend again.
-
----
+Let a user open a locally-generated, JS-bearing HTML artifact (e.g. a
+`narrative-review` CR page — tabs, collapsibles, Mermaid diagrams, syntax
+highlighting) **inside the dashboard's document panel**, view it with its
+JavaScript actually running, mark it up with comments, and round-trip those
+comments to the agent for a fix → live-reload cycle — exactly analogous to how
+markdown/text files work today. Single-user, Tailscale-only trust model.
 
 ## Approach
 
-The web frontend at `frontend/` already has a working mobile layout (responsive breakpoints, mobile sidebar, bottom nav). The SwiftUI app reimplements the same chat UI in parallel — a maintenance liability that grows with every feature. The hybrid approach makes the web canonical and the Swift app a thin host.
+Add a first-class `html` file type to the existing document-panel pipeline. The
+panel gains a **Preview / Source** toggle (mirroring the current Preview / Edit):
 
-The WKWebView loads `http://<serverBaseURL>/` directly (same Tailscale URL already in `ServerConfig`). Native bridges handle the six things a web page can't do itself: haptics, push token registration, active-slot tracking for notification suppression, deep-link navigation from widgets/notifications, share sheet invocation, and auth token injection.
+- **Preview** renders the file into a **sandboxed `<iframe srcdoc={content}>`**
+  with `sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"` —
+  **no `allow-same-origin`**. JS runs; the frame has an opaque/null origin, so it
+  cannot touch the dashboard's DOM, cookies, `localStorage`, or same-origin state.
+- **Source** is the *existing* `TextRenderer` on the raw `.html` text — fully
+  editable, savable, and (critically) **this is where commenting happens**.
 
-One key insight: the frontend's `auth.ts` already has a `?token=X` URL-param bootstrap path that strips the token from the URL bar after reading it into memory. This is the natural injection point — Swift loads the URL with `?token=<value>` appended, and the existing JS handles the rest. No new frontend auth code needed.
+**Markup in v1 is rendered-page commenting (reduced Strategy B):** the user
+comments **on the Preview** — selecting rendered text in the iframe — exactly as
+markdown works today. This is the user's explicit product decision (visual
+commenting over source-line commenting).
 
----
+The key realization (which collapses the false dichotomy in my first draft):
+markdown commenting *already* happens on the rendered Preview.
+`DocumentPanel.handleContextMenu` (L80–120) reads `window.getSelection()` over
+the rendered DOM and **reverse-maps the selected text back to source lines** —
+Strategy 1: raw substring match in `content`; Strategy 2: `stripMd`-ed per-line
+match. The `startLine/endLine` model is an invisible implementation detail; the
+user never touches source. So visual commenting and line-number storage are *not*
+in tension — markdown does both today.
 
-## What gets deleted vs. kept
+The *only* reason this doesn't come free for HTML is that the Preview is an
+**opaque-origin iframe**, so the parent's `window.getSelection()` cannot read a
+selection made inside it. The fix is a **reduced** postMessage bridge: an
+injected script captures the selection *inside* the iframe and `postMessage`s the
+**selected text string** (plus minimal context) to the parent; the parent then
+runs the **existing reverse-map** to resolve it to `startLine/endLine`. Comments
+therefore persist as `Comment{startLine,endLine}` in the **same**
+`.comments.json` sidecar via the **same** `/api/file-comments`, and flow through
+the **same** "Review Comments" round-trip — **zero** change to storage or
+round-trip precision, and **no fragile CSS selectors**. The `Comment.anchor?`
+field (`usePanelState.ts:14`) stays unused in v1 (a v2 concern only if text
+reverse-map proves insufficient).
 
-### Delete entirely (~3,200 lines)
-```
-apple/PiDash/PiDash/Views/               ← all 29 .swift files
-apple/PiDash/PiDash/ViewModels/ChatViewModel.swift       (615 lines)
-apple/PiDash/PiDash/ViewModels/SlotListViewModel.swift   (90 lines)
-apple/PiDash/PiDash/Networking/APIClient.swift           (509 lines)
-apple/PiDash/PiDash/Networking/WebSocketManager.swift    (377 lines)
-apple/PiDash/PiDash/Utilities/MarkdownTheme.swift
-apple/PiDash/PiDash/Utilities/HapticManager.swift
-apple/PiDash/PiDash/Utilities/SpeechService.swift
-apple/PiDash/PiDash/Utilities/HealthKitService.swift
-apple/PiDash/PiDash/Utilities/CalendarService.swift
-apple/PiDash/PiDash/Utilities/RemindersService.swift
-apple/PiDash/PiDash/Utilities/ContactsService.swift
-apple/PiDash/PiDash/Utilities/LocationService.swift
-apple/PiDash/PiDash/Utilities/ThemeManager.swift
-apple/PiDash/PiDash/Models/                              ← ChatSlot, ChatMessage, SlashCommand, etc.
-```
+Everything else falls out for near-free: `srcdoc` is bound to `panel.content`,
+so the existing WS file-watch → `file_changed` → `setContent` path **live-reloads
+the iframe automatically** (replacing `srcdoc` re-renders the frame; no
+cross-origin `location.reload()` needed). Transport reuses `/api/file-read`.
+No new comment schema; the only new surface is the injected bridge + its one
+postMessage shape.
 
-### Keep unchanged
-```
-apple/PiDash/PiDashWidget/               ← home screen widget (native, reads ServerConfig)
-apple/PiDash/PiDashShare/               ← share extension (native, posts to server)
-apple/PiDash/PiDash/Intents/            ← App Intents + Siri shortcuts (IntentNetworking.swift)
-apple/PiDash/PiDash/Utilities/LocalNotificationService.swift
-apple/PiDash/PiDash/Utilities/BackgroundRefreshService.swift
-apple/PiDash/PiDash/Networking/ServerConfig.swift
-apple/PiDash/PiDash/Networking/APIModels.swift           ← only if Intents still reference it
-```
-
-### Rewrite (new versions, smaller)
-
-| File | Current | New | Notes |
-|---|---|---|---|
-| `PiDashApp.swift` | 75 lines | ~60 lines | Remove wsManager, ThemeManager; keep BG register + notification categories |
-| `RootView.swift` | 50 lines | ~20 lines | Just hosts `WebView` + connection-lost overlay |
-| `AppState.swift` | 328 lines | ~60 lines | Only: ServerConfig, LocalNotificationService, pendingDeepLinkKey |
-
-### New files
-```
-apple/PiDash/PiDash/Views/WebView.swift          (~120 lines)
-apple/PiDash/PiDash/Views/SettingsView.swift     (~80 lines, keeps server URL + token config)
-```
-
----
+**Security is not optional in v1.** The opaque-origin sandbox stops the artifact
+from reading the parent DOM/cookies/storage, but it does **not** stop its JS from
+calling `fetch('/api/file-write', …)` with `Origin: null` against the un-authed
+backend. So a **server-side reject of null/cross-site `Origin`** on
+state-mutating `/api` routes is a **required v1 slice**, not hardening.
 
 ## Public interface
 
-### New `AppState.swift` (~60 lines)
-```swift
-@MainActor @Observable
-final class AppState {
-    var serverConfig: ServerConfig        // URL + token storage
-    let notificationService: LocalNotificationService
-    var pendingDeepLinkKey: String?       // consumed by WebView on appear/change
-    var pendingNotificationAction: NotificationAction?  // consumed by WebView
+### File-type detection (`frontend/src/hooks/usePanelState.ts`)
+```ts
+export type FileType = 'text' | 'html' | 'pdf' | 'docx' | 'spreadsheet' | 'image' | 'unknown'
 
-    enum NotificationAction {
-        case navigateToSlot(String)       // from notification tap
-        case stopSlot(String)             // from "Stop" action button
-        case approveSlot(String)          // from "Approve" action button  
-        case rejectSlot(String)           // from "Reject" action button
-    }
+// Move '.html'/'.htm' OUT of TEXT_EXTS and into EXT_MAP:
+const EXT_MAP: Record<string, FileType> = {
+  '.html': 'html',
+  '.htm':  'html',
+  // ...existing pdf/docx/image entries unchanged
 }
+// '.html' removed from TEXT_EXTS.
+```
+`Comment` is **unchanged** for v1 (`startLine`/`endLine`/`content`/`version`).
+The optional `anchor?: string` field stays reserved for v1.1.
+
+### Panel dispatch (`frontend/src/components/DocumentPanel.tsx`)
+```ts
+const fileType = detectFileType(filePath)
+// html is NOT binary: it must keep Save + commenting enabled.
+const isBinary = fileType !== 'text' && fileType !== 'html'
+
+// mode state widened for html: 'preview' | 'edit'  (edit == Source view for html)
+// Toolbar: for html, label the two buttons "Preview" / "Source"
+//          (Source uses the existing edit/TextRenderer path).
+
+// New render branch, before the TextRenderer fallback:
+fileType === 'html' && mode === 'preview'
+  ? <Suspense fallback={LOADING_FALLBACK}><HtmlRenderer content={content} /></Suspense>
+  : /* html+source OR text → existing TextRenderer (editable, comment-capable) */
 ```
 
-`wsManager`, `apiClient`, `slots`, `chatViewModels`, `connectionState`, `selectedSlotKey`, `selectedScrollTarget`, `pendingCommands` — all deleted.
-
-### New `WebView.swift` (~120 lines)
-```swift
-struct WebView: UIViewRepresentable {
-    @Environment(AppState.self) var appState
-    func makeUIView(context: Context) -> WKWebView
-    func updateUIView(_ webView: WKWebView, context: Context)
-    func makeCoordinator() -> Coordinator
-
-    class Coordinator: NSObject,
-        WKNavigationDelegate,
-        WKScriptMessageHandler,
-        WKUIDelegate {
-        func userContentController(
-            _ controller: WKUserContentController,
-            didReceive message: WKScriptMessage)
-    }
-}
-```
-
-WKWebViewConfiguration:
-- `allowsInlineMediaPlayback = true`
-- `mediaTypesRequiringUserActionForPlayback = []`
-- `limitsNavigationsToAppBoundDomains = false` (server is Tailscale, not a known domain)
-- User agent suffix: `PiDash-iOS/1.0` (so frontend can detect `navigator.userAgent.includes('PiDash-iOS')`)
-
-Navigation policy: `decidePolicyFor navigationAction` — allow same-host and `pidash://` scheme, open external URLs in `UIApplication.open` (Safari).
-
----
-
-## JS ↔ Native bridge
-
-### JS → Native (`WKScriptMessageHandler`)
-
-All messages arrive in `Coordinator.userContentController(_:didReceive:)`. Payload is always a JSON object.
-
-| Handler name | Payload | Swift handler | Frontend sender |
-|---|---|---|---|
-| `piHaptic` | `{ style: "light" \| "medium" \| "heavy" \| "success" \| "warning" \| "error" }` | `WebView.Coordinator` → `UIImpactFeedbackGenerator` / `UINotificationFeedbackGenerator` | New `usePlatformHaptics()` hook |
-| `piSetActiveSlot` | `{ slotKey: string \| null }` | Sets `appState.notificationService.activeSlotKey` | `ChatPage` on slot change via `useEffect` |
-| `piOpenShare` | `{ text: string, url?: string }` | Presents `UIActivityViewController` | Long-press share in chat |
-| `piOpenInSafari` | `{ url: string }` | `UIApplication.shared.open(url)` | External link taps |
-| `piRequestNotificationPermission` | `{}` | `appState.notificationService.requestPermission()` | Settings page or first-run prompt |
-| `piReady` | `{}` | Triggers pending deep-link / notification action dispatch | `main.tsx` after React mounts |
-
-### Native → JS (`evaluateJavaScript`)
-
-All messages dispatched as `window.dispatchEvent(new CustomEvent('pi-native', { detail: { type, payload } }))`. Frontend registers a single `window.addEventListener('pi-native', handler)`.
-
-| Event type | Payload | Trigger | Frontend consumer |
-|---|---|---|---|
-| `navigate-slot` | `{ slotKey: string }` | `appState.pendingDeepLinkKey` set (widget tap, notification tap) | `App.tsx` router — navigate to `/chat?slot=<key>` |
-| `stop-slot` | `{ slotKey: string }` | Notification "Stop" action button | Chat store — calls `POST /api/chat/slots/:key/stop` |
-| `approve-slot` | `{ slotKey: string }` | Notification "Approve" action button | Chat store |
-| `reject-slot` | `{ slotKey: string }` | Notification "Reject" action button | Chat store |
-| `token-updated` | `{ token: string, baseURL: string }` | Settings saved new token/URL | `auth.ts` — update `_token`, reload page |
-
----
-
-## Auth token flow
-
-**Mechanism: URL query param on load** (follows existing `auth.ts` path — zero new frontend code).
-
-1. `WebView.makeUIView` builds the URL: `"\(serverConfig.baseURL)/?token=\(serverConfig.token)"` using `URLComponents`.
-2. If `token` is empty, loads without the param (open servers work).
-3. `auth.ts` `initToken()` already runs at app start, reads `?token=`, stores in module-level `_token`, strips from URL bar, and monkey-patches `fetch` to inject `Authorization: Bearer <token>` on all `/api/` requests. WebSocket connections use `withToken(url)` which appends `?token=`.
-4. When the user changes the token in `SettingsView`, Swift dispatches `token-updated` event via `evaluateJavaScript`. Frontend `auth.ts` updates `_token` and the page reloads (`window.location.reload()`).
-5. WKWebView data store: use `.nonPersistent()` — no cookies leaking between sessions, token injected fresh on each cold launch.
-
-**Not using**: cookie injection (fragile with Tailscale hostnames), `localStorage` injection (would require relaxing CSP), URLSchemeHandler (unnecessary complexity).
-
----
-
-## Frontend mobile fixes
-
-### 1. `SubagentDock.tsx` — fullscreen sheet on mobile
-
-**Current**: `fixed z-40` draggable floating card with pixel-based positioning and resize handles. Unusable on a 390pt screen.
-
-**Fix**: Detect mobile with `const isMobile = window.innerWidth < 768` (or a `useMobile()` hook that's already used elsewhere in the codebase). On mobile, render as a full-screen overlay instead of the positioned `div`:
-
+### New component `frontend/src/components/renderers/HtmlRenderer.tsx`
 ```tsx
-if (isMobile) {
-  return agents.length === 0 ? null : (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg">
-      {/* header + agent list + log — same content, no drag/resize */}
-    </div>
+// The artifact HTML is wrapped so a small BRIDGE script is appended before
+// injecting into srcDoc. The bridge runs INSIDE the opaque-origin frame and
+// is the only way the parent learns about in-frame selections.
+function withBridge(html: string): string {
+  return html + `<script>(function(){
+    document.addEventListener('mouseup', function(){
+      var s = window.getSelection();
+      if (!s || s.isCollapsed) return;
+      var text = s.toString();
+      if (!text.trim()) return;
+      parent.postMessage({ __picomment: true, kind: 'selection', text: text }, '*');
+    });
+  })()<\/script>`
+}
+
+export default function HtmlRenderer({
+  content, onSelect,
+}: { content: string; onSelect: (text: string) => void }) {
+  const ref = useRef<HTMLIFrameElement>(null)
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      // Accept only messages from OUR frame's opaque origin (event.source check);
+      // do not trust event.origin (it is 'null' for sandboxed frames).
+      if (e.source !== ref.current?.contentWindow) return
+      const d = e.data
+      if (d && d.__picomment && d.kind === 'selection' && typeof d.text === 'string') {
+        onSelect(d.text)
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [onSelect])
+  return (
+    <iframe
+      ref={ref}
+      title="HTML preview"
+      srcDoc={withBridge(content)}
+      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+      referrerPolicy="no-referrer"
+      className="w-full h-full border-0 bg-white"
+    />
   )
 }
-// existing desktop draggable render below
 ```
+Lazy-imported like the other binary renderers
+(`const HtmlRenderer = lazy(() => import('./renderers/HtmlRenderer'))`).
+`onSelect` is wired in `DocumentPanel` to the **existing** reverse-map
+(`handleContextMenu`'s Strategy-1/Strategy-2 text→line resolver, extracted so
+both the textarea path and the iframe path share it) → `onAddComment(startLine,
+endLine, …)`. No new comment schema.
 
-File: `frontend/src/pages/chat/SubagentDock.tsx`, around line 123.
-
-### 2. `DocumentPanel.tsx` — fullscreen overlay on mobile
-
-**Current**: `flex flex-col border-l border-border bg-bg relative` with `style={{ width }}` — a side panel that takes half the screen on mobile.
-
-**Fix**: Add mobile class toggle at the outermost div:
-
-```tsx
-<div
-  ref={ref}
-  className={`flex flex-col border-l border-border bg-bg relative ${
-    isMobile ? 'fixed inset-0 z-30' : ''
-  }`}
-  style={isMobile ? undefined : { width, minWidth: 300 }}
->
-```
-
-The drag-resize handle (`absolute left-[-2px]`) should be hidden on mobile (`hidden md:flex`). Close button already exists (`guardedClose`), so mobile gets a full-screen editor with a close button.
-
-File: `frontend/src/components/DocumentPanel.tsx`, line 157.
-
-### 3. Split view guard — disable on mobile
-
-**Current**: Split pane button is shown on mobile (line 748 has no `hidden md:*` guard). On a 390pt screen it renders two 50% columns — illegible.
-
-**Fix**: In `ChatPage.tsx` line ~748, wrap the split button:
-```tsx
-<button className={`... hidden md:inline-flex ...`} ...>
-```
-And add an effect guard so `splitSlot` is cleared when viewport goes below `md`:
-```tsx
-useEffect(() => {
-  const mq = window.matchMedia('(max-width: 767px)')
-  const handler = (e: MediaQueryListEvent) => { if (e.matches) setSplitSlot(null) }
-  mq.addEventListener('change', handler)
-  return () => mq.removeEventListener('change', handler)
-}, [])
-```
-
-File: `frontend/src/pages/ChatPage.tsx`.
-
-### 4. `is-standalone` padding — scope to Electron only
-
-**Current**: `main.tsx` adds `is-standalone` class when `display-mode: standalone` matches, which will fire inside WKWebView (it matches for installed PWAs and fullscreen webviews). This causes the 80px left-padding (`standalone-pad`) to apply to the topbar inside the iOS app, wasting screen space.
-
-**Fix**: Tighten the `is-standalone` condition in `main.tsx` to Electron-only:
+**postMessage protocol (the only new wire shape):**
 ```ts
-if (
-  navigator.userAgent.includes('Electron') ||
-  (window as any).piDash
-) {
-  document.documentElement.classList.add('is-standalone')
+// iframe → parent
+{ __picomment: true, kind: 'selection', text: string }
+```
+Trust boundary: the parent validates `event.source === iframe.contentWindow`
+(NOT `event.origin`, which is the useless string `"null"` for a sandboxed frame)
+and the `__picomment` tag before acting. The bridge only ever *sends* selected
+text outward; it is not given any parent capability.
+
+### `handleFileOpen` (`frontend/src/pages/ChatPage.tsx:332`)
+```ts
+const ft = detectFileType(filePath)
+if (ft === 'text' || ft === 'html') {           // html now fetches text too
+  const res = await fetch('/api/file-read?path=' + encodeURIComponent(filePath))
+  text = res.ok ? await res.text() : `_Error…_`
 }
 ```
-Remove the `display-mode: standalone` and `navigator.standalone` checks. The WKWebView user agent will contain `PiDash-iOS/1.0` so we can add a separate `is-ios-app` class there if needed for safe-area insets.
+Version + comment fetches on open are already type-agnostic — unchanged.
 
-File: `frontend/src/main.tsx`, lines 11–17.
+### Backend (one REQUIRED v1 change: Origin guard)
+`/api/file-read`, `/api/file-comments` (GET/POST), `/api/file-versions`, and the
+WS machinery work unmodified for `.html`. **But** state-mutating routes must
+reject requests originating from the sandboxed frame's null origin:
+```ts
+// Express middleware applied to state-mutating /api routes
+// (/api/file-write, /api/file-comments POST, and any other mutator).
+function sameOriginOnly(req, res, next) {
+  const origin = req.get('origin')                 // 'null' for a sandboxed iframe
+  const site   = req.get('sec-fetch-site')         // 'cross-site' from null-origin frame
+  const ok = (origin == null || origin === `http://${req.headers.host}`
+                             || origin === `https://${req.headers.host}`)
+             && site !== 'cross-site'
+  if (!ok) return res.status(403).json({ error: 'cross-origin request rejected' })
+  next()
+}
+```
+**Verified assumption to confirm in impl:** legit dashboard `fetch` POSTs are
+same-origin, so the browser sends `Origin: <dashboard origin>` (browsers attach
+`Origin` to same-origin POST/PUT/DELETE) and `Sec-Fetch-Site: same-origin` —
+both pass. A sandboxed-frame `fetch` carries `Origin: null` /
+`Sec-Fetch-Site: cross-site` — rejected. GET routes (file-read, versions) are
+left open (no state change; the frame reading files it was generated from is
+harmless). This is the **only** barrier between the artifact's JS and the
+un-authed file-mutation API — hence required, not optional.
 
----
+## Data flow
+
+```
+Agent writes  ~/vault/Exports/foo.html
+      │
+      ▼
+User clicks the file path / tool-card path in chat
+      │  ChatPage.handleFileOpen(rawPath)  (L332)
+      ▼
+detectFileType → 'html'  ──> fetch /api/file-read?path=  (raw HTML text)
+      │
+      ▼
+panel.openPanel(path, text)   +   fetch versions   +   fetch .foo.html.comments.json
+      │                                                        │
+      ▼                                                        ▼
+DocumentPanel (mode = 'preview')                     comments[] in panel state
+      │
+      ├── Preview ─> HtmlRenderer ─> <iframe srcdoc={content + bridge}
+      │                                sandbox="allow-scripts allow-popups
+      │                                         allow-popups-to-escape-sandbox">
+      │                              JS runs in OPAQUE origin; Mermaid/hljs
+      │                              fetch from cdn.jsdelivr.net (allowed).
+      │                                     │
+      │       user selects rendered text ──┤ bridge: window.getSelection()
+      │                                     ▼
+      │       postMessage{__picomment,kind:'selection',text}  ──▶ parent
+      │                                     │  (parent verifies event.source)
+      │                                     ▼
+      │       reverse-map (existing stripMd/substring matcher)
+      │       text → startLine/endLine   ──> handleAddComment(startLine,endLine)
+      │                                     │
+      │                                     ▼
+      │                   saveComments() ─POST─> /api/file-comments
+      │                          (sameOriginOnly guard passes: same-origin POST)
+      │
+      └── Source ─> TextRenderer(edit) ── right-click selection (fallback path)
+                       │                     → context menu → CommentInput
+                       │                     → handleAddComment(startLine,endLine)
+                       ▼
+                   saveComments() ─POST─> /api/file-comments  (.comments.json sidecar)
+                       │
+                       ▼
+             "Review Comments" button (comments > 0)
+                       │  handleReviewComments (ChatPage:842)
+                       ▼
+             send("Please review and address the comments in <path>:
+                   Lines 40-45: make the arch section default-open ...")
+                       │  agent edits foo.html, rewrites file
+                       ▼
+             WS file_changed{path,content,version}  (server.ts:146)
+                       │  ChatPage:295 subscribeFileChange
+                       ▼
+             panel.setContent(newHTML)  → srcdoc changes → iframe RE-RENDERS (live reload)
+```
 
 ## Failure modes
 
-- **Server unreachable on load**: WKWebView shows its own error page. `RootView` should observe `webView.isLoading` and `didFailProvisionalNavigation` to show a native "Can't connect — check server URL" overlay with a Settings button.
-- **Token wrong/expired**: Server returns 401. The web frontend shows an error; `WebView` coordinator should intercept HTTP 401 responses via `decidePolicyFor navigationResponse` and present the native Settings sheet.
-- **Deep link arrives before `piReady`**: `pendingDeepLinkKey` set on `AppState`. `WebView.updateUIView` checks for it after every load completion. If JS hasn't fired `piReady` yet, buffer the action and dispatch on receipt of `piReady`.
-- **Notification action on cold launch**: App launches into background, action processed before WebView is initialized. `AppState.pendingNotificationAction` holds the action; `WebView` consumes it in `webView(_:didFinish:)` after first load.
-- **Settings URL/token change**: Reload the WKWebView with new URL + token param. Existing WKWebView instance can be reused — call `webView.load(newRequest)`. If the URL changed to a different host, clear WKWebView's non-persistent data store (no state to preserve).
-- **Rollback**: The SwiftUI views are deleted but the git history preserves them. If the WebView approach has a critical gap, revert is `git checkout <sha> -- apple/PiDash/PiDash/Views/ apple/PiDash/PiDash/ViewModels/ChatViewModel.swift` etc.
+- **Malicious/buggy JS in the artifact tries to reach dashboard APIs.** The
+  opaque-origin sandbox blocks same-origin access (cookies, `localStorage`,
+  parent DOM). It does **not**, by itself, stop the frame from issuing
+  `fetch('/api/file-write', …)` with `Origin: null` to the un-authed backend —
+  which could overwrite or delete any file the server can reach.
+  *Surfaced/mitigated:* the **required v1 `sameOriginOnly` guard** (see Backend)
+  rejects `Origin: null` / `Sec-Fetch-Site: cross-site` on all state-mutating
+  routes with a 403. This is the one real barrier, so it ships in v1, not later.
+- **srcDoc rebind on live-reload destroys in-frame JS state.** Every agent edit
+  replaces `srcDoc`, so the frame re-parses from scratch: scroll position, the
+  open tab, expanded collapsibles, and rendered Mermaid all reset — invisible for
+  markdown, a visible jolt for an interactive artifact. *Surfaced:* accepted for
+  v1 (correctness over polish). *v2 mitigation idea (not scoped):* the bridge
+  could postMessage-persist scroll/active-tab state to the parent and restore it
+  after the reload. Not in v1.
+- **Reverse-map edge cases (selected rendered text → source line):**
+  - *Selection spans multiple DOM nodes* → `getSelection().toString()` yields
+    text with newlines/whitespace; the existing matcher already keys on the
+    first non-empty trimmed line and computes `endLine` from the span line count
+    (`DocumentPanel.tsx:96–118`). Same behavior markdown relies on; good enough.
+  - *Selected text appears multiple times in source* → the existing matcher takes
+    the **first** `indexOf` hit. Comment may anchor to the wrong occurrence.
+    *Degradation:* the comment still carries the exact selected text in its
+    `content` when composed for the agent ("Review Comments" includes the user's
+    note), so the agent can disambiguate from the text even if the line is
+    approximate. Same limitation as markdown today.
+  - *Text generated by JS at runtime (not in source HTML)* → no substring match;
+    reverse-map finds nothing. *Degradation:* fall back to `startLine=endLine=1`
+    (matcher default) **and** surface a subtle "couldn't locate in source—comment
+    attached to top of file; include the quoted text" affordance so the user
+    knows to lean on the text in their note. This is the genuine gap of the
+    text-reverse-map approach and the only case where v2 CSS/anchor mapping would
+    help; acceptable for v1 since narrative pages are mostly static markup.
+- **CDN unreachable (offline / corp network).** Mermaid + highlight.js load from
+  `cdn.jsdelivr.net`; the generator already ships `onerror`/`setTimeout`
+  fallbacks that show diagram source as text. Page still renders. No dashboard
+  handling needed — surfaced inside the iframe by the artifact itself.
+- **Relative/sibling asset reference in the HTML.** Under `srcdoc` the base URL
+  is `about:srcdoc`, so `./style.css` would 404. Verified narrative-review
+  output inlines all CSS/JS and uses only absolute CDN URLs, so this does not
+  occur for the target artifact. *Surfaced:* broken sub-resource inside the
+  frame; documented as a known limitation for non-self-contained pages (see Open
+  questions for the `src=`-with-`<base>` escape hatch).
+- **Comment line drifts after the agent regenerates the page.** Comments are
+  version-stamped; `filteredComments` only shows comments matching the current
+  version, and "Review Comments" clears the sidecar after sending. So a
+  regenerate naturally invalidates stale anchors — same behavior as markdown
+  today. *Surfaced:* comments from an old version stop showing; no crash.
+- **Edit-then-external-change conflict.** If the user is in Source mode with
+  unsaved edits and the agent rewrites the file, the existing dirty-check routes
+  to the conflict banner (Reload / Keep Mine / Show Diff, `ChatPage:305`).
+  Unchanged.
+- **Huge page inlined into `srcdoc`.** Multi-hundred-KB attribute strings are
+  fine in modern browsers; only pathological (10s of MB) pages would strain it.
+  *Rollback:* if this bites, switch Preview to `src="/api/local-file?path="`
+  (still opaque under the sandbox attr) — a localized HtmlRenderer change.
 
----
+**Rollback story:** the entire feature is gated on `detectFileType` returning
+`'html'`. Revert that one map entry and `.html` falls back to today's
+TextRenderer path; the new component becomes dead code. No data migration
+(sidecar format unchanged), no backend change to undo.
 
 ## Alternatives considered
 
-### Option A: PWA (no native app)
-User adds to Home Screen from Safari. No App Store, no widgets, no share extension, no App Intents. Push notifications work on iOS 16.4+ but require a service worker. No background refresh. Loses the App Store install path.
+### Strategy C — `allow-same-origin` + Content-Security-Policy (rejected)
+- **Idea:** grant the iframe same-origin so the parent can read/annotate its DOM
+  directly, and contain the JS with a CSP.
+- **Cons:** With `src="/api/local-file"` the frame would run at the dashboard's
+  *own* origin with full access to its cookies/`localStorage`/same-origin APIs —
+  the worst posture given there is **no auth**. CSP cannot substitute for the
+  origin barrier here: the artifact legitimately needs `script-src`
+  `cdn.jsdelivr.net` and inline scripts (Mermaid bootstrap is inline
+  `onload=`/`setTimeout`), so any CSP tight enough to matter would break the
+  page, and one loose enough to render it wouldn't meaningfully contain it. There
+  is also zero CSP infra today — all net-new.
+- **Why rejected:** trades the one guarantee we get for free (origin isolation)
+  for a containment mechanism the target artifact structurally defeats.
 
-**Rejected**: Loses widgets (high-value), share extension, Siri shortcuts, and the App Store distribution path. Not a viable option for a daily-driver app.
+### Strategy B (reduced) — rendered-page commenting via injected bridge + `postMessage` text (CHOSEN for v1)
+- **Idea:** inject a small bridge into the `srcdoc` HTML. On selection inside the
+  frame it `postMessage`s the **selected text string** to the parent. The parent
+  runs the **existing** stripMd/substring reverse-map (the same code markdown
+  uses) to turn that text into `startLine/endLine`, then stores a plain
+  `Comment{startLine,endLine}` in the unchanged `.comments.json` sidecar.
+- **Crucial distinction from "full" Strategy B:** we deliberately do **not** send
+  `{cssSelector, rect}` or populate `Comment.anchor`. Anchoring is by *text*, not
+  by DOM selector — so there are **no fragile selectors** and the agent still
+  receives line numbers, identical to markdown's round-trip.
+- **Pros:** user comments directly on the rendered page (markdown-parity UX, the
+  user's product decision); storage + round-trip + "Review Comments" are the
+  existing code path **verbatim**; opaque-origin sandbox is preserved
+  (`postMessage` crosses it, `getSelection` does not need to); the only new
+  surface is ~10 lines of injected bridge + one message shape.
+- **Cons:** requires appending a script to the artifact (benign, same-origin-less
+  frame) and a `message` listener; JS-generated text that isn't in source can't
+  be reverse-mapped (degrades to top-of-file + quoted text — see Failure modes).
+- **Why chosen:** it satisfies both v1 pillars *and* the user's visual-commenting
+  decision **without** sacrificing round-trip precision — the false tradeoff my
+  first draft assumed. The reverse-map already exists; we're just feeding it a
+  selection from across the iframe boundary.
 
-### Option B: Keep SwiftUI, sync features to web
-Continue maintaining both surfaces. Add missing features (workflows tab, etc.) to SwiftUI by hand.
+### Strategy A — source-line-only commenting (rejected; fallback)
+- **What it is:** comment only in the **Source** view; no bridge. Reuses
+  everything, zero new surface.
+- **Why rejected:** the user explicitly chose visual commenting on the rendered
+  page. Source-only commenting forces the user to flip to Source and hunt for the
+  markup behind a rendered region — worse than markdown's UX. My first draft
+  recommended A on a **false premise** (that visual anchoring must cost
+  round-trip precision); the reduced Strategy B shows it does not.
+- **Retained as fallback:** because Source mode *is* the existing editable
+  TextRenderer with its own right-click→comment path, source-line commenting
+  keeps working for free. If the bridge ever misbehaves, or for the
+  JS-generated-text gap, the user can drop to Source and comment there. So A is
+  the **degradation path**, not a deleted option.
 
-**Rejected**: Already diverged significantly. The web frontend gains features faster (7 mobile commits vs. the iOS app missing the entire workflows tab). The divergence compounds.
+## Sandbox posture (precise)
 
-### Option C (chosen): WKWebView hybrid shell
-Swift app owns: notifications, background refresh, widgets, share extension, App Intents. Web owns: all UI. Bridge is a small well-defined message protocol.
+`sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"`
 
-**Preferred**: Eliminates the divergence problem permanently. The bridge surface is small (6 JS→Native handlers, 5 Native→JS events). Frontend already has the mobile layout. Auth already has the `?token=` injection path.
+- **`allow-scripts`** → JS executes. Required (tabs, collapsibles, Mermaid, hljs).
+- **omit `allow-same-origin`** → frame is forced to an **opaque origin** even
+  though `srcdoc`/`/api/local-file` would nominally be same-origin. Consequence:
+  the frame **cannot** read the dashboard's cookies, `localStorage`,
+  `sessionStorage`, IndexedDB, or reach into the parent DOM (`window.parent.*`
+  cross-origin throws). This is the core containment.
+- **`allow-popups` + `allow-popups-to-escape-sandbox`** → the artifact's many
+  deep links (`code.amazon.com`, AWS console) open in a new tab as normal,
+  unsandboxed pages. Without these, `target="_blank"` links silently fail.
+- **CDN network is NOT gated by `sandbox`** — `allow-scripts` frames can still
+  `fetch`/load `<script src=cdn…>`. So Mermaid/hljs work. Good, because a CSP
+  restricting this would break the page.
+- **What JS in the frame CAN still do:** issue `fetch` to arbitrary URLs
+  (including the dashboard's own un-authed `/api/*`) with `Origin: null`. The
+  sandbox does not stop network egress. This is why the **required** v1
+  `sameOriginOnly` guard on state-mutating routes (see Backend) is not optional —
+  it is the only thing between the artifact's JS and the file-mutation API.
 
----
+## Live-reload reuse
+
+Confirmed the existing path drives the iframe with **no new mechanism**:
+- On open, client sends `{type:'watch_file',path}` (`ChatPage:314`); server
+  `startWatching` pushes `{type:'file_changed',data:{path,content,version}}`
+  (`server.ts:146`, with 500ms self-write suppression).
+- `subscribeFileChange` (`ChatPage:295`) calls `panel.setContent(newHTML)` when
+  not dirty.
+- Because `HtmlRenderer` binds `srcDoc={content}`, a content change **re-renders
+  the iframe wholesale** — a fresh document parse/execute. This sidesteps the
+  cross-origin `iframe.contentWindow.location.reload()` block the brief flagged;
+  **no key-remount is required** (though a `key={version}` on the iframe is a
+  cheap belt-and-suspenders if any browser coalesces the srcdoc update).
+- **Interaction with in-flight comments:** comments are version-stamped and the
+  round-trip clears the sidecar on send, so a reload after the agent's fix
+  correctly starts a fresh comment cycle. If the user has unsaved *Source* edits,
+  the existing dirty→conflict-banner path applies unchanged.
+
+## Auto-open trigger
+
+**Recommendation: not required for the smallest v1.** Clicking the file path (or
+a tool-card path) in chat already reaches `handleFileOpen` and opens the panel;
+the agent simply needs to surface the output path (which `narrative-review`
+already prints). Ship v1 without auto-open.
+
+**Fast-follow sketch (v1.1, ~small):** add a WS server→client message
+`{type:'open_file', path}` and, in `ChatPage`, subscribe to it and call
+`handleFileOpen(path)`. The agent (or a skill post-step) emits it after writing
+the artifact. Kept out of the v1 critical path to keep the slice atomic and avoid
+an agent-side convention change landing with the renderer.
+
+## Test strategy
+
+- **Unit:**
+  - `detectFileType('x.html') === 'html'`, `'.htm'` too; `.css`/`.xml` still
+    `'text'`; unaffected extensions unchanged.
+  - `DocumentPanel` renders `HtmlRenderer` for `html + preview` and `TextRenderer`
+    for `html + source`; `isBinary` is `false` for `html` (Save + comment context
+    menu remain enabled).
+  - `HtmlRenderer` emits an iframe with the exact `sandbox` token string and
+    `srcDoc` bound to `content` (guards against an accidental `allow-same-origin`
+    regression — assert the attribute string literally).
+- **Integration (jsdom / RTL):**
+  - Open `.html` → `/api/file-read` fetched (not skipped), panel opens in
+    Preview, comment fetch fires.
+  - Add a comment **in Preview**: simulate a `postMessage`
+    `{__picomment,kind:'selection',text}` from the frame → reverse-map resolves
+    `startLine/endLine` → `POST /api/file-comments`. Also assert `event.source`
+    mismatch is ignored (spoofed message from another window rejected).
+  - Source-mode fallback still works: right-click comment → same POST.
+  - "Review Comments" composes the `Lines X-Y:` message (including the user's
+    note text) and clears the sidecar.
+  - **Origin guard:** `POST /api/file-write` with `Origin: null` → 403; with a
+    same-origin `Origin` → 200. GET routes unaffected.
+  - Simulate `file_changed` → `content` updates → `srcDoc` prop changes (assert
+    re-render) while not-dirty; dirty case shows conflict banner.
+- **Manual smoke (the real proof):**
+  - Open an actual `narrative-review` export: confirm tabs/collapsibles work,
+    Mermaid renders (CDN reachable) and degrades to source text (CDN blocked),
+    hljs highlights.
+  - Confirm the frame **cannot** read `document.cookie`/parent (paste a probe
+    script into a test HTML; expect same-origin access to throw).
+  - Full loop: **select rendered text in Preview** → Review Comments → agent
+    edits file → iframe live-reloads with the change.
+  - Reverse-map degradation: select JS-generated text not in source → comment
+    attaches to top-of-file with the quoted text surfaced (no crash).
+  - External deep link opens in a new tab.
+
+## Smallest shippable v1
+
+One cohesive slice delivers **viewing + rendered-page markup + the security
+guard** together:
+
+1. `usePanelState.ts` — add `'html'` to `FileType`, move `.html`/`.htm` into
+   `EXT_MAP`.
+2. `HtmlRenderer.tsx` — sandboxed `srcdoc` iframe + injected selection bridge +
+   `message` listener (new, ~40 lines), lazy-imported.
+3. `DocumentPanel.tsx` — `isBinary` excludes `html`; add the
+   `html + preview → HtmlRenderer` branch; relabel the toggle **Preview/Source**
+   for html (Source = existing editable TextRenderer, the fallback comment path);
+   **extract the existing `handleContextMenu` text→line reverse-map** into a
+   shared helper and wire `HtmlRenderer.onSelect` to it → `onAddComment`.
+4. `ChatPage.handleFileOpen` — fetch text for `html` as well as `text`.
+5. **Backend `sameOriginOnly` middleware** on state-mutating `/api` routes
+   (`/api/file-write`, `/api/file-comments` POST) — rejects `Origin: null` /
+   `Sec-Fetch-Site: cross-site`. REQUIRED; this is the only barrier to the
+   un-authed file API from sandboxed-frame JS.
+
+Sidecar storage, versioning, and the "Review Comments" round-trip all come from
+existing machinery unchanged — the comment schema is untouched (`anchor?` unused).
+
+**Slice-ability for the planner:**
+- **Slice 1 (viewing):** items 1–4 above minus the bridge — open an `.html`, see
+  it render with JS, toggle to Source, comment in Source (reused path works once
+  `isBinary` is correct). Independently shippable.
+- **Slice 2 (rendered-page markup):** the injected bridge + `message` listener +
+  reverse-map wiring (part of item 2/3). Turns Source-only commenting into
+  Preview commenting. Depends on Slice 1.
+- **Slice 3 (security guard — REQUIRED, land with or before Slice 1):** the
+  `sameOriginOnly` middleware (item 5). Independent of the frontend slices and
+  must ship in v1; sequence it first so no window exists where a sandboxed frame
+  can hit the mutation API.
+- **Slice 4 (v1.1 UX, optional):** auto-open WS message.
+- **v2 (not scoped):** in-frame state restore across live-reload; CSS/selector
+  anchoring (`Comment.anchor`) only if the JS-generated-text reverse-map gap
+  proves painful.
 
 ## Risks
 
-- **WKWebView keyboard handling**: The iOS software keyboard interacts differently with `contenteditable` and `textarea` in WKWebView vs. a native `UITextField`. The chat input uses `<textarea>` — needs testing for autocorrect, predictive text, and input method (emoji keyboard) behavior.
-- **Safe area insets**: The frontend uses `env(safe-area-inset-*)` CSS in a few places (bottom nav, topbar). These work in WKWebView but only if the WKWebView's frame extends under the home indicator. Must set `webView.scrollView.contentInsetAdjustmentBehavior = .never` and let CSS handle it.
-- **`is-standalone` detection**: Once we suppress it for WKWebView, any CSS that relied on it being set inside the iOS app breaks. The topbar `standalone-pad` class (80px left padding for macOS traffic lights) must not apply in iOS — this fix is captured in mobile fix #4.
-- **IntentNetworking model dependencies**: `IntentNetworking.swift` imports `SlotDTO`, `ChatSlot`, `CreateSlotRequest`, `SendMessageRequest` from `APIModels.swift`. These need to stay even after `APIClient.swift` is deleted. `APIModels.swift` should be kept or its relevant types moved to `Intents/`.
-- **WKWebView and local HTTP**: Tailscale IPs/hostnames are HTTP, not HTTPS. iOS 14+ App Transport Security (ATS) blocks plain HTTP by default. The existing `Info.plist` likely has `NSAllowsArbitraryLoads` or a domain exception already (the share extension and background fetch make the same calls). Verify before assuming this works.
-
----
-
-## Implementation sequence
-
-Order matters — each step must be shippable independently.
-
-1. **Frontend fix #4** (`is-standalone` scoped to Electron) — land first, no native changes, safe to ship.
-2. **Frontend fix #3** (split pane hidden on mobile) — standalone, no dependencies.
-3. **`WebView.swift`** — new file, `WKWebView` setup, `?token=` auth injection, `piReady` handler, deep-link dispatch. At this point the app works but has no native shell — just the webview.
-4. **`AppState.swift` rewrite** — strip everything except `serverConfig`, `notificationService`, `pendingDeepLinkKey`, `pendingNotificationAction`.
-5. **`RootView.swift` rewrite** — replace `NavigationSplitView` with `WebView` + connection-lost overlay.
-6. **`PiDashApp.swift` cleanup** — remove `wsManager` references, `ThemeManager`.
-7. **Delete SwiftUI views + ViewModels** — do this after step 6 compiles clean.
-8. **Bridge: `piHaptic`, `piSetActiveSlot`** — add JS calls at send-message and slot-switch points in frontend.
-9. **Frontend fix #1** (`SubagentDock` fullscreen on mobile).
-10. **Frontend fix #2** (`DocumentPanel` fullscreen on mobile).
-11. **Bridge: notification actions** (`stop-slot`, `approve-slot`, `reject-slot`) — wire `LocalNotificationService` response handler to dispatch native→JS events.
-12. **`SettingsView.swift` rewrite** — keep server URL + token fields, remove model/thinking pickers (those are in the web UI now).
-
-Steps 1–7 are the load-bearing path. Steps 8–12 are polish.
-
----
+- **Load-bearing assumption: target HTML is self-contained (inline CSS/JS, only
+  absolute CDN URLs).** Verified for `narrative-review`
+  (`build-review-html.py` inlines styles/scripts; only `cdn.jsdelivr.net` for
+  Mermaid/hljs). If a future artifact references sibling files, `srcdoc` breaks
+  those sub-resources — mitigation is the `src="/api/local-file"` +
+  server-injected `<base>` escape hatch (Open questions).
+- **Residual (now closed in v1): un-authed mutation APIs reachable from the frame
+  via `Origin: null` fetch.** The opaque origin stops DOM/cookie/storage access
+  but not raw network egress. Closed by the **required** `sameOriginOnly` guard
+  (Slice 3). Load-bearing assumption to verify in impl: legit dashboard POSTs
+  carry a same-origin `Origin`/`Sec-Fetch-Site: same-origin` and thus pass.
+- **Assumption: `srcdoc` replacement reliably re-executes scripts on live
+  reload across the user's browser.** True in Chromium/Firefox; the `key={version}`
+  fallback removes any doubt. Note this reload resets in-frame state (Failure
+  modes) — accepted for v1.
+- **Reverse-map coverage:** anchoring assumes selected rendered text exists in
+  the source HTML. Holds for mostly-static narrative pages; JS-generated text is
+  the known gap (degrades to top-of-file + quoted text). If this becomes common,
+  v2 selector/anchor mapping is the escalation.
 
 ## Open questions
 
-- Does `WKWebView` with `.nonPersistent()` data store persist `localStorage`? If not, theme preference and nav-collapsed state reset on every cold launch. May need `.default` store with careful cookie hygiene instead.
-- The `pidash://` deep link scheme is registered in `Info.plist` and handled in `PiDashApp.onOpenURL`. After the rewrite, widget taps still set `pendingDeepLinkKey` on `AppState` — the `WebView` dispatches it. Does the widget's `widgetURL` need any changes? Almost certainly not, but confirm.
-- `PiDashShare/ShareViewModel.swift` uses `ServerConfig` and its own `URLSession` — no dependency on deleted files. Confirm `APIModels.swift` types it uses (`SlotDTO`, `CreateSlotRequest`) are retained.
-- Should the `SettingsView` live natively or in the web? Native is simpler (already has the fields, no bridge needed for a simple URL+token form). The web settings page has more options (model defaults, theme, etc.) — those can stay in web. Two settings surfaces is slightly awkward but acceptable.
+- **Non-self-contained future artifacts:** do we ever need to render HTML that
+  references sibling assets? If yes, prefer `src="/api/local-file?path="` (the
+  `sandbox` attr still forces opaque origin) and have the backend inject a
+  `<base href>` — but that reintroduces a same-origin `src` and relative-path
+  resolution concerns. Deferred until such an artifact exists.
+- **Should the `Origin` guard also cover non-file mutation routes?** v1 scopes it
+  to file mutators; audit whether other state-changing `/api` routes exist that a
+  sandboxed frame could reach, and apply the middleware uniformly.
+- **`allow-popups-to-escape-sandbox` scope:** confirm we're comfortable that
+  links open as fully unsandboxed tabs (fine for trusted internal
+  `code.amazon.com`/console links; the artifacts are self-generated).
