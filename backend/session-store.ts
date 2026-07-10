@@ -14,6 +14,7 @@ const STATE_FILE: string = join(HOME, '.pi', 'agent', 'pi-web-sessions.json')
 
 import type { ChatMessage } from '@shared/types.js'
 export type { ChatMessage } from '@shared/types.js'
+import type { PiTransport } from './pi-session.js'
 
 export interface SlotState {
   key: string
@@ -25,6 +26,9 @@ export interface SlotState {
   thinkingLevel?: string | null
   cwd: string | null
   tags?: string[]
+  // Transport backend for this slot ('rpc' | 'sdk'). Absent in old state →
+  // restore defaults to 'rpc' (see pi-manager restoreSlot).
+  transport?: PiTransport
 }
 
 export interface SessionTreeEntry {
@@ -48,6 +52,7 @@ interface SlotProcess {
   modelId?: string | null
   thinkingLevel?: string | null
   cwd?: string | null
+  transport?: PiTransport
 }
 
 type ContentPart = { type: string; text?: string; thinking?: string }
@@ -264,6 +269,7 @@ export function saveSlotState(slots: Map<string, SlotProcess>): void {
       modelId: pi.modelId || null,
       thinkingLevel: pi.thinkingLevel || null,
       cwd: pi.cwd || null,
+      transport: pi.transport || undefined,
       tags: pi._tags?.length ? pi._tags : undefined,
     }
     // Only persist messages for slots without a session file (unsaved new chats)
@@ -307,6 +313,7 @@ export function saveSlotStateSync(slots: Map<string, SlotProcess>): void {
       modelId: pi.modelId || null,
       thinkingLevel: pi.thinkingLevel || null,
       cwd: pi.cwd || null,
+      transport: pi.transport || undefined,
       tags: pi._tags?.length ? pi._tags : undefined,
     }
     // Only persist messages for slots without a session file (unsaved new chats)

@@ -77,6 +77,18 @@ interface PiProcessOptions {
   title?: string | null
   key?: string
   tags?: string[]
+  transport?: PiTransport | null
+}
+
+// Resolve a slot's transport backend: per-slot override wins, then the
+// PI_DASH_TRANSPORT env default, else 'rpc'. Background/detached slots always
+// resolve to 'rpc' regardless of env (they can't be steered onto an
+// experimental backend). Ships 'rpc' everywhere → zero behavior change.
+function resolveTransport(override?: PiTransport | null, background: boolean = false): PiTransport {
+  if (background) return 'rpc'
+  const env = process.env.PI_DASH_TRANSPORT
+  const envTransport: PiTransport | undefined = env === 'rpc' || env === 'sdk' ? env : undefined
+  return override ?? envTransport ?? 'rpc'
 }
 
 interface SlotInfo {
@@ -554,6 +566,9 @@ export class PiRpcSession extends EventEmitter implements PiSession {
    * No-op if the pi process is not running.
    */
   conductorDetach(): void {
+    // Default-policy: detached/background slots always run on 'rpc' — they
+    // can't be steered onto an experimental backend after detaching.
+    this.transport = 'rpc'
     if (!this.proc?.pid) return
     const filePath = `/tmp/pi-conductor-detach-${this.proc.pid}`
     try { writeFileSync(filePath, '') } catch { /* ignore */ }
@@ -1003,6 +1018,10 @@ export class PiManager {
 
   createSlot(name: string, agent: string | null, opts: PiProcessOptions = {}): { key: string; title: string; messages: number; running: boolean } {
     const key = opts.key || `chat-${++this._slotCounter}-${Date.now()}`
+    const transport = resolveTransport(opts.transport)
+    if (transport === 'sdk') {
+      throw new Error('SDK transport not implemented until slice 7')
+    }
     const pi = new PiRpcSession(key, { agent, ...opts })
     // Don't start pi process yet — defer to first message (ensureRunning)
     // This allows CWD/model to be changed in WelcomeView before process starts
@@ -1013,6 +1032,12 @@ export class PiManager {
 
   restoreSlot(key: string, title: string, messages: ChatMessage[], opts: PiProcessOptions = {}): void {
     console.log(`[pi-manager] Restoring slot ${key}: title="${title}", msgs=${messages.length}, sessionFile=${opts.sessionFile || 'NONE'}`)
+    // Backward compat: slot state saved before transport existed has no
+    // `transport` field → resolveTransport defaults it to 'rpc'.
+    const transport = resolveTransport(opts.transport)
+    if (transport === 'sdk') {
+      throw new Error('SDK transport not implemented until slice 7')
+    }
     const pi = new PiRpcSession(key, { messages, title, ...opts })
     pi.ready = false
     this.slots.set(key, pi)

@@ -68,6 +68,7 @@ for (const s of savedSlots) {
       cwd: s.cwd,
       sessionFile: s.sessionFile || null,
       tags: s.tags,
+      transport: s.transport,
     })
   }
 }

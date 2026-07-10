@@ -311,6 +311,72 @@ describe('DELETE /api/chat/slots/:key', () => {
   })
 })
 
+describe('POST /api/chat/slots/:key/transport', () => {
+  let srv, port
+  beforeAll(async () => ({ srv, port } = await startServer()))
+  afterAll(() => stopServer(srv))
+
+  beforeEach(() => {
+    mockManager.getSlot.mockReturnValue({
+      on: vi.fn(),
+      _wired: false,
+      messages: [],
+      running: false,
+      sessionFile: '/tmp/s.jsonl',
+      _title: 'Existing',
+      _tags: [],
+      modelProvider: null,
+      modelId: null,
+      thinkingLevel: null,
+      cwd: null,
+      transport: 'rpc',
+    })
+    mockManager.createSlot.mockReturnValue({
+      key: 'chat-1-1000',
+      title: 'Existing',
+      messages: 0,
+      running: false,
+    })
+    mockManager.deleteSlot.mockClear()
+    mockManager.createSlot.mockClear()
+  })
+
+  it('rpc recreates + re-adopts the slot (200)', async () => {
+    const res = await post(port, '/api/chat/slots/chat-1-1000/transport', { transport: 'rpc' })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body).toMatchObject({ ok: true, transport: 'rpc' })
+    expect(mockManager.deleteSlot).toHaveBeenCalledWith('chat-1-1000')
+    expect(mockManager.createSlot).toHaveBeenCalledWith(
+      expect.any(String),
+      null,
+      expect.objectContaining({ key: 'chat-1-1000', transport: 'rpc', sessionFile: '/tmp/s.jsonl' }),
+    )
+  })
+
+  it('sdk returns 501 and does NOT recreate the slot', async () => {
+    const res = await post(port, '/api/chat/slots/chat-1-1000/transport', { transport: 'sdk' })
+    expect(res.status).toBe(501)
+    const body = await res.json()
+    expect(body).toMatchObject({ error: expect.any(String) })
+    expect(mockManager.deleteSlot).not.toHaveBeenCalled()
+    expect(mockManager.createSlot).not.toHaveBeenCalled()
+  })
+
+  it('invalid transport returns 400', async () => {
+    const res = await post(port, '/api/chat/slots/chat-1-1000/transport', { transport: 'bogus' })
+    expect(res.status).toBe(400)
+    expect(mockManager.deleteSlot).not.toHaveBeenCalled()
+    expect(mockManager.createSlot).not.toHaveBeenCalled()
+  })
+
+  it('missing slot returns 404', async () => {
+    mockManager.getSlot.mockReturnValueOnce(null)
+    const res = await post(port, '/api/chat/slots/missing/transport', { transport: 'rpc' })
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('GET /api/models', () => {
   let srv, port
   beforeAll(async () => ({ srv, port } = await startServer()))

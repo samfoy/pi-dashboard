@@ -359,6 +359,46 @@ export function registerChatRoutes(deps: RouteDeps): void {
     res.json({ ok: true })
   })
 
+  // Set transport backend for a slot. `rpc` (default) recreates the slot's
+  // session on RPC and re-adopts its session file (mirrors the resume
+  // endpoint's create + wire). `sdk` is selectable but not implemented until
+  // slice 7 → 501; the slot is left untouched.
+  app.post('/api/chat/slots/:key/transport', (req: Request, res: Response) => {
+    const { transport } = req.body || {}
+    if (transport !== 'rpc' && transport !== 'sdk') {
+      return res.status(400).json({ error: 'transport must be "rpc" or "sdk"' })
+    }
+    const key = req.params.key as string
+    const pi = manager.getSlot(key)
+    if (!pi) return res.status(404).json({ error: 'slot not found' })
+    if (transport === 'sdk') {
+      return res.status(501).json({ error: 'SDK transport not implemented until slice 7' })
+    }
+    // Recreate on the chosen transport, re-adopting session state. createSlot
+    // with the same key registers a deferred slot that re-adopts `sessionFile`
+    // on its next ensureRunning — no double process while we swap.
+    const opts = {
+      key,
+      transport,
+      messages: pi.messages,
+      sessionFile: pi.sessionFile,
+      title: pi._title || undefined,
+      modelProvider: pi.modelProvider,
+      modelId: pi.modelId,
+      thinkingLevel: pi.thinkingLevel,
+      cwd: pi.cwd,
+      tags: pi._tags,
+    }
+    manager.deleteSlot(key)
+    const slot = manager.createSlot(opts.title || key, null, opts)
+    const newPi = manager.getSlot(slot.key)!
+    wireSlotEvents(newPi, slot.key)
+    newPi._wired = true
+    persistSlots()
+    broadcastSlots()
+    res.json({ ok: true, key: slot.key, transport })
+  })
+
   // Git repo summary for a slot (branch, dirty file count, adds/dels)
   app.get('/api/chat/slots/:key/git', (req: Request, res: Response) => {
     const pi = manager.getSlot(req.params.key as string)

@@ -2,9 +2,9 @@
  * Tests for session-store.js
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, rmSync, writeFileSync, existsSync } from 'fs'
+import { mkdirSync, rmSync, writeFileSync, existsSync, readFileSync } from 'fs'
 import { join } from 'path'
-import { tmpdir } from 'os'
+import { tmpdir, homedir } from 'os'
 import { extractText, saveSlotState, loadSlotState } from '../session-store.js'
 
 describe('extractText', () => {
@@ -132,6 +132,57 @@ describe('saveSlotState / loadSlotState round-trip', () => {
     const result = loadSlotState()
     // It either returns the real state or [] — both are valid arrays
     expect(Array.isArray(result)).toBe(true)
+  })
+})
+
+describe('transport persistence round-trip', () => {
+  // saveSlotStateSync + loadSlotState use the real STATE_FILE
+  // (~/.pi/agent/pi-web-sessions.json). Snapshot and restore it so we don't
+  // clobber the developer's actual dashboard state.
+  const stateFile = join(homedir(), '.pi', 'agent', 'pi-web-sessions.json')
+  let backup = null
+  let existed = false
+
+  beforeEach(() => {
+    existed = existsSync(stateFile)
+    backup = existed ? readFileSync(stateFile, 'utf-8') : null
+  })
+  afterEach(() => {
+    if (existed) writeFileSync(stateFile, backup, 'utf-8')
+    else if (existsSync(stateFile)) rmSync(stateFile)
+  })
+
+  it('transport round-trips through saveSlotStateSync -> loadSlotState', async () => {
+    const { saveSlotStateSync } = await import('../session-store.js')
+    const slots = new Map()
+    slots.set('chat-rpc-1', {
+      _title: 'Rpc Slot', messages: [], sessionFile: '/tmp/a.jsonl',
+      modelProvider: null, modelId: null, cwd: null, _tags: [], transport: 'rpc',
+    })
+    slots.set('chat-sdk-1', {
+      _title: 'Sdk Slot', messages: [], sessionFile: '/tmp/b.jsonl',
+      modelProvider: null, modelId: null, cwd: null, _tags: [], transport: 'sdk',
+    })
+    saveSlotStateSync(slots)
+    const loaded = loadSlotState()
+    const rpc = loaded.find((s) => s.key === 'chat-rpc-1')
+    const sdk = loaded.find((s) => s.key === 'chat-sdk-1')
+    expect(rpc.transport).toBe('rpc')
+    expect(sdk.transport).toBe('sdk')
+  })
+
+  it('slot without transport survives save/restore (backward compat)', async () => {
+    const { saveSlotStateSync } = await import('../session-store.js')
+    const slots = new Map()
+    slots.set('chat-legacy-1', {
+      _title: 'Legacy', messages: [], sessionFile: '/tmp/c.jsonl',
+      modelProvider: null, modelId: null, cwd: null, _tags: [],
+    })
+    saveSlotStateSync(slots)
+    const loaded = loadSlotState()
+    const legacy = loaded.find((s) => s.key === 'chat-legacy-1')
+    expect(legacy).toBeDefined()
+    expect(legacy.transport).toBeUndefined()
   })
 })
 
