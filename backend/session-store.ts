@@ -22,6 +22,7 @@ export interface SlotState {
   sessionFile: string | null
   modelProvider: string | null
   modelId: string | null
+  thinkingLevel?: string | null
   cwd: string | null
   tags?: string[]
 }
@@ -45,6 +46,7 @@ interface SlotProcess {
   sessionFile?: string | null
   modelProvider?: string | null
   modelId?: string | null
+  thinkingLevel?: string | null
   cwd?: string | null
 }
 
@@ -260,6 +262,7 @@ export function saveSlotState(slots: Map<string, SlotProcess>): void {
       sessionFile: pi.sessionFile || null,
       modelProvider: pi.modelProvider || null,
       modelId: pi.modelId || null,
+      thinkingLevel: pi.thinkingLevel || null,
       cwd: pi.cwd || null,
       tags: pi._tags?.length ? pi._tags : undefined,
     }
@@ -302,6 +305,7 @@ export function saveSlotStateSync(slots: Map<string, SlotProcess>): void {
       sessionFile: pi.sessionFile || null,
       modelProvider: pi.modelProvider || null,
       modelId: pi.modelId || null,
+      thinkingLevel: pi.thinkingLevel || null,
       cwd: pi.cwd || null,
       tags: pi._tags?.length ? pi._tags : undefined,
     }

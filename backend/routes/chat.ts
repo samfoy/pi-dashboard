@@ -338,6 +338,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
     if (pi.proc && pi.ready) {
       try { await pi.setThinkingLevel(level) } catch {}
     }
+    persistSlots()
     broadcastSlots()
     res.json({ ok: true })
   })

@@ -63,6 +63,7 @@ for (const s of savedSlots) {
     manager.restoreSlot(s.key, s.title, messages, {
       modelProvider: s.modelProvider,
       modelId: s.modelId,
+      thinkingLevel: s.thinkingLevel,
       cwd: s.cwd,
       sessionFile: s.sessionFile || null,
       tags: s.tags,
@@ -80,7 +81,35 @@ const wsClients: Set<WebSocket> = new Set()
 // ─── Middleware ──────────────────────────────────────────────
 app.use(express.json({ limit: '50mb' }))
 
-app.use('/api', (_req: Request, _res: Response, next: NextFunction) => next())
+// Shared origin-match: true when the request originates from the dashboard's own
+// host, or is header-less (native app / non-browser client). A sandboxed,
+// opaque-origin iframe sends the string "null", which matches none of these.
+// Behind a TLS-terminating proxy (Tailscale serve/funnel, X-Forwarded-Host) the
+// browser Origin is the public name while Host is the internal bind address; set
+// PI_DASH_ALLOWED_ORIGIN=https://<public-name> so legit dashboard mutations pass.
+const EXTRA_ALLOWED_ORIGIN = process.env.PI_DASH_ALLOWED_ORIGIN
+function originAllowed(origin: string | undefined, host: string | undefined): boolean {
+  return origin == null
+    || origin === `http://${host}`
+    || origin === `https://${host}`
+    || (EXTRA_ALLOWED_ORIGIN != null && origin === EXTRA_ALLOWED_ORIGIN)
+}
+
+// Origin guard: reject state-mutating (non-GET) /api requests that originate
+// from a sandboxed, opaque-origin iframe (the HTML preview runs artifact JS with
+// Origin: null / Sec-Fetch-Site: cross-site). This is the only barrier between
+// that JS and the un-authed file/slot/job mutation API. Legit same-origin
+// dashboard POSTs carry Origin: <host> + Sec-Fetch-Site: same-origin and pass;
+// native app / header-less clients send no Origin and pass. GET/HEAD are open.
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
+  const method = req.method.toUpperCase()
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next()
+  const origin = req.get('origin') // 'null' (string) for a sandboxed iframe; undefined for native clients
+  const site = req.get('sec-fetch-site') // 'cross-site' from a null-origin frame
+  const ok = originAllowed(origin, req.headers.host) && site !== 'cross-site'
+  if (!ok) return res.status(403).json({ error: 'cross-origin request rejected' })
+  next()
+})
 
 // ─── Broadcast to all WS clients ────────────────────────────
 function broadcast(type: string, data: any): void {
@@ -662,6 +691,15 @@ server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
 
   const wsPath = (req.url || '').split('?')[0]
   if (wsPath === '/api/ws') {
+    // Same origin guard as the HTTP mutation routes: a sandboxed, opaque-origin
+    // artifact iframe sends Origin: null on its WS handshake. Without this it
+    // could open the socket and use `watch_file` to read/exfiltrate arbitrary
+    // files (WS frames are readable cross-origin, unlike fetch responses).
+    if (!originAllowed(req.headers.origin, req.headers.host)) {
+      console.warn('  WS upgrade rejected: cross-origin', req.headers.origin)
+      socket.destroy()
+      return
+    }
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req)
     })

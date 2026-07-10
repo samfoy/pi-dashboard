@@ -4,10 +4,39 @@
  */
 import { spawn, execSync, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
-import { writeFileSync, mkdirSync } from 'fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
+
+// Resolve the user's configured defaultThinkingLevel the same way pi does:
+// project settings (<cwd>/.pi/settings.json) override global
+// ($PI_CODING_AGENT_DIR or ~/.pi/agent/settings.json). pi's own model
+// resolver IGNORES defaultThinkingLevel whenever --model is passed on the CLI
+// (it short-circuits to the hardcoded "medium" default). Because the dashboard
+// always spawns slots with --model, every slot would otherwise be stuck on
+// medium regardless of settings.json — so we re-apply the resolved default via
+// set_thinking_level after the process is up.
+function readThinkingLevelFrom(file: string): string | null {
+  try {
+    const s = JSON.parse(readFileSync(file, 'utf-8'))
+    const lvl = s?.defaultThinkingLevel
+    return typeof lvl === 'string' ? lvl : null
+  } catch { return null }
+}
+
+export function resolveDefaultThinkingLevel(cwd?: string | null): string | null {
+  // 1. Project-scoped settings take precedence
+  if (cwd) {
+    const projectLvl = readThinkingLevelFrom(join(cwd, '.pi', 'settings.json'))
+    if (projectLvl) return projectLvl
+  }
+  // 2. Global agent settings
+  const agentDir = process.env.PI_CODING_AGENT_DIR
+    ? process.env.PI_CODING_AGENT_DIR.replace(/^~(?=$|\/)/, os.homedir())
+    : join(os.homedir(), '.pi', 'agent')
+  return readThinkingLevelFrom(join(agentDir, 'settings.json'))
+}
 
 // Resolve pi binary path at startup (avoids ENOENT in launchd)
 // Resolve pi script path at startup (avoids ENOENT in launchd)
@@ -51,6 +80,7 @@ interface PiProcessOptions {
   cwd?: string | null
   modelProvider?: string | null
   modelId?: string | null
+  thinkingLevel?: string | null
   title?: string | null
   key?: string
   tags?: string[]
@@ -168,7 +198,7 @@ export class PiProcess extends EventEmitter {
     this.cwd = opts.cwd || null
     this.modelProvider = opts.modelProvider || null
     this.modelId = opts.modelId || null
-    this.thinkingLevel = null
+    this.thinkingLevel = opts.thinkingLevel || null
     this._title = opts.title || null
     this._tags = opts.tags || []
     this._userRenamed = false  // true if user manually renamed
@@ -192,6 +222,12 @@ export class PiProcess extends EventEmitter {
       this.proc = null
     }
     if (!this.cwd) this.cwd = process.env.HOME || '/tmp'
+    // Snapshot the desired thinking level before spawning. A persisted per-slot
+    // override (this.thinkingLevel, set via opts on restore or the UI) wins;
+    // otherwise fall back to the user's settings.json defaultThinkingLevel.
+    // pi ignores defaultThinkingLevel when --model is passed, so we re-apply it
+    // ourselves once the process is ready (see get_state handler below).
+    const desiredThinking = this.thinkingLevel || resolveDefaultThinkingLevel(this.cwd)
     const args = ['--mode', 'rpc']
     if (this.sessionFile) {
       args.push('--session', this.sessionFile)
@@ -252,9 +288,21 @@ export class PiProcess extends EventEmitter {
         if (changed) this.emit('model_change')
       }
       if (typeof resp?.data?.thinkingLevel === 'string') {
-        const changed = this.thinkingLevel !== resp.data.thinkingLevel
-        this.thinkingLevel = resp.data.thinkingLevel
-        if (changed) this.emit('model_change')
+        const reported = resp.data.thinkingLevel
+        // pi always resolves "medium" here because we spawn with --model. If the
+        // desired level (per-slot override or settings default) differs, re-apply
+        // it via set_thinking_level rather than accepting pi's default.
+        if (desiredThinking && desiredThinking !== reported) {
+          this.setThinkingLevel(desiredThinking).catch((e: any) =>
+            console.error(`[pi-manager] failed to apply thinking level ${desiredThinking}:`, e?.message || e))
+          const changed = this.thinkingLevel !== desiredThinking
+          this.thinkingLevel = desiredThinking
+          if (changed) this.emit('model_change')
+        } else {
+          const changed = this.thinkingLevel !== reported
+          this.thinkingLevel = reported
+          if (changed) this.emit('model_change')
+        }
       }
     }).catch((err: any) => {
       console.error(`[pi-manager] get_state failed:`, err?.message || err)
@@ -318,8 +366,12 @@ export class PiProcess extends EventEmitter {
 
     this.ready = true
 
-    // Seed current thinking level from pi (best-effort; fails silently if rpc not ready yet)
+    // Seed current thinking level from pi only if we don't already have a
+    // desired level to enforce. The get_state ready-promise above applies the
+    // per-slot override / settings default; blindly re-seeding here would clobber
+    // it with pi's "medium" default (which pi reports because we spawn --model).
     setTimeout(() => {
+      if (desiredThinking) return
       this.getState().then((state: any) => {
         if (state?.thinkingLevel) this.thinkingLevel = state.thinkingLevel
       }).catch(() => {})
