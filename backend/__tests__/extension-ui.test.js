@@ -136,6 +136,29 @@ function makePi() {
   pi.messages = []
   pi.running = false
   pi.proc = { killed: false, exitCode: null }
+  // Test double for the extension-UI seam that PiRpcSession now owns. Mirrors
+  // pi-manager.ts:armExtensionUi/respondExtensionUi exactly so the behavioral
+  // assertions below (wire frames via pi.send, _pendingExtensionUi state, the
+  // anti-wedge timer) are unchanged after the strangler-seam extraction.
+  pi.armExtensionUi = (id, method, timeoutMs) => {
+    const timer = setTimeout(() => { pi.respondExtensionUi(id, { cancelled: true }) }, timeoutMs)
+    if (typeof timer.unref === 'function') timer.unref()
+    pi._pendingExtensionUi.set(id, { method, timer })
+  }
+  pi.respondExtensionUi = (id, response) => {
+    const pending = pi._pendingExtensionUi.get(id)
+    if (!pending) return false
+    clearTimeout(pending.timer)
+    pi._pendingExtensionUi.delete(id)
+    if (response.cancelled) {
+      pi.send({ type: 'extension_ui_response', id, cancelled: true })
+    } else if (pending.method === 'confirm') {
+      pi.send({ type: 'extension_ui_response', id, confirmed: !!response.value })
+    } else {
+      pi.send({ type: 'extension_ui_response', id, value: response.value != null ? String(response.value) : undefined })
+    }
+    return true
+  }
   return pi
 }
 

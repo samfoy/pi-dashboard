@@ -8,6 +8,7 @@ import { writeFileSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
+import type { PiSession, PiTransport, ImagePayload } from './pi-session.js'
 
 // Resolve the user's configured defaultThinkingLevel the same way pi does:
 // project settings (<cwd>/.pi/settings.json) override global
@@ -64,14 +65,6 @@ const V8_FLAGS = ['--no-wasm-tier-up', '--liftoff-only', '--wasm-lazy-compilatio
 
 const IMAGE_DIR = join(os.tmpdir(), 'pi-dashboard-images')
 mkdirSync(IMAGE_DIR, { recursive: true })
-
-interface ImagePayload {
-  type: string
-  mimeType?: string
-  media_type?: string
-  data?: string
-  source?: { data?: string; type?: string; mediaType?: string }
-}
 
 interface PiProcessOptions {
   messages?: ChatMessage[]
@@ -139,8 +132,9 @@ function normalizeImages(images?: ImagePayload[]): ImagePayload[] | undefined {
   })).filter(img => img.data)
 }
 
-export class PiProcess extends EventEmitter {
+export class PiRpcSession extends EventEmitter implements PiSession {
   slotKey: string
+  transport: PiTransport = 'rpc'
   proc: ChildProcess | null
   buffer: string
   ready: boolean
@@ -605,8 +599,29 @@ export class PiProcess extends EventEmitter {
     return this.request({ type: 'set_thinking_level', level })
   }
 
-  async getState(): Promise<any> {
-    return this.request({ type: 'get_state' })
+  async getState(timeoutMs: number = 30000): Promise<any> {
+    return this.request({ type: 'get_state' }, timeoutMs)
+  }
+
+  /** Cumulative session stats (tokens / context / cost). Was
+   *  request({type:'get_session_stats'}). Default 5s timeout matches the
+   *  server.ts poll site. */
+  async getSessionStats(timeoutMs: number = 5000): Promise<any> {
+    return this.request({ type: 'get_session_stats' }, timeoutMs)
+  }
+
+  /** Fork the session at a user entry. Was request({type:'fork',entryId}).
+   *  Returns the unwrapped result; sessionFile is resolved by the caller via a
+   *  separate getState() (unchanged wire sequence). */
+  async fork(entryId: string): Promise<{ text?: string; cancelled?: boolean; sessionFile?: string | null }> {
+    const resp = await this.request({ type: 'fork', entryId })
+    return { text: resp?.data?.text, cancelled: resp?.data?.cancelled, sessionFile: resp?.data?.sessionFile }
+  }
+
+  /** Fork-able message list. Was request({type:'get_fork_messages'}). Returns
+   *  the full response (callers forward it verbatim). */
+  async getForkMessages(): Promise<any> {
+    return this.request({ type: 'get_fork_messages' })
   }
 
   /**
@@ -691,6 +706,62 @@ export class PiProcess extends EventEmitter {
       return true
     }
     return false
+  }
+
+  /**
+   * Process liveness: the child is spawned and has not exited. Distinct from
+   * `running` (turn-in-progress) and from `checkHealth()` (dead-state reaper).
+   * Replaces the inline `proc && !proc.killed && exitCode===null` liveness
+   * checks that used to live in server.ts / chat.ts.
+   */
+  get alive(): boolean {
+    return !!this.proc && !this.proc.killed && this.proc.exitCode === null
+  }
+
+  /**
+   * Inject a dashboard-originated auto-turn (e.g. a subagent-result or
+   * process-update hint). Bypasses prompt()'s slash/queue handling by design —
+   * marks running, records the user message, and dispatches the prompt frame.
+   */
+  triggerAutoTurn(message: string): boolean {
+    this.running = true
+    this.messages.push({ role: 'user', content: message, ts: new Date().toISOString(), meta: { autoTrigger: true } })
+    return this.send({ type: 'prompt', message })
+  }
+
+  /**
+   * Arm the anti-wedge auto-cancel timer for a pending extension-UI dialog and
+   * record it (keyed by request id) so a later browser response can resolve it.
+   * On timeout, auto-cancels via respondExtensionUi so a dialog raised with no
+   * attached browser can't wedge the slot's turn forever.
+   */
+  armExtensionUi(id: string, method: string, timeoutMs: number): void {
+    const timer = setTimeout(() => {
+      this.respondExtensionUi(id, { cancelled: true })
+    }, timeoutMs)
+    if (typeof timer.unref === 'function') timer.unref()
+    this._pendingExtensionUi.set(id, { method, timer })
+  }
+
+  /**
+   * Resolve a pending extension-UI dialog, mapping the response to pi's
+   * per-method return type (confirm -> {confirmed}, select/input/editor ->
+   * {value}, cancel -> {cancelled}). Returns false if `id` is unknown (already
+   * answered or timed out).
+   */
+  respondExtensionUi(id: string, response: { cancelled?: boolean; value?: any }): boolean {
+    const pending = this._pendingExtensionUi.get(id)
+    if (!pending) return false
+    clearTimeout(pending.timer)
+    this._pendingExtensionUi.delete(id)
+    if (response.cancelled) {
+      this.send({ type: 'extension_ui_response', id, cancelled: true })
+    } else if (pending.method === 'confirm') {
+      this.send({ type: 'extension_ui_response', id, confirmed: !!response.value })
+    } else {
+      this.send({ type: 'extension_ui_response', id, value: response.value != null ? String(response.value) : undefined })
+    }
+    return true
   }
 
   _handleEvent(event: any): void {
@@ -911,7 +982,7 @@ export class PiProcess extends EventEmitter {
 }
 
 export class PiManager {
-  slots: Map<string, PiProcess>
+  slots: Map<string, PiRpcSession>
   _slotCounter: number
   _startTime: number
   _onStateChange: (() => void) | null
@@ -932,7 +1003,7 @@ export class PiManager {
 
   createSlot(name: string, agent: string | null, opts: PiProcessOptions = {}): { key: string; title: string; messages: number; running: boolean } {
     const key = opts.key || `chat-${++this._slotCounter}-${Date.now()}`
-    const pi = new PiProcess(key, { agent, ...opts })
+    const pi = new PiRpcSession(key, { agent, ...opts })
     // Don't start pi process yet — defer to first message (ensureRunning)
     // This allows CWD/model to be changed in WelcomeView before process starts
     this.slots.set(key, pi)
@@ -942,7 +1013,7 @@ export class PiManager {
 
   restoreSlot(key: string, title: string, messages: ChatMessage[], opts: PiProcessOptions = {}): void {
     console.log(`[pi-manager] Restoring slot ${key}: title="${title}", msgs=${messages.length}, sessionFile=${opts.sessionFile || 'NONE'}`)
-    const pi = new PiProcess(key, { messages, title, ...opts })
+    const pi = new PiRpcSession(key, { messages, title, ...opts })
     pi.ready = false
     this.slots.set(key, pi)
     if (parseInt(key.split('-')[1]) >= this._slotCounter) {
@@ -950,7 +1021,7 @@ export class PiManager {
     }
   }
 
-  ensureRunning(key: string): PiProcess | null {
+  ensureRunning(key: string): PiSession | null {
     const pi = this.slots.get(key)
     if (!pi) return null
     // Restart if process is missing or dead
@@ -971,7 +1042,7 @@ export class PiManager {
     return pi
   }
 
-  getSlot(key: string): PiProcess | undefined {
+  getSlot(key: string): PiSession | undefined {
     return this.slots.get(key)
   }
 
@@ -1041,13 +1112,13 @@ export class PiManager {
       return this._modelCache
     }
     // Find a running pi process to query, or start a temp one
-    let pi: PiProcess | null = null
+    let pi: PiRpcSession | null = null
     for (const p of this.slots.values()) {
       if (p.proc && p.ready) { pi = p; break }
     }
     if (!pi) {
       // Start a temporary process to query models
-      pi = new PiProcess('_temp', {})
+      pi = new PiRpcSession('_temp', {})
       pi.start()
       // Wait a bit for startup
       await new Promise<void>(r => setTimeout(r, 8000))

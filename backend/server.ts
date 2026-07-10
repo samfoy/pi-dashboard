@@ -14,7 +14,8 @@ import { watch as fsWatch, FSWatcher } from 'fs'
 import { readFile } from 'fs/promises'
 import os from 'os'
 import { Duplex } from 'stream'
-import { PiManager, PiProcess } from './pi-manager.js'
+import { PiManager } from './pi-manager.js'
+import type { PiSession } from './pi-session.js'
 import { saveSlotState, saveSlotStateSync, loadSlotState, parseSessionMessages, ChatMessage } from './session-store.js'
 import type { Notification } from '@shared/types.js'
 import {
@@ -219,7 +220,7 @@ let _chunkSeq = 0
 // after this window so the slot's turn can proceed.
 const EXTENSION_UI_TIMEOUT_MS = 60_000
 
-function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
+function _wireSlotEvents(pi: PiSession, slotKey: string): void {
   let streamBuf = ''
   let midTurn = false
   const toolStartTimes: Map<string, { startTime: number; toolName: string }> = new Map()
@@ -262,7 +263,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   const STATS_POLL_INTERVAL = 4000
 
   function _fetchStats(requireMidTurn = false): void {
-    pi.request({ type: 'get_session_stats' }, 5000).then((resp: any) => {
+    pi.getSessionStats().then((resp: any) => {
       // Drop a late poll response that resolved after the turn ended, so it
       // can't race the chat_done per-turn delta annotation.
       if (requireMidTurn && !midTurn) return
@@ -402,7 +403,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
 
     _fetchStats()
 
-    pi.request({ type: 'get_state' }, 5000).then((resp: any) => {
+    pi.getState(5000).then((resp: any) => {
       const name = resp?.data?.sessionName
       if (name && name !== pi._title && !pi._userRenamed) {
         pi._title = name
@@ -515,13 +516,11 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
       const TURN_TRIGGER_TYPES = ['subagent-result', 'ad-process:update']
       if (!midTurn && TURN_TRIGGER_TYPES.includes(m.customType)) {
         setTimeout(() => {
-          if (!midTurn && pi.proc && !pi.proc.killed && pi.proc.exitCode === null) {
+          if (!midTurn && pi.alive) {
             const hint = m.customType === 'subagent-result'
               ? 'The above subagent result was just injected. React to it and continue your work.'
               : 'The above process update was just injected. React to it and continue your work.'
-            pi.running = true
-            pi.messages.push({ role: 'user', content: hint, ts: new Date().toISOString(), meta: { autoTrigger: true } })
-            pi.send({ type: 'prompt', message: hint })
+            pi.triggerAutoTurn(hint)
           }
         }, 500)
       }
@@ -543,14 +542,7 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
     // mode, which is the behavior extensions are already coded against.
     if (event.method === 'confirm' || event.method === 'select' ||
         event.method === 'input' || event.method === 'editor') {
-      const timer = setTimeout(() => {
-        if (pi._pendingExtensionUi.has(event.id)) {
-          pi._pendingExtensionUi.delete(event.id)
-          pi.send({ type: 'extension_ui_response', id: event.id, cancelled: true })
-        }
-      }, EXTENSION_UI_TIMEOUT_MS)
-      if (typeof timer.unref === 'function') timer.unref()
-      pi._pendingExtensionUi.set(event.id, { method: event.method, timer })
+      pi.armExtensionUi(event.id, event.method, EXTENSION_UI_TIMEOUT_MS)
       broadcast('extension_ui_request', {
         slot: slotKey,
         id: event.id,

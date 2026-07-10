@@ -124,12 +124,12 @@ export function registerChatRoutes(deps: RouteDeps): void {
     if (!pi) return res.status(404).json({ error: 'slot not found' })
     if (!pi._wired) { wireSlotEvents(pi, req.params.key as string); pi._wired = true }
     try {
-      const result = await pi.request({ type: 'fork', entryId })
-      if (result.data?.cancelled) return res.json({ ok: false, cancelled: true })
-      const state = await pi.request({ type: 'get_state' })
+      const result = await pi.fork(entryId)
+      if (result.cancelled) return res.json({ ok: false, cancelled: true })
+      const state = await pi.getState()
       const forkedSessionFile = state.data?.sessionFile || null
       const forkedMessages = forkedSessionFile ? parseSessionMessages(forkedSessionFile, 200) : []
-      const text = result.data?.text || ''
+      const text = result.text || ''
       const forkSlot = manager.createSlot('Fork: ' + text.slice(0, 40), null, {
         messages: forkedMessages,
         sessionFile: forkedSessionFile,
@@ -153,7 +153,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
     const pi = manager.getSlot(req.params.key as string)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
     try {
-      const result = await pi.request({ type: 'get_fork_messages' })
+      const result = await pi.getForkMessages()
       res.json(result)
     } catch (e: any) { res.status(500).json({ error: e.message }) }
   })
@@ -196,18 +196,8 @@ export function registerChatRoutes(deps: RouteDeps): void {
     if (!pi) return res.status(404).json({ error: 'slot not found' })
     const { id, cancelled, value } = req.body || {}
     if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id required' })
-    const pending = pi._pendingExtensionUi.get(id)
-    if (!pending) return res.status(404).json({ error: 'no pending extension-ui request' })
-    clearTimeout(pending.timer)
-    pi._pendingExtensionUi.delete(id)
-    if (cancelled) {
-      pi.send({ type: 'extension_ui_response', id, cancelled: true })
-    } else if (pending.method === 'confirm') {
-      pi.send({ type: 'extension_ui_response', id, confirmed: !!value })
-    } else {
-      // select / input / editor → string | undefined
-      pi.send({ type: 'extension_ui_response', id, value: value != null ? String(value) : undefined })
-    }
+    const ok = pi.respondExtensionUi(id, { cancelled, value })
+    if (!ok) return res.status(404).json({ error: 'no pending extension-ui request' })
     res.json({ ok: true })
   })
 
@@ -345,7 +335,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
     if (!pi) return res.status(404).json({ error: 'slot not found' })
     pi.modelProvider = provider
     pi.modelId = modelId
-    if (pi.proc && pi.ready) {
+    if (pi.alive && pi.ready) {
       try {
         await pi.setModel(provider, modelId)
       } catch {}
@@ -361,7 +351,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
     const pi = manager.getSlot(req.params.key as string)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
     pi.thinkingLevel = level
-    if (pi.proc && pi.ready) {
+    if (pi.alive && pi.ready) {
       try { await pi.setThinkingLevel(level) } catch {}
     }
     persistSlots()
@@ -404,7 +394,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
     const pi = manager.getSlot(req.params.key as string)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
     pi.cwd = cwd === '~' ? os.homedir() : cwd.startsWith('~/') ? join(os.homedir(), cwd.slice(2)) : cwd
-    if (pi.proc && pi.messages.length === 0) {
+    if (pi.alive && pi.messages.length === 0) {
       pi.kill()
       pi.start()
       if (!pi._wired) {

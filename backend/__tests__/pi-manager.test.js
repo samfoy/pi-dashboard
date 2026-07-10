@@ -1,5 +1,5 @@
 /**
- * Tests for PiProcess class in pi-manager.js
+ * Tests for PiRpcSession class in pi-manager.js
  * Mocks child_process.spawn to avoid spawning real processes.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -33,7 +33,7 @@ vi.mock('../session-store.js', () => ({
 }))
 
 const { spawn } = await import('child_process')
-const { PiProcess } = await import('../pi-manager.js')
+const { PiRpcSession } = await import('../pi-manager.js')
 
 /** Create a mock child process with EventEmitter behavior */
 function createMockProc({ killed = false, exitCode = null, stdinWritable = true } = {}) {
@@ -52,12 +52,12 @@ function createMockProc({ killed = false, exitCode = null, stdinWritable = true 
   return proc
 }
 
-describe('PiProcess', () => {
+describe('PiRpcSession', () => {
   let pi
 
   beforeEach(() => {
     vi.clearAllMocks()
-    pi = new PiProcess('test-slot-1')
+    pi = new PiRpcSession('test-slot-1')
   })
 
   afterEach(() => {
@@ -85,7 +85,7 @@ describe('PiProcess', () => {
 
     it('accepts options', () => {
       const msgs = [{ role: 'user', content: 'hi' }]
-      const pi2 = new PiProcess('slot-2', {
+      const pi2 = new PiRpcSession('slot-2', {
         messages: msgs,
         title: 'Test Chat',
         cwd: '/tmp',
@@ -539,7 +539,7 @@ describe('PiProcess', () => {
       // deletion of the stuck-turn force-abort (revert of 810cd776's
       // _healthCheck branch). Pi has its own provider retries + per-tool
       // timeouts; dashboard does not second-guess pi on time-to-completion.
-      const p = new (PiProcess)('stuck-slot')
+      const p = new (PiRpcSession)('stuck-slot')
       p.proc = { killed: false, exitCode: null, kill: vi.fn() } // looks alive
       p.running = true
       p._stopping = false

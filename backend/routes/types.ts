@@ -4,7 +4,8 @@
 import type { Express, Request, Response } from 'express'
 import type WebSocket from 'ws'
 import type { FSWatcher } from 'fs'
-import type { PiManager, PiProcess } from '../pi-manager.js'
+import type { PiManager } from '../pi-manager.js'
+import type { PiSession } from '../pi-session.js'
 import type { ChatMessage } from '../session-store.js'
 import type { Notification } from '@shared/types.js'
 
@@ -17,7 +18,7 @@ export interface RouteDeps {
   wsClients: Set<WebSocket>
   notifications: Notification[]
   addNotification: (notif: Omit<Notification, 'ts' | 'acked'>) => Notification
-  wireSlotEvents: (pi: PiProcess, slotKey: string) => void
+  wireSlotEvents: (pi: PiSession, slotKey: string) => void
 
   // File collaboration state
   versionStore: Map<string, { version: number; content: string; timestamp: string }[]>
@@ -31,4 +32,4 @@ export interface RouteDeps {
   // Shutdown helpers
 }
 
-export type { Request, Response, ChatMessage, PiProcess, PiManager, Notification }
+export type { Request, Response, ChatMessage, PiSession, PiManager, Notification }
