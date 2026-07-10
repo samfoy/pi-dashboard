@@ -17,6 +17,7 @@
     "test:watch": "vitest --config vitest.backend.config.js"
   },
   "dependencies": {
+    "@earendil-works/pi-coding-agent": "0.80.3",
     "express": "^4.21.0",
     "express-ws": "^5.0.2",
     "node-pty": "^1.1.0",
