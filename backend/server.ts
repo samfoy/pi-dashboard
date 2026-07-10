@@ -214,6 +214,11 @@ if (!process.env.VITEST) setInterval(() => broadcast('dashboard', manager.status
 // ─── Wire pi slot events to WS ──────────────────────────────
 let _chunkSeq = 0
 
+// Anti-wedge fallback: if the browser never answers an extension dialog
+// (closed tab, startup-path dialog with no client attached), auto-cancel
+// after this window so the slot's turn can proceed.
+const EXTENSION_UI_TIMEOUT_MS = 60_000
+
 function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   let streamBuf = ''
   let midTurn = false
@@ -524,21 +529,39 @@ function _wireSlotEvents(pi: PiProcess, slotKey: string): void {
   })
 
   pi.on('extension_ui', (event: any) => {
-    // Dashboard cannot render extension dialogs. Auto-cancel any
-    // request that requires a response so the extension's init/runtime
-    // can proceed via its `defaultValue` instead of waiting forever.
+    // confirm/select/input/editor dialogs need a real answer from the user.
+    // Instead of the old hardcoded auto-cancel, broadcast an additive
+    // `extension_ui_request` frame so the browser can render a modal and
+    // POST the answer back to /api/chat/slots/:key/extension-ui-response.
     //
-    // Why not auto-confirm or auto-select-first? Many extensions emit
-    // these dialogs from their startup path (pi-computer-use was the
-    // first to expose this) and the "first option" is often something
-    // destructive or a no-op like "Open Settings" that loops back to
-    // the same dialog — wedging every dashboard slot. `cancelled: true`
-    // matches what `ctx.ui.*` resolves to when the user dismisses the
-    // dialog in TUI/print mode, which is the behavior extensions are
-    // already coded against.
+    // Anti-wedge safety net (preserves the old wisdom): a per-request
+    // timeout falls back to `cancelled: true` so a dialog emitted from an
+    // extension startup path (pi-computer-use was the first to expose this),
+    // or one raised while no browser is attached, can't wedge the slot
+    // forever. We never auto-*confirm* — `cancelled: true` matches what
+    // `ctx.ui.*` resolves to when the user dismisses the dialog in TUI/print
+    // mode, which is the behavior extensions are already coded against.
     if (event.method === 'confirm' || event.method === 'select' ||
         event.method === 'input' || event.method === 'editor') {
-      pi.send({ type: 'extension_ui_response', id: event.id, cancelled: true })
+      const timer = setTimeout(() => {
+        if (pi._pendingExtensionUi.has(event.id)) {
+          pi._pendingExtensionUi.delete(event.id)
+          pi.send({ type: 'extension_ui_response', id: event.id, cancelled: true })
+        }
+      }, EXTENSION_UI_TIMEOUT_MS)
+      if (typeof timer.unref === 'function') timer.unref()
+      pi._pendingExtensionUi.set(event.id, { method: event.method, timer })
+      broadcast('extension_ui_request', {
+        slot: slotKey,
+        id: event.id,
+        method: event.method,
+        // pi uses `title` as the dialog prompt across all four methods.
+        prompt: event.title,
+        // Method-specific extras (all optional; undefined keys are dropped).
+        message: event.message,          // confirm body
+        options: event.options,          // select choices
+        defaultValue: event.prefill ?? event.placeholder, // editor prefill / input placeholder
+      })
     } else if (event.method === 'setStatus') {
       const clean = (event.statusText || '').replace(/\x1b\[[0-9;]*m/g, '')
       broadcast('extension_status', { slot: slotKey, key: event.statusKey, text: clean || undefined })

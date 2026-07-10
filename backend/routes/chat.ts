@@ -185,6 +185,32 @@ export function registerChatRoutes(deps: RouteDeps): void {
     res.json({ ok: true })
   })
 
+  // Answer a pending extension-UI dialog (confirm/select/input/editor) raised
+  // via the `extension_ui_request` WS frame. Resolves the request on pi's
+  // existing RPC response path, mapping to pi's per-method return type:
+  //   confirm            → { confirmed: boolean }
+  //   select/input/editor → { value: string | undefined }
+  //   cancel (any)       → { cancelled: true }
+  app.post('/api/chat/slots/:key/extension-ui-response', (req: Request, res: Response) => {
+    const pi = manager.getSlot(req.params.key as string)
+    if (!pi) return res.status(404).json({ error: 'slot not found' })
+    const { id, cancelled, value } = req.body || {}
+    if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id required' })
+    const pending = pi._pendingExtensionUi.get(id)
+    if (!pending) return res.status(404).json({ error: 'no pending extension-ui request' })
+    clearTimeout(pending.timer)
+    pi._pendingExtensionUi.delete(id)
+    if (cancelled) {
+      pi.send({ type: 'extension_ui_response', id, cancelled: true })
+    } else if (pending.method === 'confirm') {
+      pi.send({ type: 'extension_ui_response', id, confirmed: !!value })
+    } else {
+      // select / input / editor → string | undefined
+      pi.send({ type: 'extension_ui_response', id, value: value != null ? String(value) : undefined })
+    }
+    res.json({ ok: true })
+  })
+
   app.patch('/api/chat/slots/:key/title', (req: Request, res: Response) => {
     const pi = manager.getSlot(req.params.key as string)
     if (!pi) return res.status(404).json({ error: 'slot not found' })

@@ -26,6 +26,17 @@ export interface TokenStats {
   cacheWriteTokens: number
 }
 
+/** A pending extension-UI dialog awaiting the user's answer (additive frame). */
+export interface ExtensionUiRequest {
+  slot: string
+  id: string
+  method: 'confirm' | 'select' | 'input' | 'editor'
+  prompt?: string
+  message?: string
+  options?: string[]
+  defaultValue?: string
+}
+
 interface ChatState {
   activeSlot: string | null
   messages: ChatMessage[]
@@ -46,6 +57,7 @@ interface ChatState {
   _waitingForTurnStats: boolean
   extensionStatuses: Record<string, string>
   extensionWidgets: Record<string, string[]>
+  extensionUiRequest: ExtensionUiRequest | null
   _lastChunkSeq: number
   slotSwitching: boolean
   foregroundSpawnActive: boolean
@@ -71,6 +83,7 @@ const initialState: ChatState = {
   _waitingForTurnStats: false,
   extensionStatuses: {},
   extensionWidgets: {},
+  extensionUiRequest: null,
   _lastChunkSeq: -1,
   slotSwitching: false,
   foregroundSpawnActive: false,
@@ -220,6 +233,18 @@ const chatSlice = createSlice({
       if (action.payload.slot !== state.activeSlot) return
       if (action.payload.lines) state.extensionWidgets[action.payload.key] = action.payload.lines
       else delete state.extensionWidgets[action.payload.key]
+    },
+    setExtensionUiRequest(state, action: PayloadAction<ExtensionUiRequest>) {
+      // Only surface a dialog for the slot the user is currently viewing.
+      // Other slots' dialogs still time out server-side (anti-wedge).
+      if (action.payload.slot !== state.activeSlot) return
+      state.extensionUiRequest = action.payload
+    },
+    clearExtensionUiRequest(state, action: PayloadAction<{ id: string } | undefined>) {
+      // If an id is given, only clear when it matches the shown request
+      // (avoids clobbering a newer dialog that arrived meanwhile).
+      if (action.payload?.id && state.extensionUiRequest?.id !== action.payload.id) return
+      state.extensionUiRequest = null
     },
     clearMessages(state) { state.messages = []; state.slotHasMore = false; state.slotOldestIndex = 0 },
     /** Handle chat messages pushed via global SSE/WS (works after refresh). */
@@ -495,6 +520,6 @@ const chatSlice = createSlice({
 
 export const {
   setActiveSlot, setPendingInput, clearResendQueued, promoteQueued, appendMessage, updateStreamingMessage, finalizeAssistant,
-  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, clearMessages, sseChatMessage,
+  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, setExtensionUiRequest, clearExtensionUiRequest, clearMessages, sseChatMessage,
 } = chatSlice.actions
 export default chatSlice.reducer

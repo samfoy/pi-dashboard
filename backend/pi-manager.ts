@@ -158,6 +158,11 @@ export class PiProcess extends EventEmitter {
   _startTime: number
   _lastActivity: number
   _pendingRequests: Map<string, { resolve: (value: any) => void; timer: ReturnType<typeof setTimeout> }>
+  // Extension-UI dialogs (confirm/select/input/editor) awaiting a browser
+  // response. Keyed by the request id pi emitted; stores the method (needed to
+  // map the response to pi's per-method return type) and the anti-wedge timer
+  // that auto-cancels if no browser answers within the timeout.
+  _pendingExtensionUi: Map<string, { method: string; timer: ReturnType<typeof setTimeout> }>
   _stopping: boolean
   _pendingApproval: boolean
   // Counts user-initiated prompts that pi-dashboard has issued but for
@@ -205,6 +210,7 @@ export class PiProcess extends EventEmitter {
     this._startTime = Date.now()
     this._lastActivity = 0  // 0 = never; updated on actual activity
     this._pendingRequests = new Map() // id → { resolve, timer }
+    this._pendingExtensionUi = new Map() // id → { method, timer }
     this._stopping = false
     this._pendingApproval = false
     this._outstandingPrompts = 0

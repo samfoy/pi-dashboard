@@ -35,6 +35,7 @@ import MessageSearch from './chat/MessageSearch'
 import StatusLine from './chat/StatusLine'
 import SplitPane from './chat/SplitPane'
 import MemoryFlash from './chat/MemoryFlash'
+import ExtensionUiModal from '../components/ExtensionUiModal'
 import { StatusBarSlot } from '../plugins'
 import type { ChatMessage } from '../types'
 
@@ -1474,6 +1475,7 @@ export default function ChatPage() {
           <DocumentPanel filePath={panel.filePath} content={panel.content} onContentChange={handleContentChange} onSave={handleFileSave} onClose={panel.closePanel} dirty={panel.dirty} versions={panel.versions} selectedVersion={panel.selectedVersion} conflictContent={panel.conflictContent} onSelectVersion={panel.selectVersion} onResolveConflict={panel.resolveConflict} diffMode={panel.diffMode} onToggleDiff={panel.toggleDiffMode} comments={panel.comments} onAddComment={handleAddComment} onEditComment={handleEditComment} onDeleteComment={handleDeleteComment} onReviewComments={handleReviewComments} />
         </Suspense>
       )}
+      <ExtensionUiModal />
     </div>
   )
 }

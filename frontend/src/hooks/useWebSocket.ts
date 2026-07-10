@@ -4,7 +4,7 @@ import { useAppDispatch } from '../store'
 import { store } from '../store'
 import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread, addSlotError } from '../store/dashboardSlice'
 import { addNotification, ackNotificationByTs } from '../store/notificationsSlice'
-import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget } from '../store/chatSlice'
+import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, setExtensionUiRequest } from '../store/chatSlice'
 import type { StatusData, ChatSlot, Notification } from '../types'
 
 type LogCallback = ((data: { level: string; msg: string }) => void) | null
@@ -194,6 +194,12 @@ export function useWebSocket() {
           case 'extension_widget':
             console.log('[WS extension_widget]', JSON.stringify(data))
             dispatch(setExtensionWidget({ slot: data.slot, key: data.key, lines: data.lines }))
+            break
+          case 'extension_ui_request':
+            // Additive frame: an extension raised a confirm/select/input/editor
+            // dialog. Show a modal for the active slot; server auto-cancels
+            // after 60s if unanswered (anti-wedge).
+            dispatch(setExtensionUiRequest(data))
             break
           case 'log':
             logCbRef.current?.(data)
