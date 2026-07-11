@@ -82,10 +82,11 @@ interface PiProcessOptions {
 
 // Resolve a slot's transport backend: per-slot override wins, then the
 // PI_DASH_TRANSPORT env default, else 'rpc'. Background/detached slots always
-// resolve to 'rpc' regardless of env (they can't be steered onto an
-// experimental backend). Ships 'rpc' everywhere → zero behavior change.
-function resolveTransport(override?: PiTransport | null, background: boolean = false): PiTransport {
-  if (background) return 'rpc'
+// run on 'rpc' — that policy is enforced imperatively in conductorDetach()
+// (which sets this.transport = 'rpc' at detach time), since no background
+// signal exists at slot-creation time. Ships 'rpc' everywhere → zero behavior
+// change.
+function resolveTransport(override?: PiTransport | null): PiTransport {
   const env = process.env.PI_DASH_TRANSPORT
   const envTransport: PiTransport | undefined = env === 'rpc' || env === 'sdk' ? env : undefined
   return override ?? envTransport ?? 'rpc'
@@ -224,6 +225,7 @@ export class PiRpcSession extends EventEmitter implements PiSession {
     this._streamIdx = -1  // index where partial streaming messages start
     this._stderrLines = []
     this._startupTimer = null
+    this.transport = opts.transport || 'rpc'
   }
 
   start(): void {
@@ -1022,7 +1024,7 @@ export class PiManager {
     if (transport === 'sdk') {
       throw new Error('SDK transport not implemented until slice 7')
     }
-    const pi = new PiRpcSession(key, { agent, ...opts })
+    const pi = new PiRpcSession(key, { agent, ...opts, transport })
     // Don't start pi process yet — defer to first message (ensureRunning)
     // This allows CWD/model to be changed in WelcomeView before process starts
     this.slots.set(key, pi)
@@ -1038,7 +1040,7 @@ export class PiManager {
     if (transport === 'sdk') {
       throw new Error('SDK transport not implemented until slice 7')
     }
-    const pi = new PiRpcSession(key, { messages, title, ...opts })
+    const pi = new PiRpcSession(key, { messages, title, ...opts, transport })
     pi.ready = false
     this.slots.set(key, pi)
     if (parseInt(key.split('-')[1]) >= this._slotCounter) {
