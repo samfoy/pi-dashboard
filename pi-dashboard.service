@@ -9,7 +9,11 @@ WorkingDirectory=/local/home/samfp/pi-dashboard
 Environment=PATH=/home/samfp/.local/share/mise/installs/node/24.7.0/bin:/usr/local/bin:/usr/bin:/bin
 Environment=HOME=/home/samfp
 Environment=PI_DASH_PORT=7777
-ExecStart=/home/samfp/.local/share/mise/installs/node/24.7.0/bin/node backend/server.js
+# WASM blast-radius flags (SDK-migration slice 8): launch-time V8 isolate flags
+# on the server node process. --import tsx runs the TS entry directly (no build
+# step); the flags reduce the chance of an uncatchable WASM abort killing the
+# in-process agent + server. Server logs the effective V8 flags on boot.
+ExecStart=/home/samfp/.local/share/mise/installs/node/24.7.0/bin/node --no-wasm-tier-up --liftoff-only --wasm-lazy-compilation --import tsx backend/server.ts
 Restart=always
 RestartSec=2
 

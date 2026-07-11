@@ -6,6 +6,11 @@
     <string>com.sam.pi-dashboard</string>
 
     <key>ProgramArguments</key>
+    <!-- WASM blast-radius flags (SDK-migration slice 8): the server runs under
+         the no-wasm-tier-up / liftoff-only / wasm-lazy-compilation V8 flags.
+         These are launch-time isolate flags applied to the node invocation
+         inside start.sh (this target), NOT here (start.sh is a shell script,
+         not node). The server logs the effective V8 flags on boot. -->
     <array>
         <string>/Users/sam.painter/pi-dashboard/start.sh</string>
     </array>

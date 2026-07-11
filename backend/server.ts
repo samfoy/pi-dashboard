@@ -54,6 +54,7 @@ function addNotification(notif: Omit<Notification, 'ts' | 'acked'>): Notificatio
 
 // ─── Restore persisted slots on startup ──────────────────────
 const savedSlots = loadSlotState()
+const _resumeMidTurnKeys: string[] = []
 for (const s of savedSlots) {
   let messages: ChatMessage[] = s.messages || []
   if (s.sessionFile && !messages.length) {
@@ -71,9 +72,30 @@ for (const s of savedSlots) {
       tags: s.tags,
       transport: s.transport,
     })
+    // Crash-recovery (slice 8): a slot persisted with midTurn=true had a turn
+    // in flight when the process died (the backstop's saveSlotStateSync ran, or
+    // the throttled autosave caught it). The turn's durable record is the pi-
+    // owned session JSONL (already adopted via sessionFile); the interrupted
+    // in-flight delta is lost (in-process fatal is N× — ALL running slots lose
+    // their un-persisted deltas at once, see design blast-radius §2). Surface a
+    // visible resume offer; auto-resume itself is the existing ensureRunning
+    // respawn-on-next-prompt path (no forced restart here).
+    if (s.midTurn) _resumeMidTurnKeys.push(s.key)
   }
 }
 if (savedSlots.length > 0) console.log(`   Restored ${savedSlots.length} chat slot(s)`)
+if (_resumeMidTurnKeys.length > 0) {
+  console.warn(`   ⚠ ${_resumeMidTurnKeys.length} slot(s) were mid-turn at last shutdown (interrupted): ${_resumeMidTurnKeys.join(', ')} — offering resume`)
+  for (const key of _resumeMidTurnKeys) {
+    const pi = manager.getSlot(key)
+    if (!pi) continue
+    pi.messages.push({
+      role: 'system',
+      content: '⚠️ This chat had a turn in progress when the server restarted; the in-flight response was interrupted. The conversation history is intact — send a message to resume.',
+      ts: new Date().toISOString(),
+    })
+  }
+}
 
 // ─── Auto-save slot state on changes ─────────────────────────
 function persistSlots(): void { saveSlotState(manager.slots as any) }
@@ -799,6 +821,12 @@ if (!process.env.VITEST) server.listen(PORT, BIND_HOST, () => {
   console.log(`   Network:  http://${hostname}:${PORT}`)
   console.log(`   Custom:   http://pi.dash:${PORT}`)
   if (process.env.TAILSCALE_IP) console.log(`   Tailscale: http://${process.env.TAILSCALE_IP}:${PORT}`)
+  // Blast-radius (slice 8): the WASM V8 flags are launch-time isolate flags —
+  // they can't be applied to a live in-process agent, so the whole server must
+  // run under them (set in run.sh/start.sh/restart.sh/plist/service). Log the
+  // effective V8 flags so a misconfigured launch (missing flags) is visible.
+  const v8Flags = process.execArgv.filter(a => /wasm|liftoff|jitless/.test(a))
+  console.log(`   V8 flags: ${v8Flags.length ? v8Flags.join(' ') : '(none — WASM blast-radius flags NOT set; launch via run.sh/start.sh or systemd/launchd)'}`)
   console.log()
 })
 
@@ -817,9 +845,35 @@ process.on('uncaughtException', (err: any) => {
     console.error(`❌ Port ${PORT} already in use — exiting so systemd can retry`)
     process.exit(1)
   }
+  // BACKSTOP (slice 8, design blast-radius §3): detached-timer / floating-
+  // rejection faults not caught by the per-slot prompt() try/catch or the
+  // subscribe-listener guard land here. Policy: keep the process alive
+  // (log-and-continue) so one slot's async fault can't take down the server +
+  // every other slot.
+  //
+  // Crash-path autosave FIRST: bound the loss to un-persisted turn deltas across
+  // ALL running slots. An in-process fatal is N× (kills every slot at once), so
+  // this runs even though we intend to keep going — if the next line re-throws
+  // or a sync V8 abort follows, state is already durable.
+  try { saveSlotStateSync(manager.slots as any) } catch {}
+  // Attributable disposal: reap any slot whose session died as a side effect of
+  // the fault (checkHealth resets a dead-but-running slot + emits agent_end so
+  // the FE isn't wedged). Unattributable throws just log-and-continue.
+  try { for (const pi of manager.slots.values()) { try { pi.checkHealth() } catch {} } } catch {}
   console.error('⚠ Uncaught exception (kept running):', err.message)
   console.error(err.stack)
+  // HONEST LIMIT: a SYNCHRONOUS V8 abort / WASM-OOM is uncatchable — it never
+  // reaches this handler and kills the whole process (all slots, N×). This
+  // backstop only nets RECOVERABLE async faults; the WASM launch flags reduce
+  // the abort probability, crash-path autosave bounds the loss, but full per-
+  // slot isolation remains available ONLY by keeping a slot on `rpc`.
 })
-process.on('unhandledRejection', (reason) => {
-  console.error('⚠ Unhandled rejection (kept running):', reason)
+process.on('unhandledRejection', (reason: any) => {
+  // Same backstop policy as uncaughtException: a floating promise rejection
+  // (e.g. a fire-and-forget dispatch that escaped a per-slot .catch) must NOT
+  // kill the process. Autosave to bound loss, reap dead-but-running slots, then
+  // log-and-continue.
+  try { saveSlotStateSync(manager.slots as any) } catch {}
+  try { for (const pi of manager.slots.values()) { try { pi.checkHealth() } catch {} } } catch {}
+  console.error('⚠ Unhandled rejection (kept running):', reason?.stack || reason)
 })

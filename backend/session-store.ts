@@ -29,6 +29,11 @@ export interface SlotState {
   // Transport backend for this slot ('rpc' | 'sdk'). Absent in old state →
   // restore defaults to 'rpc' (see pi-manager restoreSlot).
   transport?: PiTransport
+  // Crash-recovery (slice 8): true when the slot had a turn in progress at
+  // persist time. On the crash path (uncaughtException/unhandledRejection
+  // backstop runs saveSlotStateSync), this marks slots whose in-flight turn was
+  // interrupted so boot can surface a resume offer. Absent/false → idle slot.
+  midTurn?: boolean
 }
 
 export interface SessionTreeEntry {
@@ -53,6 +58,7 @@ interface SlotProcess {
   thinkingLevel?: string | null
   cwd?: string | null
   transport?: PiTransport
+  running?: boolean
 }
 
 type ContentPart = { type: string; text?: string; thinking?: string }
@@ -271,6 +277,7 @@ export function saveSlotState(slots: Map<string, SlotProcess>): void {
       cwd: pi.cwd || null,
       transport: pi.transport || undefined,
       tags: pi._tags?.length ? pi._tags : undefined,
+      midTurn: pi.running === true ? true : undefined,
     }
     // Only persist messages for slots without a session file (unsaved new chats)
     if (!pi.sessionFile && pi.messages.length > 0) {
@@ -315,6 +322,7 @@ export function saveSlotStateSync(slots: Map<string, SlotProcess>): void {
       cwd: pi.cwd || null,
       transport: pi.transport || undefined,
       tags: pi._tags?.length ? pi._tags : undefined,
+      midTurn: pi.running === true ? true : undefined,
     }
     // Only persist messages for slots without a session file (unsaved new chats)
     if (!pi.sessionFile && pi.messages.length > 0) {

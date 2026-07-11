@@ -19,4 +19,7 @@ fuser -k 7777/tcp 2>/dev/null && sleep 0.5 || true
 chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper 2>/dev/null || true
 
 echo "[pi-dashboard] Starting server ($(date))"
-exec npx tsx backend/server.js
+# WASM blast-radius flags (SDK-migration slice 8): launch-time V8 isolate flags
+# applied to the SERVER process (can't be applied to a live in-process agent).
+# Server logs the effective V8 flags on boot for verification.
+exec npx tsx --no-wasm-tier-up --liftoff-only --wasm-lazy-compilation backend/server.js

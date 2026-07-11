@@ -200,6 +200,10 @@ export class PiSdkSession extends EventEmitter implements PiSession {
    *  surface as `startup_error` + `error` (mirroring the RPC spawn-failure path). */
   start(): void {
     if (this._session || this._initPromise) return
+    // Re-init after a dispose (respawn path): clear the dead flag so `alive`
+    // reports live once _init resolves. Set before firing _init so a concurrent
+    // liveness read during startup doesn't see a stale dead state.
+    this._disposed = false
     this._initPromise = this._init().catch(err => {
       this.ready = false
       this.emit('startup_error', { code: 1, slotKey: this.slotKey, stderr: String(err?.stack || err) })
@@ -289,14 +293,69 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   private async _rebind(session: AgentSession): Promise<void> {
     this._session = session
     await session.bindExtensions(this._extensionBindings())
-    this._unsubscribe = session.subscribe((ev: AgentSessionEvent) => this._translate(ev))
+    // BLAST-RADIUS GUARD (slice 8, design blast-radius §3): the subscribe
+    // listener body is fired SYNCHRONOUSLY from pi's internal event loop. A
+    // throw inside `_translate` here would propagate straight back into that
+    // loop and — in-process — could take down EVERY slot + the HTTP/WS server.
+    // `_safeTranslate` contains a per-event failure to THIS slot (log + swallow)
+    // so one malformed event can't cascade. This is NOT covered by the
+    // `prompt()` try/catch (that only guards the awaited dispatch, not the
+    // subscription callback the SDK invokes out-of-band).
+    this._unsubscribe = session.subscribe((ev: AgentSessionEvent) => this._safeTranslate(ev))
     // Adopt sessionFile synchronously (design §3: no ready-race).
     this.sessionFile = session.sessionFile ?? null
     if (this.sessionFile) this.emit('session_file', this.sessionFile)
   }
 
+  /**
+   * Contain a throw from the `subscribe` listener body to THIS slot (slice 8).
+   * `_translate` runs inside pi's synchronous event loop; letting an exception
+   * escape would poison that loop for every slot sharing the in-process heap.
+   * Catch, log against this slot, and swallow — a single bad event must not
+   * kill the slot (the whole session survives) nor its siblings.
+   */
+  private _safeTranslate(event: any): void {
+    try {
+      this._translate(event)
+    } catch (err: any) {
+      this.emit('log', { level: 'error', msg: `Slot ${this.slotKey}: event handler threw on ${event?.type} (contained, slot survives): ${err?.stack || err}` })
+    }
+  }
+
+  /**
+   * Fatal-fault handler (slice 8, design blast-radius §3): a recoverable async
+   * fault attributable to THIS slot (a `prompt()` throw, or a backstop-routed
+   * rejection). Reset turn state, `kill()` to dispose the session + listeners +
+   * timers (no leak into the shared heap), then emit `exit` so `_wireSlotEvents`
+   * broadcasts EXACTLY the frames an RPC child exit does (chat_error mid-turn,
+   * else chat_done). Marking the slot dead (kill → `alive === false`) makes
+   * `PiManager.ensureRunning` respawn it on the next prompt — mirroring the RPC
+   * respawn-on-next-prompt path. Honest limit: a SYNCHRONOUS V8 abort / WASM-OOM
+   * is uncatchable and never reaches here — it kills the whole process (all
+   * slots), which is why isolation-sensitive slots stay on `rpc`.
+   */
+  _handleFatal(err: any): void {
+    if (this._disposed) return // already reaped; avoid double chat_error/chat_done
+    this.emit('log', { level: 'error', msg: `Slot ${this.slotKey}: fatal fault — disposing session, marking slot dead for respawn: ${err?.stack || err}` })
+    this.running = false
+    this._stopping = false
+    this._retrying = false
+    this._pendingApproval = false
+    this._outstandingPrompts = 0
+    this._streamIdx = -1
+    this.kill()
+    // Mirror an RPC child `exit`: _wireSlotEvents broadcasts chat_error if the
+    // turn was live (midTurn), else chat_done. Same frames, same handler.
+    this.emit('exit', 1)
+  }
+
   kill(): void {
     this._disposed = true
+    // Allow start() to re-init after a dispose so ensureRunning can respawn a
+    // dead slot on the next prompt (mirrors RPC proc=null reset). Without this,
+    // start()'s `if (this._session || this._initPromise) return` guard would see
+    // the resolved _initPromise and no-op, leaving the slot permanently dead.
+    this._initPromise = null
     try { this._unsubscribe?.() } catch { /* ignore */ }
     this._unsubscribe = null
     // Reject any in-flight extension-UI dialogs so nothing stays wedged.
@@ -366,11 +425,23 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     this._outstandingPrompts++
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
-    await this._session.prompt(message, {
-      ...(imgs ? { images: imgs } : {}),
-      ...(streaming ? { streamingBehavior: 'followUp' as const } : {}),
-    })
-    return true
+    // BLAST-RADIUS GUARD (slice 8, design blast-radius §3): a throw from the
+    // awaited dispatch (provider fault, session internal error) is contained to
+    // THIS slot — dispose + emit `exit` (chat_error/chat_done via _wireSlotEvents,
+    // exactly like an RPC child exit) + mark dead so ensureRunning respawns on
+    // the next prompt. Does NOT catch subscribe-listener throws (see
+    // `_safeTranslate`) or the sync V8 abort class (uncatchable — the process
+    // backstop is the only — partial — net for those).
+    try {
+      await this._session.prompt(message, {
+        ...(imgs ? { images: imgs } : {}),
+        ...(streaming ? { streamingBehavior: 'followUp' as const } : {}),
+      })
+      return true
+    } catch (err) {
+      this._handleFatal(err)
+      return false
+    }
   }
 
   abort(): boolean {
@@ -406,7 +477,10 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     const streaming = this._session.isStreaming === true
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString(), meta: { autoTrigger: true } })
-    void this._session.prompt(message, streaming ? { streamingBehavior: 'followUp' } : {})
+    // Fire-and-forget dispatch; route a rejection through the same per-slot
+    // fatal boundary as prompt() so a failed auto-turn contains to this slot
+    // (chat_error + respawn) instead of leaking to the process-level backstop.
+    void this._session.prompt(message, streaming ? { streamingBehavior: 'followUp' } : {}).catch((err: any) => this._handleFatal(err))
     return true
   }
 

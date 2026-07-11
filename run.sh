@@ -9,4 +9,9 @@ cd "$(dirname "$0")"
 export BEDROCK_MANTLE_LOG_FILE="${BEDROCK_MANTLE_LOG_FILE:-$HOME/.pi/logs/bedrock-mantle.log}"
 export BEDROCK_MANTLE_EMPTY_DUMP_DIR="${BEDROCK_MANTLE_EMPTY_DUMP_DIR:-$HOME/.pi/logs/empty-dumps}"
 
-exec tsx backend/server.ts
+# WASM blast-radius flags (SDK-migration slice 8): launch-time V8 isolate flags
+# that reduce the chance of an uncatchable WASM-OOM / tier-up abort taking down
+# the in-process agent + the whole server. They CANNOT be applied to a live
+# agent, so the server itself must run under them. Server logs the effective V8
+# flags on boot for verification.
+exec tsx --no-wasm-tier-up --liftoff-only --wasm-lazy-compilation backend/server.ts

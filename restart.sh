@@ -2,6 +2,13 @@
 # Restart the pi-dashboard service.
 # Detects macOS (launchd) vs Linux (systemd) and dispatches accordingly.
 # Rebuilds frontend first if --build flag is passed.
+#
+# NOTE (SDK-migration slice 8): this script does NOT launch node directly — it
+# delegates to launchctl kickstart / systemctl restart, which re-invoke the
+# plist (→ start.sh) / systemd unit (→ node). The WASM blast-radius V8 flags
+# (--no-wasm-tier-up --liftoff-only --wasm-lazy-compilation) live in those launch
+# targets (start.sh / pi-dashboard.service / run.sh), so a restart re-applies
+# them. The server logs the effective V8 flags on boot for verification.
 set -e
 cd "$(dirname "$0")"
 
