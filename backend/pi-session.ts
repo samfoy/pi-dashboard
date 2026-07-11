@@ -54,6 +54,12 @@ export interface PiSession extends EventEmitter {
   _userRenamed: boolean
   _tags: string[]
   _toolsRunning: number
+  /** Wall-clock of last turn/tool activity; drives listSlots' updated_at and
+   *  the idle reaper in PiManager._healthCheck. 0 = never. */
+  _lastActivity: number
+  /** Set by PiManager.ensureRunning when a process/session is (re)started for an
+   *  existing conversation, so the first prompt injects a resume hint. */
+  _wasRestarted?: boolean
 
   // ── lifecycle ──
   start(): void

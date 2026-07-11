@@ -9,6 +9,7 @@ import { join } from 'path'
 import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
 import type { PiSession, PiTransport, ImagePayload } from './pi-session.js'
+import { PiSdkSession } from './pi-sdk-session.js'
 
 // Resolve the user's configured defaultThinkingLevel the same way pi does:
 // project settings (<cwd>/.pi/settings.json) override global
@@ -999,7 +1000,7 @@ export class PiRpcSession extends EventEmitter implements PiSession {
 }
 
 export class PiManager {
-  slots: Map<string, PiRpcSession>
+  slots: Map<string, PiSession>
   _slotCounter: number
   _startTime: number
   _onStateChange: (() => void) | null
@@ -1021,10 +1022,12 @@ export class PiManager {
   createSlot(name: string, agent: string | null, opts: PiProcessOptions = {}): { key: string; title: string; messages: number; running: boolean } {
     const key = opts.key || `chat-${++this._slotCounter}-${Date.now()}`
     const transport = resolveTransport(opts.transport)
-    if (transport === 'sdk') {
-      throw new Error('SDK transport not implemented until slice 7')
-    }
-    const pi = new PiRpcSession(key, { agent, ...opts, transport })
+    // SDK transport is flag-gated OFF by default (resolveTransport → 'rpc'
+    // everywhere unless a slot explicitly opts in). Instantiating PiSdkSession
+    // here is behind that guard — no production slot reaches it today.
+    const pi: PiSession = transport === 'sdk'
+      ? new PiSdkSession(key, { agent, ...opts, transport })
+      : new PiRpcSession(key, { agent, ...opts, transport })
     // Don't start pi process yet — defer to first message (ensureRunning)
     // This allows CWD/model to be changed in WelcomeView before process starts
     this.slots.set(key, pi)
@@ -1037,10 +1040,9 @@ export class PiManager {
     // Backward compat: slot state saved before transport existed has no
     // `transport` field → resolveTransport defaults it to 'rpc'.
     const transport = resolveTransport(opts.transport)
-    if (transport === 'sdk') {
-      throw new Error('SDK transport not implemented until slice 7')
-    }
-    const pi = new PiRpcSession(key, { messages, title, ...opts, transport })
+    const pi: PiSession = transport === 'sdk'
+      ? new PiSdkSession(key, { messages, title, ...opts, transport })
+      : new PiRpcSession(key, { messages, title, ...opts, transport })
     pi.ready = false
     this.slots.set(key, pi)
     if (parseInt(key.split('-')[1]) >= this._slotCounter) {
@@ -1051,12 +1053,16 @@ export class PiManager {
   ensureRunning(key: string): PiSession | null {
     const pi = this.slots.get(key)
     if (!pi) return null
-    // Restart if process is missing or dead
-    if (!pi.proc || pi.proc.killed || pi.proc.exitCode !== null) {
-      const reason = !pi.proc ? 'proc=null' : pi.proc.killed ? `proc.killed (pid=${pi.proc.pid})` : `exitCode=${pi.proc.exitCode} (pid=${pi.proc.pid})`
+    // Restart if process/session is missing or dead. `alive` is the
+    // transport-agnostic liveness probe (for RPC it is exactly the old
+    // `proc && !killed && exitCode===null` inline check).
+    if (!pi.alive) {
+      const reason = pi instanceof PiRpcSession
+        ? (!pi.proc ? 'proc=null' : pi.proc.killed ? `proc.killed (pid=${pi.proc.pid})` : `exitCode=${pi.proc.exitCode} (pid=${pi.proc.pid})`)
+        : 'session dead'
       const isResume = pi.messages.length > 0 || !!pi.sessionFile
       console.error(`[pi-manager] ensureRunning: starting slot ${key} because ${reason}${isResume ? ' (RESUME)' : ''}`)
-      pi.proc = null
+      if (pi instanceof PiRpcSession) pi.proc = null
       pi.running = false
       pi._stopping = false
       pi._pendingApproval = false
@@ -1139,9 +1145,9 @@ export class PiManager {
       return this._modelCache
     }
     // Find a running pi process to query, or start a temp one
-    let pi: PiRpcSession | null = null
+    let pi: PiSession | null = null
     for (const p of this.slots.values()) {
-      if (p.proc && p.ready) { pi = p; break }
+      if (p.alive && p.ready) { pi = p; break }
     }
     if (!pi) {
       // Start a temporary process to query models
@@ -1182,7 +1188,7 @@ export class PiManager {
   async getCommands(): Promise<any[] | null> {
     // Try to get commands from a running pi process via RPC
     for (const pi of this.slots.values()) {
-      if (pi.proc && pi.ready) {
+      if (pi.alive && pi.ready) {
         try { return await pi.getCommands() } catch {}
       }
     }
@@ -1215,11 +1221,11 @@ export class PiManager {
       pi.checkHealth()
       // Reap idle processes (not running a turn, idle > 30 hours)
       // 30h lets slots survive overnight without being reaped.
-      if (pi.proc && !pi.running && !pi._stopping && pi._lastActivity > 0) {
+      if (pi.alive && !pi.running && !pi._stopping && pi._lastActivity > 0) {
         const idle = now - pi._lastActivity
         if (idle > 30 * 60 * 60 * 1000) {
           pi.emit('log', { level: 'info', msg: `Slot ${pi.slotKey}: idle ${Math.round(idle/60000)}m, gracefully stopping process` })
-          pi.gracefulShutdown().then(() => { pi.proc = null })
+          pi.gracefulShutdown().then(() => { if (pi instanceof PiRpcSession) pi.proc = null })
         }
       }
     }
