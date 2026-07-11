@@ -15,10 +15,14 @@
  * (default transport is `rpc`). Verified by direct-instantiation contract +
  * golden-transcript tests.
  *
- * Deferred (throw a clear "implemented in 7c/7d" so the interface is still
- * satisfied): stats / `getSessionStats` (7c), extension-UI round-trip /
- * model+thinking ops / fork / rebind (7d). Race-fix queueing / `willRetry`
- * gating / `queue_update` / `auto_retry_*` are handled here (slice 7b).
+ * Deferred (throw a clear "implemented in <slice>" so the interface is still
+ * satisfied): model/thinking ops (`setModel`/`setThinkingLevel`) + model/command
+ * listing (`getAvailableModels`/`getCommands`) — a separate additive slice; the
+ * flag is OFF so no SDK slot exercises them. Extension-UI round-trip
+ * (`armExtensionUi`/`respondExtensionUi` + the `bindExtensions` `uiContext`),
+ * auto-rebind on session replacement, and `fork`/`getForkMessages` are
+ * implemented HERE (slice 7d). Race-fix queueing / `willRetry` gating /
+ * `queue_update` / `auto_retry_*` are handled in slice 7b; stats in 7c.
  *
  * ── TEST SEAM ──
  * `_translate(event)` is a pure function of `(event, this.messages)` and never
@@ -37,13 +41,18 @@ import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
 import type { PiSession, PiTransport, ImagePayload } from './pi-session.js'
 import { deriveStatsFrames } from './pi-session.js'
+import { randomUUID } from 'crypto'
 import {
   createAgentSessionServices,
   createAgentSessionFromServices,
+  createAgentSessionRuntime,
   SessionManager,
   getAgentDir,
   type AgentSession,
+  type AgentSessionRuntime,
   type AgentSessionEvent,
+  type CreateAgentSessionRuntimeFactory,
+  type ExtensionUIContext,
 } from '@earendil-works/pi-coding-agent'
 
 // Mirror of the RPC path's temp image dir (pi-manager.ts). Duplicated (not
@@ -79,8 +88,10 @@ function normalizeImages(images?: ImagePayload[]): { type: 'image'; mimeType: st
     .filter(img => img.data)
 }
 
-const NOT_YET = (method: string, slice: string) =>
-  new Error(`PiSdkSession.${method}() is implemented in slice ${slice} — not in 7a (core event translation) scope`)
+/** Methods intentionally deferred past 7d (parity "done" per plan §8, minus the
+ *  model/command surface). The flag is OFF, so no SDK slot reaches these. */
+const DEFERRED = (method: string) =>
+  new Error(`PiSdkSession.${method}() is intentionally deferred — model/command ops land in a separate additive slice; not required for the flag-OFF core surface`)
 
 export class PiSdkSession extends EventEmitter implements PiSession {
   slotKey: string
@@ -124,8 +135,22 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   /** The live in-process agent session. `null` until `start()` resolves and
    *  after `dispose`. Liveness (`alive`) is derived from it. Tests never set it. */
   _session: AgentSession | null
-  /** Unsubscribe handle for the event subscription (rebind lands in 7d). */
+  /** The runtime that owns the current session + cwd-bound services. Session-
+   *  replacement ops (fork/new/switch/import) live here and REPLACE
+   *  `runtime.session`; the rebind hooks (registered once in `_init`) re-wire
+   *  our subscription + extension bindings on every replacement (slice 7d). */
+  runtime: AgentSessionRuntime | null
+  /** Unsubscribe handle for the current session's event subscription. Re-created
+   *  by `_rebind` on every session replacement (slice 7d). */
   _unsubscribe: (() => void) | null
+  /** Pending extension-UI dialogs keyed by request id. The `uiContext` dialog
+   *  methods create an entry with a `resolve` (the awaited Promise's resolver);
+   *  `armExtensionUi` attaches the anti-wedge timer; `respondExtensionUi`
+   *  resolves + clears it. In-process analogue of the RPC `_pendingExtensionUi`. */
+  _pendingExtensionUi: Map<string, { method: string; resolve?: (value: any) => void; timer?: ReturnType<typeof setTimeout> }>
+  /** Cached `ExtensionUIContext` passed to `bindExtensions`. Built once and
+   *  re-bound to each replacement session so extensions always reach this slot. */
+  _uiContext: ExtensionUIContext | null
   /** In-flight async init promise (start() is sync per the interface but the
    *  SDK create path is async — start() fires this and returns). */
   _initPromise: Promise<void> | null
@@ -158,7 +183,10 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     this._streamIdx = -1
     this._toolsRunning = 0
     this._session = null
+    this.runtime = null
     this._unsubscribe = null
+    this._pendingExtensionUi = new Map()
+    this._uiContext = null
     this._initPromise = null
     this._disposed = false
   }
@@ -184,39 +212,43 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     const cwd = this.cwd || process.env.HOME || '/tmp'
     this.cwd = cwd
 
-    // Per-slot cwd-bound services (design §4): do NOT share ModelRegistry /
-    // SettingsManager mutably across slots — each slot gets its own services
-    // bound to its cwd so pi's per-slot model/thinking resolver can't cross-talk.
-    const services = await createAgentSessionServices({ cwd, agentDir: getAgentDir() })
-
     // Adoption: resume an existing session file, else start fresh. Per-slot
     // SessionManager (design §4).
     const sessionManager = this.sessionFile
       ? SessionManager.open(this.sessionFile)
       : SessionManager.create(cwd)
 
-    // Resolve the persisted per-slot model against this slot's registry.
-    const model =
-      this.modelProvider && this.modelId
-        ? services.modelRegistry.find(this.modelProvider, this.modelId)
-        : undefined
-
-    const { session } = await createAgentSessionFromServices({
-      services,
+    // Own ONE AgentSessionRuntime per slot (design §3/§4). The runtime holds the
+    // cwd-bound services (per-slot, NOT shared — pi's per-slot model/thinking
+    // resolver can't cross-talk) and is the layer that owns session-replacement
+    // ops (fork/new/switch/import). The `createRuntime` factory is reused by the
+    // runtime for every later replacement, so a fork/new rebuilds services for
+    // the (possibly new) cwd and resolves this slot's persisted model.
+    this.runtime = await createAgentSessionRuntime(this._makeCreateRuntime(), {
+      cwd,
+      agentDir: getAgentDir(),
       sessionManager,
-      ...(model ? { model } : {}),
-      ...(this.thinkingLevel ? { thinkingLevel: this.thinkingLevel as any } : {}),
     })
 
-    this._session = session
+    // Register the auto-rebind hooks ONCE. They fire automatically on EVERY
+    // session replacement (newSession/switchSession/fork/importFromJsonl),
+    // which removes the "forget to rebind → silent dead slot" footgun (design
+    // §3). `beforeSessionInvalidate` tears down the OLD subscription before the
+    // old session is invalidated; `rebindSession` re-wires against the NEW one.
+    this.runtime.setBeforeSessionInvalidate(() => {
+      try { this._unsubscribe?.() } catch { /* ignore */ }
+      this._unsubscribe = null
+    })
+    this.runtime.setRebindSession((session) => this._rebind(session))
+
+    // Initial wiring: the rebind hook only fires on REPLACEMENT, not on initial
+    // creation, so bind + subscribe the first session by hand through the SAME
+    // path a rebind uses.
+    await this._rebind(this.runtime.session)
     this.ready = true
 
-    // Adopt sessionFile synchronously (design §3: no ready-race).
-    this.sessionFile = session.sessionFile ?? null
-    if (this.sessionFile) this.emit('session_file', this.sessionFile)
-
     // Populate the actual resolved model so the settings chip is correct.
-    const st: any = session.state
+    const st: any = this.runtime.session.state
     const m = st?.model
     if (m?.provider && m?.id) {
       const changed = this.modelProvider !== m.provider || this.modelId !== m.id
@@ -224,18 +256,59 @@ export class PiSdkSession extends EventEmitter implements PiSession {
       this.modelId = m.id
       if (changed) this.emit('model_change')
     }
+  }
 
-    // Subscribe the core translator. (Automatic rebind on session replacement
-    // is a 7d concern — for 7a there is exactly one session per slot.)
+  /** Build the runtime factory the `AgentSessionRuntime` reuses for the initial
+   *  session AND every later replacement. Composes per-slot cwd-bound services
+   *  (design §4) + a session resolved against this slot's persisted model. */
+  private _makeCreateRuntime(): CreateAgentSessionRuntimeFactory {
+    return async ({ cwd, sessionManager, sessionStartEvent }) => {
+      const services = await createAgentSessionServices({ cwd, agentDir: getAgentDir() })
+      const model =
+        this.modelProvider && this.modelId
+          ? services.modelRegistry.find(this.modelProvider, this.modelId)
+          : undefined
+      const result = await createAgentSessionFromServices({
+        services,
+        sessionManager,
+        ...(sessionStartEvent ? { sessionStartEvent } : {}),
+        ...(model ? { model } : {}),
+        ...(this.thinkingLevel ? { thinkingLevel: this.thinkingLevel as any } : {}),
+      })
+      return { ...result, services, diagnostics: services.diagnostics }
+    }
+  }
+
+  /**
+   * Re-wire this slot against `session` — the NEW session after a replacement,
+   * or the initial session at startup. Registered via `runtime.setRebindSession`
+   * so it fires automatically on fork/new/switch/import (design §3). Rebinds the
+   * extension `uiContext` and re-subscribes the core translator, then adopts the
+   * new `sessionFile` and emits `session_file`. Centralizing this here is what
+   * makes "forget to rebind → silent dead slot" structurally impossible.
+   */
+  private async _rebind(session: AgentSession): Promise<void> {
+    this._session = session
+    await session.bindExtensions(this._extensionBindings())
     this._unsubscribe = session.subscribe((ev: AgentSessionEvent) => this._translate(ev))
+    // Adopt sessionFile synchronously (design §3: no ready-race).
+    this.sessionFile = session.sessionFile ?? null
+    if (this.sessionFile) this.emit('session_file', this.sessionFile)
   }
 
   kill(): void {
     this._disposed = true
     try { this._unsubscribe?.() } catch { /* ignore */ }
     this._unsubscribe = null
+    // Reject any in-flight extension-UI dialogs so nothing stays wedged.
+    for (const [, pending] of this._pendingExtensionUi) {
+      if (pending.timer) clearTimeout(pending.timer)
+    }
+    this._pendingExtensionUi.clear()
     try { this._session?.dispose() } catch { /* ignore */ }
     this._session = null
+    try { void this.runtime?.dispose() } catch { /* ignore */ }
+    this.runtime = null
   }
 
   /**
@@ -357,13 +430,16 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Deferred surface (interface satisfied; throws until the owning slice)
+  // Model / command surface (intentionally deferred past 7d)
+  //
+  // These are the only remaining interface methods that throw. They are NOT in
+  // 7d's scope (extension-UI + rebind + fork) and land in a later additive
+  // slice. The flag is OFF, so no production SDK slot reaches them.
   // ─────────────────────────────────────────────────────────────────────────
-
-  async setModel(_provider: string, _modelId: string): Promise<any> { throw NOT_YET('setModel', '7d') }
-  async setThinkingLevel(_level: string): Promise<any> { throw NOT_YET('setThinkingLevel', '7d') }
-  async getAvailableModels(): Promise<any[]> { throw NOT_YET('getAvailableModels', '7d') }
-  async getCommands(): Promise<any[]> { throw NOT_YET('getCommands', '7d') }
+  async setModel(_provider: string, _modelId: string): Promise<any> { throw DEFERRED('setModel') }
+  async setThinkingLevel(_level: string): Promise<any> { throw DEFERRED('setThinkingLevel') }
+  async getAvailableModels(): Promise<any[]> { throw DEFERRED('getAvailableModels') }
+  async getCommands(): Promise<any[]> { throw DEFERRED('getCommands') }
   async getSessionStats(_timeoutMs?: number): Promise<any> {
     // In-process: usage is readable on demand from the live session (no RPC
     // round-trip, no 4s poll). Wrap in the SAME `{ data: SessionStats }`
@@ -372,10 +448,156 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     const stats = this._session?.getSessionStats?.()
     return { ok: true, type: 'get_session_stats', data: stats ?? null }
   }
-  async fork(_entryId: string): Promise<{ text?: string; cancelled?: boolean; sessionFile?: string | null }> { throw NOT_YET('fork', '7d') }
-  async getForkMessages(): Promise<any> { throw NOT_YET('getForkMessages', '7d') }
-  armExtensionUi(_id: string, _method: string, _timeoutMs: number): void { throw NOT_YET('armExtensionUi', '7d') }
-  respondExtensionUi(_id: string, _response: { cancelled?: boolean; value?: any }): boolean { throw NOT_YET('respondExtensionUi', '7d') }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Fork (slice 7d) — per the slice-6 spike (docs/spikes/fork-semantics.md)
+  //
+  // `runtime.fork()` creates a NEW .jsonl and replaces `runtime.session`
+  // IN-PLACE (the old session is torn down). The rebind hook has already
+  // repointed `this._session` / `this.sessionFile` at the new file and emitted
+  // `session_file` by the time `fork()` returns. We surface the NEW sessionFile
+  // so `chat.ts` can `createSlot` a fresh "Fork: …" slot adopting it.
+  //
+  // Parity requirement (spike DECISION): `chat.ts` MUST keep `pi.kill()`-ing the
+  // old slot. Because `runtime.fork()` hijacks the old runtime's `session` to
+  // point at the fork file, killing the old slot leaves exactly ONE live writer
+  // on the new file — no two-slots-one-JSONL corruption. Field is `selectedText`
+  // (NOT `editorText`).
+  // ─────────────────────────────────────────────────────────────────────────
+  async fork(entryId: string): Promise<{ text?: string; cancelled?: boolean; sessionFile?: string | null }> {
+    if (!this.runtime) return { cancelled: true, sessionFile: this.sessionFile }
+    const r = await this.runtime.fork(entryId)
+    const sessionFile = this.runtime.session?.sessionFile ?? this.sessionFile ?? null
+    this.sessionFile = sessionFile
+    return { text: r?.selectedText, cancelled: r?.cancelled, sessionFile }
+  }
+
+  /** Fork-able user messages for the fork selector. In-process analogue of the
+   *  RPC `get_fork_messages` request; returns the SAME `{ data: { messages } }`
+   *  envelope shape (`chat.ts` forwards it verbatim to the FE). */
+  async getForkMessages(): Promise<any> {
+    const messages = this._session?.getUserMessagesForForking?.() ?? []
+    return { ok: true, type: 'get_fork_messages', data: { messages } }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Extension-UI round-trip (slice 7d) — in-process analogue of slice-2's RPC
+  // path. The dialog methods on the `uiContext` (built in `_makeUiContext`)
+  // create a pending entry with a Promise resolver + emit the SAME internal
+  // `extension_ui` event that drives slice-2's `extension_ui_request` WS frame,
+  // so the SAME modal/endpoint serve both transports. `armExtensionUi` attaches
+  // the anti-wedge timer; `respondExtensionUi` resolves the awaited Promise with
+  // the per-method return type (design §6b).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /** Attach the anti-wedge auto-cancel timer to a pending extension-UI dialog.
+   *  For SDK slots the pending entry (with its Promise `resolve`) already exists
+   *  — it was created synchronously by the `uiContext` dialog method BEFORE it
+   *  emitted the `extension_ui` event that server.ts handles by calling this. We
+   *  merge the timer into that entry (rather than overwrite the resolver). The
+   *  fallback branch keeps the method safe if ever armed for an unknown id. */
+  armExtensionUi(id: string, method: string, timeoutMs: number): void {
+    const timer = setTimeout(() => { this.respondExtensionUi(id, { cancelled: true }) }, timeoutMs)
+    if (typeof timer.unref === 'function') timer.unref()
+    const existing = this._pendingExtensionUi.get(id)
+    if (existing) existing.timer = timer
+    else this._pendingExtensionUi.set(id, { method, timer })
+  }
+
+  /** Resolve a pending extension-UI dialog, mapping the browser response to the
+   *  `ExtensionUIContext` method's declared return type:
+   *    confirm            → boolean         (value truthy → true; cancel → false)
+   *    select/input/editor → string|undefined (cancel → undefined)
+   *  Returns false if `id` is unknown (already answered or timed out). */
+  respondExtensionUi(id: string, response: { cancelled?: boolean; value?: any }): boolean {
+    const pending = this._pendingExtensionUi.get(id)
+    if (!pending) return false
+    if (pending.timer) clearTimeout(pending.timer)
+    this._pendingExtensionUi.delete(id)
+    const resolve = pending.resolve
+    if (resolve) {
+      if (response.cancelled) {
+        resolve(pending.method === 'confirm' ? false : undefined)
+      } else if (pending.method === 'confirm') {
+        resolve(!!response.value)
+      } else {
+        resolve(response.value != null ? String(response.value) : undefined)
+      }
+    }
+    return true
+  }
+
+  // ── extension bindings + uiContext (slice 7d) ──
+
+  /** The `ExtensionBindings` re-applied to every replacement session. Only the
+   *  `uiContext` is host-provided; everything else uses the SDK defaults. */
+  private _extensionBindings(): { uiContext: ExtensionUIContext } {
+    if (!this._uiContext) this._uiContext = this._makeUiContext()
+    return { uiContext: this._uiContext }
+  }
+
+  /**
+   * Build the in-process `ExtensionUIContext`. The four dialog methods return a
+   * Promise that (a) emits the SAME internal `extension_ui` event slice-2's RPC
+   * path emits — so server.ts arms the timer + broadcasts the identical
+   * `extension_ui_request` frame and the SAME modal shows — and (b) resolves
+   * when `respondExtensionUi(id, …)` is called (or the 60s timer cancels). The
+   * non-dialog methods emit the SAME `extension_ui` shapes server.ts already
+   * handles (setStatus → statusKey/statusText; setWidget → widgetKey/
+   * widgetLines/widgetPlacement), matching the RPC-mode uiContext exactly.
+   * `custom` is a passthrough (resolves undefined, as RPC mode does). The
+   * TUI-only members are no-op stubs — a headless dashboard runtime never calls
+   * them. Cast through `unknown` because those stubs don't carry Theme types.
+   */
+  private _makeUiContext(): ExtensionUIContext {
+    const emit = (event: any) => this.emit('extension_ui', event)
+    // Create the pending entry (with its Promise resolver) BEFORE emitting, so
+    // the synchronous server.ts handler (which calls armExtensionUi) finds it.
+    const dialog = (method: string, extra: Record<string, any>): Promise<any> =>
+      new Promise((resolve) => {
+        const id = randomUUID()
+        this._pendingExtensionUi.set(id, { method, resolve })
+        emit({ type: 'extension_ui', method, id, ...extra })
+      })
+    const ctx = {
+      select: (title: string, options: string[], _opts?: any) => dialog('select', { title, options }),
+      confirm: (title: string, message: string, _opts?: any) => dialog('confirm', { title, message }),
+      input: (title: string, placeholder?: string, _opts?: any) => dialog('input', { title, placeholder }),
+      editor: (title: string, prefill?: string) => dialog('editor', { title, prefill }),
+      notify: (message: string, type?: 'info' | 'warning' | 'error') =>
+        emit({ type: 'extension_ui', method: 'notify', id: randomUUID(), message, notifyType: type }),
+      setStatus: (key: string, text: string | undefined) =>
+        emit({ type: 'extension_ui', method: 'setStatus', id: randomUUID(), statusKey: key, statusText: text }),
+      setWidget: (key: string, content: any, options?: any) => {
+        // Only string arrays cross the wire (matches RPC mode; factories ignored).
+        if (content === undefined || Array.isArray(content)) {
+          emit({ type: 'extension_ui', method: 'setWidget', id: randomUUID(), widgetKey: key, widgetLines: content, widgetPlacement: options?.placement })
+        }
+      },
+      setTitle: (title: string) =>
+        emit({ type: 'extension_ui', method: 'setTitle', id: randomUUID(), title }),
+      async custom() { return undefined },
+      onTerminalInput: () => () => {},
+      setWorkingMessage: () => {},
+      setWorkingVisible: () => {},
+      setWorkingIndicator: () => {},
+      setHiddenThinkingLabel: () => {},
+      setFooter: () => {},
+      setHeader: () => {},
+      pasteToEditor: () => {},
+      setEditorText: () => {},
+      getEditorText: () => '',
+      addAutocompleteProvider: () => {},
+      setEditorComponent: () => {},
+      getEditorComponent: () => undefined,
+      getAllThemes: () => [],
+      getTheme: () => undefined,
+      setTheme: () => ({ success: false as const }),
+      getToolsExpanded: () => false,
+      setToolsExpanded: () => {},
+    }
+    return ctx as unknown as ExtensionUIContext
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Stats (event-driven — design §5 "drop the 4s poll")

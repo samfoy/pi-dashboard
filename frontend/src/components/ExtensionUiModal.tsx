@@ -25,7 +25,11 @@ export default function ExtensionUiModal() {
 
   useEffect(() => {
     if (!req) return
-    setValue(req.defaultValue ?? '')
+    // Seed the draft value ONLY from a real prefill/default (editor prefill, or
+    // the legacy defaultValue which now carries prefill only). A `placeholder`
+    // is a non-submitting hint and must NOT seed the value — otherwise a blind
+    // submit would send the hint text back to the extension.
+    setValue(req.prefill ?? req.defaultValue ?? '')
     setSubmitting(false)
     // Focus the primary control on open.
     const t = setTimeout(() => firstFieldRef.current?.focus(), 30)
@@ -110,7 +114,7 @@ export default function ExtensionUiModal() {
               className="mb-3 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-accent"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              placeholder={req.defaultValue}
+              placeholder={req.placeholder}
             />
             <div className="flex justify-end gap-2">
               <button type="button" className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:bg-bg disabled:opacity-40" onClick={cancel} disabled={submitting}>Cancel</button>

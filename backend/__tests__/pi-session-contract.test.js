@@ -16,10 +16,11 @@
  * test seam), and liveness is exercised by poking each impl's internal
  * liveness source (RPC `proc`, SDK `_session`/`_disposed`).
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { PiRpcSession } from '../pi-manager.js'
 import { PiSdkSession } from '../pi-sdk-session.js'
 import { deriveStatsFrames } from '../pi-session.js'
+import { parseSessionMessages } from '../session-store.js'
 
 // Per-impl adapters: everything transport-specific is isolated here so the
 // test bodies below are written once.
@@ -393,5 +394,242 @@ describe('PiSdkSession stats + title/thinking sync (slice 7c)', () => {
     pi._translate({ type: 'thinking_level_changed', level: 'high' })
     expect(pi.thinkingLevel).toBe('high')
     expect(events.some(e => e.name === 'model_change')).toBe(false)
+  })
+})
+
+// ── Slice 7d: extension-UI uiContext round-trip + auto-rebind on session
+//    replacement + fork parity. All driven in-process (no live provider): the
+//    uiContext dialog methods and respondExtensionUi are exercised directly,
+//    and session replacement is simulated with a fake AgentSessionRuntime that
+//    invokes the registered rebind hooks exactly as the SDK runtime does. ──
+describe('PiSdkSession extension-UI uiContext round-trip (slice 7d)', () => {
+  // Faithfully simulate server.ts's `pi.on('extension_ui')` wiring: for the four
+  // dialog methods it arms the anti-wedge timer (armExtensionUi) and would
+  // broadcast the extension_ui_request frame. Capture the events so the test can
+  // learn the request id and answer via respondExtensionUi (the in-process
+  // analogue of the /extension-ui-response endpoint).
+  function wireServer(pi, timeoutMs = 60000) {
+    const requests = []
+    pi.on('extension_ui', (ev) => {
+      if (['confirm', 'select', 'input', 'editor'].includes(ev.method)) {
+        pi.armExtensionUi(ev.id, ev.method, timeoutMs)
+        requests.push(ev)
+      }
+    })
+    return requests
+  }
+
+  it('confirm resolves to a boolean (MUTATION SELF-CHECK on the return-type map)', async () => {
+    const pi = new PiSdkSession('sdk-ui-confirm')
+    const ui = pi._extensionBindings().uiContext
+    const reqs = wireServer(pi)
+    const p = ui.confirm('Proceed?', 'Are you sure?')
+    // The dialog emitted the SAME `extension_ui` event slice-2's RPC path emits.
+    expect(reqs).toHaveLength(1)
+    expect(reqs[0].method).toBe('confirm')
+    expect(reqs[0].title).toBe('Proceed?')
+    expect(reqs[0].message).toBe('Are you sure?')
+    pi.respondExtensionUi(reqs[0].id, { value: true })
+    const result = await p
+    // MUTATION SELF-CHECK: confirm MUST map to a boolean, not the raw value or a
+    // String(...). If respondExtensionUi returned `String(value)` for confirm,
+    // `typeof result` would be 'string' and this assertion fails.
+    expect(typeof result).toBe('boolean')
+    expect(result).toBe(true)
+  })
+
+  it('confirm with a falsy value resolves to false', async () => {
+    const pi = new PiSdkSession('sdk-ui-confirm2')
+    const ui = pi._extensionBindings().uiContext
+    const reqs = wireServer(pi)
+    const p = ui.confirm('t', 'm')
+    pi.respondExtensionUi(reqs[0].id, { value: false })
+    expect(await p).toBe(false)
+  })
+
+  it('select resolves to the chosen option string; event carries options', async () => {
+    const pi = new PiSdkSession('sdk-ui-select')
+    const ui = pi._extensionBindings().uiContext
+    const reqs = wireServer(pi)
+    const p = ui.select('Pick one', ['alpha', 'beta'])
+    expect(reqs[0].options).toEqual(['alpha', 'beta'])
+    pi.respondExtensionUi(reqs[0].id, { value: 'beta' })
+    const result = await p
+    expect(typeof result).toBe('string')
+    expect(result).toBe('beta')
+  })
+
+  it('input resolves to the entered string; event carries placeholder (NOT prefill)', async () => {
+    const pi = new PiSdkSession('sdk-ui-input')
+    const ui = pi._extensionBindings().uiContext
+    const reqs = wireServer(pi)
+    const p = ui.input('Name?', 'e.g. widget')
+    // input's hint is a placeholder — distinct from a prefill (the slice-2 fix).
+    expect(reqs[0].placeholder).toBe('e.g. widget')
+    expect(reqs[0].prefill).toBeUndefined()
+    pi.respondExtensionUi(reqs[0].id, { value: 'my-widget' })
+    expect(await p).toBe('my-widget')
+  })
+
+  it('editor resolves to the edited string; event carries prefill (a real default)', async () => {
+    const pi = new PiSdkSession('sdk-ui-editor')
+    const ui = pi._extensionBindings().uiContext
+    const reqs = wireServer(pi)
+    const p = ui.editor('Edit', 'seed text')
+    // editor's prefill IS a real default (distinct from input's placeholder hint).
+    expect(reqs[0].prefill).toBe('seed text')
+    expect(reqs[0].placeholder).toBeUndefined()
+    pi.respondExtensionUi(reqs[0].id, { value: 'edited text' })
+    expect(await p).toBe('edited text')
+  })
+
+  it('cancel maps per method: confirm→false, select/input/editor→undefined', async () => {
+    const mk = (method, ...args) => {
+      const pi = new PiSdkSession('sdk-ui-cancel-' + method)
+      const ui = pi._extensionBindings().uiContext
+      const reqs = wireServer(pi)
+      const p = ui[method](...args)
+      pi.respondExtensionUi(reqs[0].id, { cancelled: true })
+      return p
+    }
+    expect(await mk('confirm', 't', 'm')).toBe(false)
+    expect(await mk('select', 't', ['a'])).toBeUndefined()
+    expect(await mk('input', 't', 'hint')).toBeUndefined()
+    expect(await mk('editor', 't', 'seed')).toBeUndefined()
+  })
+
+  it('60s no-response times out to cancel (confirm→false) — anti-wedge preserved', async () => {
+    vi.useFakeTimers()
+    try {
+      const pi = new PiSdkSession('sdk-ui-timeout')
+      const ui = pi._extensionBindings().uiContext
+      wireServer(pi, 60000)
+      const p = ui.confirm('t', 'm')
+      // Nobody answers → the armed 60s timer must fire respondExtensionUi(cancel).
+      vi.advanceTimersByTime(60000)
+      expect(await p).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('respondExtensionUi returns false for an unknown id (already answered/timed out)', () => {
+    const pi = new PiSdkSession('sdk-ui-unknown')
+    expect(pi.respondExtensionUi('nope', { value: true })).toBe(false)
+  })
+
+  it('non-dialog methods emit the SAME extension_ui shapes server.ts handles', () => {
+    const pi = new PiSdkSession('sdk-ui-nondialog')
+    const ui = pi._extensionBindings().uiContext
+    const events = []
+    pi.on('extension_ui', (ev) => events.push(ev))
+    ui.setStatus('k1', 'working')
+    ui.setWidget('w1', ['line a', 'line b'])
+    ui.setTitle('New Title')
+    ui.notify('hi', 'info')
+    const status = events.find(e => e.method === 'setStatus')
+    expect(status).toMatchObject({ statusKey: 'k1', statusText: 'working' })
+    const widget = events.find(e => e.method === 'setWidget')
+    expect(widget).toMatchObject({ widgetKey: 'w1', widgetLines: ['line a', 'line b'] })
+    expect(events.find(e => e.method === 'setTitle')).toMatchObject({ title: 'New Title' })
+    expect(events.find(e => e.method === 'notify')).toMatchObject({ message: 'hi', notifyType: 'info' })
+  })
+})
+
+describe('PiSdkSession auto-rebind on session replacement + fork parity (slice 7d)', () => {
+  // Build a fake AgentSessionRuntime that stores the rebind hooks and, on
+  // fork(), invokes them EXACTLY as the real runtime does: beforeInvalidate()
+  // (tear down old subscription), replace `session` in-place with the new
+  // (forked) session, then rebindSession(newSession) (re-wire). Mirrors the
+  // slice-6 spike's "new file, in-place session replacement" semantics.
+  function makeFakeSessionRuntime() {
+    let unsubCalls = 0
+    const makeSession = (file) => ({
+      sessionFile: file,
+      bindExtensions: async () => {},
+      subscribe: () => () => { unsubCalls++ },
+    })
+    let current = makeSession('/tmp/orig.jsonl')
+    const runtime = {
+      _before: null,
+      _rebind: null,
+      get session() { return current },
+      setBeforeSessionInvalidate(fn) { this._before = fn },
+      setRebindSession(fn) { this._rebind = fn },
+      async fork(_entryId) {
+        this._before?.()                          // tear down old subscription
+        current = makeSession('/tmp/forked.jsonl') // NEW file, in-place replace
+        await this._rebind?.(current)              // re-wire against the new one
+        return { cancelled: false, selectedText: 'forked here' }
+      },
+      async dispose() {},
+    }
+    return { runtime, unsub: () => unsubCalls }
+  }
+
+  // Wire the hooks the way PiSdkSession._init does, then do the initial _rebind.
+  async function wireRuntime(pi, runtime) {
+    pi.runtime = runtime
+    runtime.setBeforeSessionInvalidate(() => { try { pi._unsubscribe?.() } catch { /* */ } pi._unsubscribe = null })
+    runtime.setRebindSession((s) => pi._rebind(s))
+    await pi._rebind(runtime.session)
+  }
+
+  it('rebind fires automatically on replacement: tears down old sub, repoints, emits session_file', async () => {
+    const pi = new PiSdkSession('sdk-rebind')
+    const { runtime, unsub } = makeFakeSessionRuntime()
+    await wireRuntime(pi, runtime)
+    expect(pi.sessionFile).toBe('/tmp/orig.jsonl')
+    expect(pi._session.sessionFile).toBe('/tmp/orig.jsonl')
+
+    const files = []
+    pi.on('session_file', (f) => files.push(f))
+
+    await pi.fork('entry-1')
+
+    // beforeSessionInvalidate tore down the OLD subscription exactly once —
+    // no silent dead slot.
+    expect(unsub()).toBe(1)
+    // rebindSession repointed us at the NEW session + file and re-emitted.
+    expect(pi._session.sessionFile).toBe('/tmp/forked.jsonl')
+    expect(pi.sessionFile).toBe('/tmp/forked.jsonl')
+    expect(files).toContain('/tmp/forked.jsonl')
+  })
+
+  it('fork() returns the NEW sessionFile + selectedText (RPC parity anchor)', async () => {
+    const pi = new PiSdkSession('sdk-fork')
+    const { runtime } = makeFakeSessionRuntime()
+    await wireRuntime(pi, runtime)
+    const res = await pi.fork('entry-1')
+    expect(res.cancelled).toBe(false)
+    expect(res.text).toBe('forked here')       // field is `selectedText`, mapped to text
+    // NEW file distinct from the parent → chat.ts createSlot's a fresh slot on
+    // it and kills the old slot (retained), leaving exactly one live writer.
+    expect(res.sessionFile).toBe('/tmp/forked.jsonl')
+    expect(res.sessionFile).not.toBe('/tmp/orig.jsonl')
+  })
+
+  it('fork() with no runtime resolves cancelled (defensive)', async () => {
+    const pi = new PiSdkSession('sdk-fork-noruntime')
+    const res = await pi.fork('entry-1')
+    expect(res.cancelled).toBe(true)
+  })
+
+  it('getForkMessages() surfaces getUserMessagesForForking() in the RPC envelope', async () => {
+    const pi = new PiSdkSession('sdk-forkmsgs')
+    pi._session = { getUserMessagesForForking: () => [{ entryId: 'e1', text: 'hello' }] }
+    const resp = await pi.getForkMessages()
+    expect(resp).toMatchObject({ type: 'get_fork_messages', data: { messages: [{ entryId: 'e1', text: 'hello' }] } })
+  })
+})
+
+describe('parseSessionMessages graceful-degrade (slice 7d fork deferred-write nuance)', () => {
+  it('returns [] (no throw) for a missing fork file', () => {
+    // A user-entry fork's new .jsonl may not exist on disk until the first
+    // assistant reply (slice-6 spike). chat.ts's post-fork parse must tolerate
+    // this rather than throw.
+    const missing = '/tmp/does-not-exist-fork-' + Date.now() + '.jsonl'
+    expect(() => parseSessionMessages(missing, 200)).not.toThrow()
+    expect(parseSessionMessages(missing, 200)).toEqual([])
   })
 })

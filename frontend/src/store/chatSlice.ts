@@ -34,6 +34,13 @@ export interface ExtensionUiRequest {
   prompt?: string
   message?: string
   options?: string[]
+  /** Real default value to seed the input/editor with (editor prefill). */
+  prefill?: string
+  /** Non-submitting hint shown as the input's placeholder attribute. Must NOT
+   *  be used to seed the field's value (a blind submit would send the hint). */
+  placeholder?: string
+  /** @deprecated legacy field — now carries the real prefill only. Prefer
+   *  `prefill` / `placeholder`. Kept for backward compatibility. */
   defaultValue?: string
 }
 

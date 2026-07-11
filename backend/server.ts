@@ -582,7 +582,16 @@ function _wireSlotEvents(pi: PiSession, slotKey: string): void {
         // Method-specific extras (all optional; undefined keys are dropped).
         message: event.message,          // confirm body
         options: event.options,          // select choices
-        defaultValue: event.prefill ?? event.placeholder, // editor prefill / input placeholder
+        // prefill (editor) vs placeholder (input) are DISTINCT: a prefill is a
+        // real default the modal seeds the value from; a placeholder is only a
+        // hint and must NOT be submitted blind. Carry both distinctly so the
+        // modal seeds the input value ONLY from a real prefill/default.
+        prefill: event.prefill,          // editor real default
+        placeholder: event.placeholder,  // input non-submitting hint
+        // `defaultValue` (legacy field, kept additive) now carries the real
+        // prefill ONLY — dropping the placeholder fallback that caused a blind
+        // submit to send the hint text.
+        defaultValue: event.prefill,
       })
     } else if (event.method === 'setStatus') {
       const clean = (event.statusText || '').replace(/\x1b\[[0-9;]*m/g, '')
