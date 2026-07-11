@@ -359,10 +359,13 @@ export function registerChatRoutes(deps: RouteDeps): void {
     res.json({ ok: true })
   })
 
-  // Set transport backend for a slot. `rpc` (default) recreates the slot's
-  // session on RPC and re-adopts its session file (mirrors the resume
-  // endpoint's create + wire). `sdk` is selectable but not implemented until
-  // slice 7 → 501; the slot is left untouched.
+  // Set transport backend for a slot. Both `rpc` (default) and `sdk` recreate
+  // the slot's session on the chosen transport and re-adopt its session file
+  // (mirrors the resume endpoint's create + wire). `sdk` is only constructed
+  // when a caller EXPLICITLY opts in here; the default transport stays `rpc`
+  // (resolveTransport unchanged) and no automatic path builds a PiSdkSession.
+  // PiSdkSession is fully implemented (slices 7a-7e), so the SDK branch now
+  // uses the SAME recreate/re-adopt/re-wire path as the RPC branch below.
   app.post('/api/chat/slots/:key/transport', (req: Request, res: Response) => {
     const { transport } = req.body || {}
     if (transport !== 'rpc' && transport !== 'sdk') {
@@ -371,9 +374,6 @@ export function registerChatRoutes(deps: RouteDeps): void {
     const key = req.params.key as string
     const pi = manager.getSlot(key)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
-    if (transport === 'sdk') {
-      return res.status(501).json({ error: 'SDK transport not implemented until slice 7' })
-    }
     // Recreate on the chosen transport, re-adopting session state. createSlot
     // with the same key registers a deferred slot that re-adopts `sessionFile`
     // on its next ensureRunning — no double process while we swap.

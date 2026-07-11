@@ -354,13 +354,19 @@ describe('POST /api/chat/slots/:key/transport', () => {
     )
   })
 
-  it('sdk returns 501 and does NOT recreate the slot', async () => {
+  it('sdk recreates + re-adopts the slot on the SDK transport (200)', async () => {
     const res = await post(port, '/api/chat/slots/chat-1-1000/transport', { transport: 'sdk' })
-    expect(res.status).toBe(501)
+    expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toMatchObject({ error: expect.any(String) })
-    expect(mockManager.deleteSlot).not.toHaveBeenCalled()
-    expect(mockManager.createSlot).not.toHaveBeenCalled()
+    expect(body).toMatchObject({ ok: true, transport: 'sdk' })
+    // The endpoint drives the SAME recreate/re-adopt path as the rpc branch,
+    // constructing the slot on the SDK transport (asserted via the manager seam).
+    expect(mockManager.deleteSlot).toHaveBeenCalledWith('chat-1-1000')
+    expect(mockManager.createSlot).toHaveBeenCalledWith(
+      expect.any(String),
+      null,
+      expect.objectContaining({ key: 'chat-1-1000', transport: 'sdk', sessionFile: '/tmp/s.jsonl' }),
+    )
   })
 
   it('invalid transport returns 400', async () => {
