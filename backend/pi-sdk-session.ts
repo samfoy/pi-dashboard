@@ -15,10 +15,10 @@
  * (default transport is `rpc`). Verified by direct-instantiation contract +
  * golden-transcript tests.
  *
- * Deferred (throw a clear "implemented in 7b/7c/7d" so the interface is still
- * satisfied): race-fix queueing / `willRetry` gating / `queue_update` (7b),
- * stats / `getSessionStats` (7c), extension-UI round-trip / model+thinking ops /
- * fork / rebind (7d).
+ * Deferred (throw a clear "implemented in 7c/7d" so the interface is still
+ * satisfied): stats / `getSessionStats` (7c), extension-UI round-trip /
+ * model+thinking ops / fork / rebind (7d). Race-fix queueing / `willRetry`
+ * gating / `queue_update` / `auto_retry_*` are handled here (slice 7b).
  *
  * ── TEST SEAM ──
  * `_translate(event)` is a pure function of `(event, this.messages)` and never
@@ -108,6 +108,17 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   _wired?: boolean
   _wasRestarted?: boolean
 
+  // ── Race-fix state (slice 7b) ──
+  /** True while an auto-retry is in flight (between `auto_retry_start` and its
+   *  matching `auto_retry_end`). Load-bearing: the stall detector must NOT read
+   *  the retry gap as idle, and queueing must keep treating the slot as busy.
+   *  Pairs with `agent_end.willRetry` (design section 2 / section 5). */
+  _retrying: boolean
+  /** Latest queued-prompt view from the SDK `queue_update` event. Replaces the
+   *  RPC `_outstandingPrompts` busy-detection view of the queue (design section
+   *  5). Not broadcast to the FE. */
+  _queued: { steering: readonly string[]; followUp: readonly string[] }
+
   // ── SDK-specific internals (NOT part of the PiSession contract) ──
   /** The live in-process agent session. `null` until `start()` resolves and
    *  after `dispose`. Liveness (`alive`) is derived from it. Tests never set it. */
@@ -141,6 +152,8 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     this._stopping = false
     this._pendingApproval = false
     this._outstandingPrompts = 0
+    this._retrying = false
+    this._queued = { steering: [], followUp: [] }
     this._streamIdx = -1
     this._toolsRunning = 0
     this._session = null
@@ -235,6 +248,7 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     if (this.running || this._stopping) {
       this.running = false
       this._stopping = false
+      this._retrying = false
       this._pendingApproval = false
       this._outstandingPrompts = 0
       this.emit('agent_end', { messages: [] })
@@ -268,15 +282,20 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   async prompt(message: string, images?: ImagePayload[]): Promise<boolean | void> {
     if (!this._session) return false
     const imgs = normalizeImages(images)
-    // Minimal streaming discipline: if a turn is already live, queue as
-    // followUp. The full isStreaming / queue_update race-fix lands in 7b.
-    const streamingBehavior = this.running ? ('followUp' as const) : undefined
+    // Steer-vs-queue is decided from the AUTHORITATIVE live streaming state
+    // (`session.isStreaming`), NOT a hand-mirrored counter that can drift on
+    // provider races (bedrock-mantle/openai-responses) or a phantom
+    // `agent_start` on resume (design section 5). If a turn is genuinely live
+    // the SDK reports `isStreaming === true` and we queue as followUp; after an
+    // idle resume it reports false, so we do NOT queue behind a nonexistent
+    // turn. During an auto-retry the SDK keeps `isStreaming === true`.
+    const streaming = this._session.isStreaming === true
     this._outstandingPrompts++
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
     await this._session.prompt(message, {
       ...(imgs ? { images: imgs } : {}),
-      ...(streamingBehavior ? { streamingBehavior } : {}),
+      ...(streaming ? { streamingBehavior: 'followUp' as const } : {}),
     })
     return true
   }
@@ -286,6 +305,7 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     if (!this.alive) {
       this.running = false
       this._stopping = false
+      this._retrying = false
       this._pendingApproval = false
       this._outstandingPrompts = 0
       this.emit('agent_end', { messages: [] })
@@ -308,9 +328,12 @@ export class PiSdkSession extends EventEmitter implements PiSession {
    *  user message, dispatches. */
   triggerAutoTurn(message: string): boolean {
     if (!this._session) return false
+    // Same authoritative streaming discipline as prompt(): queue as followUp
+    // only when the SDK reports a genuinely live turn.
+    const streaming = this._session.isStreaming === true
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString(), meta: { autoTrigger: true } })
-    void this._session.prompt(message, this.running ? { streamingBehavior: 'followUp' } : {})
+    void this._session.prompt(message, streaming ? { streamingBehavior: 'followUp' } : {})
     return true
   }
 
@@ -353,12 +376,10 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   // left untouched; the golden-transcript test enforces that this method's
   // output matches it for the same event fixtures. Any drift goes RED there.
   //
-  // Out-of-7a-scope SDK events (queue_update, session_info_changed,
-  // thinking_level_changed, auto_retry_*, compaction_*) are routed to the
-  // default `event` emission for now — none are consumed by server.ts today.
-  // agent_end.willRetry gating is intentionally NOT applied here (that's the
-  // 7b race-fix port); 7a mirrors RPC exactly, treating every agent_end as
-  // terminal.
+  // Out-of-scope SDK events (session_info_changed, thinking_level_changed,
+  // compaction_*) are routed to the default `event` emission for now — none are
+  // consumed by server.ts today. The race-fix events (queue_update,
+  // auto_retry_*) and `agent_end.willRetry` gating ARE handled here (slice 7b).
   // ─────────────────────────────────────────────────────────────────────────
   _translate(event: any): void {
     const { type } = event
@@ -374,8 +395,23 @@ export class PiSdkSession extends EventEmitter implements PiSession {
         break
 
       case 'agent_end':
+        // Terminal handling (partial->final splice + `agent_end` emission, which
+        // drives `chat_done` in _wireSlotEvents) is GATED on willRetry === false
+        // (design section 2, load-bearing DELTA vs RPC). When willRetry === true
+        // an auto-retry is about to fire; emitting the terminal here would
+        // produce a premature done + a phantom re-start (exactly the phantom-turn
+        // class the race-fixes prevent, section 5). Hold the turn open: keep
+        // running, keep the partial-stream marker, and bump activity so the
+        // stall detector doesn't read the retry gap as idle.
+        if (event.willRetry === true) {
+          this._retrying = true
+          this._lastActivity = Date.now()
+          this.emit('log', { level: 'warn', msg: `Slot ${this.slotKey}: agent_end willRetry=true — auto-retry pending, holding turn open (no chat_done)` })
+          break
+        }
         this.running = false
         this._stopping = false
+        this._retrying = false
         this._pendingApproval = false
         if (this._outstandingPrompts > 0) this._outstandingPrompts--
         this._lastActivity = Date.now()
@@ -512,10 +548,36 @@ export class PiSdkSession extends EventEmitter implements PiSession {
         this.emit('extension_error', event)
         break
 
+      case 'queue_update':
+        // Replaces the RPC `_outstandingPrompts` busy-detection view of the
+        // queue (design section 5). Track the authoritative queued-prompt state
+        // and bump activity. Not broadcast to the FE (no frame change); emitted
+        // internally for any state consumer.
+        this._queued = { steering: event.steering || [], followUp: event.followUp || [] }
+        this._lastActivity = Date.now()
+        this.emit('queue_update', event)
+        break
+
+      case 'auto_retry_start':
+        // Pairs with `agent_end.willRetry` (design section 2). Mark retry-in-
+        // progress and emit a log line — the emission bumps _wireSlotEvents'
+        // _lastEventTime so the stall detector does NOT read the retry gap as
+        // idle. No FE frame change.
+        this._retrying = true
+        this._lastActivity = Date.now()
+        this.emit('log', { level: 'warn', msg: `Slot ${this.slotKey}: auto-retry ${event.attempt}/${event.maxAttempts} in ${event.delayMs}ms—${event.errorMessage || ''}` })
+        break
+
+      case 'auto_retry_end':
+        this._retrying = false
+        this._lastActivity = Date.now()
+        this.emit('log', { level: event.success ? 'info' : 'warn', msg: `Slot ${this.slotKey}: auto-retry ${event.success ? 'succeeded' : 'failed'}${event.finalError ? ': ' + event.finalError : ''}` })
+        break
+
       default:
-        // queue_update / session_info_changed / thinking_level_changed /
-        // auto_retry_* / compaction_* — none consumed by server.ts today;
-        // routed here until their owning slices (7b/7c/7d) wire them.
+        // session_info_changed / thinking_level_changed / compaction_* — none
+        // consumed by server.ts today; routed here until their owning slices
+        // (7c/7d) wire them.
         this.emit('event', event)
     }
   }

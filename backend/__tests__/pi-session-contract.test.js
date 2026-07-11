@@ -36,6 +36,21 @@ const impls = [
       (pi) => { pi.proc = { killed: true, exitCode: null } },
       (pi) => { pi.proc = { killed: false, exitCode: 0 } },
     ],
+    // Steer-vs-queue seam: prime the impl's busy state, dispatch a prompt, and
+    // return the `streamingBehavior` the impl chose ('followUp' | undefined).
+    // RPC reads its authoritative busy state from a `get_state` round-trip when
+    // its local counter is clean, so stub `request()` to reflect `streaming`.
+    capturePrompt: async (pi, msg, { streaming }) => {
+      const writes = []
+      pi.proc = { killed: false, exitCode: null, stdin: { writable: true, write: (d) => writes.push(d) } }
+      pi._readyPromise = null
+      pi.running = streaming
+      pi._outstandingPrompts = 0
+      pi.request = async () => ({ data: { isStreaming: streaming } })
+      await pi.prompt(msg)
+      const cmd = JSON.parse(writes[writes.length - 1].trim())
+      return cmd.streamingBehavior
+    },
   },
   {
     name: 'PiSdkSession',
@@ -48,6 +63,14 @@ const impls = [
       (pi) => { pi._session = null },
       (pi) => { pi._session = {}; pi._disposed = true },
     ],
+    // Steer-vs-queue seam: SDK decides from the AUTHORITATIVE `session.isStreaming`
+    // getter, so inject a fake session exposing it plus a capturing `prompt`.
+    capturePrompt: async (pi, msg, { streaming }) => {
+      let opts
+      pi._session = { isStreaming: streaming, prompt: async (_m, o) => { opts = o } }
+      await pi.prompt(msg)
+      return opts?.streamingBehavior
+    },
   },
 ]
 
@@ -62,7 +85,7 @@ function capture(pi) {
   return events
 }
 
-describe.each(impls)('PiSession contract — $name', ({ transport, make, feed, setAlive, deadStates }) => {
+describe.each(impls)('PiSession contract — $name', ({ transport, make, feed, setAlive, deadStates, capturePrompt }) => {
   let pi
   beforeEach(() => { pi = make() })
 
@@ -155,5 +178,100 @@ describe.each(impls)('PiSession contract — $name', ({ transport, make, feed, s
       expect(pi.running).toBe(false)
       expect(events.find(e => e.name === 'agent_end')).toBeDefined()
     })
+  })
+
+  // ── prompt-queueing / race-fix: steer-vs-followUp driven by busy state ──
+  // The dashboard queues a prompt as `followUp` iff a turn is genuinely live.
+  // RPC reads that from a `get_state` isStreaming round-trip; the SDK reads the
+  // authoritative `session.isStreaming` getter. Both must pick the SAME behavior.
+  describe('prompt queueing (steer vs followUp)', () => {
+    it('sends a fresh prompt (no followUp) when NOT streaming', async () => {
+      const behavior = await capturePrompt(make(), 'hello', { streaming: false })
+      expect(behavior).toBeUndefined()
+    })
+
+    it('queues as followUp when a turn is already streaming', async () => {
+      const behavior = await capturePrompt(make(), 'hello again', { streaming: true })
+      expect(behavior).toBe('followUp')
+    })
+  })
+})
+
+// ── SDK-only race-fix behaviors (willRetry gating / auto_retry / queue_update /
+//    phantom-agent_start-on-resume). These are genuine DELTAS the SDK path adds
+//    on top of the shared contract (design section 2 / section 5) — RPC has no
+//    willRetry field and treats every agent_end as terminal, so they can't run
+//    against both impls. ──
+describe('PiSdkSession race-fix (SDK-only)', () => {
+  it('agent_end willRetry:true does NOT emit a terminal and does not finalize', () => {
+    const pi = new PiSdkSession('sdk-retry')
+    const events = capture(pi)
+    pi._translate({ type: 'agent_start' })
+    expect(pi.running).toBe(true)
+    const before = pi.messages.length
+    pi._translate({
+      type: 'agent_end',
+      willRetry: true,
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'partial' }] }],
+    })
+    // No premature terminal — the turn is held open for the pending auto-retry.
+    expect(events.filter(e => e.name === 'agent_end')).toHaveLength(0)
+    expect(pi.running).toBe(true)
+    expect(pi._retrying).toBe(true)
+    // Not finalized: the willRetry branch skips the splice + message build.
+    expect(pi.messages.length).toBe(before)
+  })
+
+  it('willRetry:true then a following willRetry:false emits exactly one terminal', () => {
+    const pi = new PiSdkSession('sdk-retry2')
+    const events = capture(pi)
+    pi._translate({ type: 'agent_start' })
+    pi._translate({ type: 'agent_end', willRetry: true, messages: [] })
+    pi._translate({ type: 'auto_retry_start', attempt: 1, maxAttempts: 3, delayMs: 100, errorMessage: 'boom' })
+    pi._translate({ type: 'auto_retry_end', success: true, attempt: 1 })
+    pi._translate({
+      type: 'agent_end',
+      willRetry: false,
+      messages: [{ role: 'assistant', content: [{ type: 'text', text: 'final answer' }] }],
+    })
+    expect(events.filter(e => e.name === 'agent_end')).toHaveLength(1)
+    expect(pi.running).toBe(false)
+    expect(pi._retrying).toBe(false)
+    expect(pi.messages.some(m => m.role === 'assistant' && m.content === 'final answer')).toBe(true)
+  })
+
+  it('auto_retry_start/end track retry-in-progress and emit a log so the gap is not idle', () => {
+    const pi = new PiSdkSession('sdk-retry3')
+    const events = capture(pi)
+    pi._translate({ type: 'auto_retry_start', attempt: 1, maxAttempts: 3, delayMs: 50, errorMessage: 'x' })
+    expect(pi._retrying).toBe(true)
+    // The log emission bumps _wireSlotEvents' _lastEventTime → stall detector
+    // won't read the retry gap as idle.
+    expect(events.some(e => e.name === 'log')).toBe(true)
+    pi._translate({ type: 'auto_retry_end', success: true, attempt: 1 })
+    expect(pi._retrying).toBe(false)
+  })
+
+  it('queue_update tracks the authoritative queued-prompt state', () => {
+    const pi = new PiSdkSession('sdk-q')
+    pi._translate({ type: 'queue_update', steering: ['s1'], followUp: ['f1', 'f2'] })
+    expect(pi._queued).toEqual({ steering: ['s1'], followUp: ['f1', 'f2'] })
+  })
+
+  it('phantom-agent_start-on-resume: after adoption isStreaming is false, no turn emitted, prompt not queued', async () => {
+    // Model adoption: a resumed session whose live isStreaming is false (idle).
+    // No agent_start is synthesized from adoption, and a subsequent prompt must
+    // NOT queue behind a phantom turn (the RPC _wasRestarted fix's SDK analogue,
+    // which falls out of reading session.isStreaming instead of a stale mirror).
+    const pi = new PiSdkSession('sdk-resume', { sessionFile: '/tmp/resume.jsonl' })
+    const events = capture(pi)
+    let opts
+    pi._session = { isStreaming: false, sessionFile: '/tmp/resume.jsonl', prompt: async (_m, o) => { opts = o } }
+    pi.ready = true
+    expect(events.some(e => e.name === 'agent_start')).toBe(false)
+    expect(pi.running).toBe(false)
+    expect(pi._session.isStreaming).toBe(false)
+    await pi.prompt('resume message')
+    expect(opts?.streamingBehavior).toBeUndefined()
   })
 })
