@@ -53,6 +53,18 @@ const impls = [
       const cmd = JSON.parse(writes[writes.length - 1].trim())
       return cmd.streamingBehavior
     },
+    // Model/command surface seam (slice 7e). RPC reads these via a `request()`
+    // round-trip, so reflect the primed models/commands back through the stub.
+    primeModelSurface: (pi, { models = [], commands = [] } = {}) => {
+      pi.proc = { killed: false, exitCode: null }
+      pi.request = async (cmd) => {
+        if (cmd.type === 'get_available_models') return { data: { models } }
+        if (cmd.type === 'get_commands') return { data: { commands } }
+        if (cmd.type === 'set_model') return { ok: true, type: 'set_model', data: { provider: cmd.provider, id: cmd.modelId } }
+        if (cmd.type === 'set_thinking_level') return { ok: true, type: 'set_thinking_level' }
+        return { data: {} }
+      }
+    },
   },
   {
     name: 'PiSdkSession',
@@ -73,6 +85,28 @@ const impls = [
       await pi.prompt(msg)
       return opts?.streamingBehavior
     },
+    // Model/command surface seam (slice 7e). SDK reads from the in-process
+    // session's modelRegistry / extensionRunner / promptTemplates /
+    // resourceLoader, so inject a fake session exposing those. The command
+    // sources are split back into their native shapes so getCommands()
+    // reconstructs the SAME `{name,description,source,sourceInfo}` array.
+    primeModelSurface: (pi, { models = [], commands = [] } = {}) => {
+      const ext = commands.filter(c => c.source === 'extension')
+        .map(c => ({ invocationName: c.name, description: c.description, sourceInfo: c.sourceInfo }))
+      const tmpl = commands.filter(c => c.source === 'prompt')
+        .map(c => ({ name: c.name, description: c.description, sourceInfo: c.sourceInfo }))
+      const skills = commands.filter(c => c.source === 'skill')
+        .map(c => ({ name: c.name.replace(/^skill:/, ''), description: c.description, sourceInfo: c.sourceInfo }))
+      pi._session = {
+        modelRegistry: { getAvailable: () => models },
+        setModel: async () => {},
+        setThinkingLevel: () => {},
+        extensionRunner: { getRegisteredCommands: () => ext },
+        promptTemplates: tmpl,
+        resourceLoader: { getSkills: () => ({ skills }) },
+      }
+      pi._disposed = false
+    },
   },
 ]
 
@@ -87,7 +121,7 @@ function capture(pi) {
   return events
 }
 
-describe.each(impls)('PiSession contract — $name', ({ transport, make, feed, setAlive, deadStates, capturePrompt }) => {
+describe.each(impls)('PiSession contract — $name', ({ transport, make, feed, setAlive, deadStates, capturePrompt, primeModelSurface }) => {
   let pi
   beforeEach(() => { pi = make() })
 
@@ -195,6 +229,45 @@ describe.each(impls)('PiSession contract — $name', ({ transport, make, feed, s
     it('queues as followUp when a turn is already streaming', async () => {
       const behavior = await capturePrompt(make(), 'hello again', { streaming: true })
       expect(behavior).toBe('followUp')
+    })
+  })
+
+  // ── Model / command surface (slice 7e): parity across both transports for
+  //    the shapes that are transport-agnostic. `getAvailableModels`/`getCommands`
+  //    return byte-identical arrays; `setModel`/`setThinkingLevel` are callable
+  //    and resolve cleanly. Deep SDK-specific effects (model_change emission,
+  //    local state update, mutation self-check) live in the SDK-only block. ──
+  describe('model / command surface (slice 7e)', () => {
+    const MODELS = [
+      { provider: 'anthropic', id: 'claude-sonnet', name: 'Claude Sonnet' },
+      { provider: 'openai', id: 'gpt-5', name: 'GPT-5' },
+    ]
+    const CMDS = [
+      { name: '/deploy', description: 'Deploy the thing', source: 'extension', sourceInfo: { file: 'ext.ts' } },
+      { name: 'review', description: 'Review a PR', source: 'prompt', sourceInfo: { file: 'review.md' } },
+      { name: 'skill:humanizer', description: 'Humanize text', source: 'skill', sourceInfo: { file: 'SKILL.md' } },
+    ]
+
+    it('getAvailableModels() returns the available model list (identical shape)', async () => {
+      primeModelSurface(pi, { models: MODELS })
+      expect(await pi.getAvailableModels()).toEqual(MODELS)
+    })
+
+    it('getCommands() returns extension + prompt + skill commands in the shared shape', async () => {
+      primeModelSurface(pi, { commands: CMDS })
+      expect(await pi.getCommands()).toEqual(CMDS)
+    })
+
+    it('setModel() resolves for an available model on both transports', async () => {
+      primeModelSurface(pi, { models: MODELS })
+      await expect(pi.setModel('anthropic', 'claude-sonnet')).resolves.toBeDefined()
+    })
+
+    it('setThinkingLevel() resolves without rejecting on both transports', async () => {
+      primeModelSurface(pi, { models: MODELS })
+      let err
+      await pi.setThinkingLevel('high').catch(e => { err = e })
+      expect(err).toBeUndefined()
     })
   })
 })
@@ -394,6 +467,79 @@ describe('PiSdkSession stats + title/thinking sync (slice 7c)', () => {
     pi._translate({ type: 'thinking_level_changed', level: 'high' })
     expect(pi.thinkingLevel).toBe('high')
     expect(events.some(e => e.name === 'model_change')).toBe(false)
+  })
+})
+
+// ── Slice 7e: SDK-specific model/command ops — deep effects that are NOT
+//    transport-agnostic (RPC delegates these side effects to chat.ts routes,
+//    the SDK impl applies them to the live in-process session directly). Driven
+//    with an injected fake session (no live provider). ──
+describe('PiSdkSession model/command ops (slice 7e)', () => {
+  const MODELS = [
+    { provider: 'anthropic', id: 'claude-sonnet', name: 'Claude Sonnet' },
+    { provider: 'openai', id: 'gpt-5', name: 'GPT-5' },
+  ]
+  // Inject a fake in-process session exposing exactly the surface the four
+  // methods read: modelRegistry.getAvailable(), setModel(model), setThinkingLevel(l).
+  function primeSession(pi, { models = MODELS } = {}) {
+    const calls = { setModel: [], setThinkingLevel: [] }
+    pi._session = {
+      modelRegistry: { getAvailable: () => models },
+      setModel: async (m) => { calls.setModel.push(m) },
+      setThinkingLevel: (l) => { calls.setThinkingLevel.push(l) },
+    }
+    pi._disposed = false
+    return calls
+  }
+
+  it('setModel() applies the resolved Model to the session, updates state, and emits model_change', async () => {
+    const pi = new PiSdkSession('sdk-setmodel')
+    pi.modelProvider = 'openai'; pi.modelId = 'gpt-5'
+    const calls = primeSession(pi)
+    const events = capture(pi)
+    const ret = await pi.setModel('anthropic', 'claude-sonnet')
+    // The FULL Model object (not just {provider,id}) is handed to session.setModel.
+    expect(calls.setModel).toEqual([MODELS[0]])
+    expect(ret).toEqual(MODELS[0])
+    expect(pi.modelProvider).toBe('anthropic')
+    expect(pi.modelId).toBe('claude-sonnet')
+    // Same argument-less model_change frame the RPC path emits → server.ts
+    // persists + broadcastSlots → identical WS envelope.
+    const mc = events.filter(e => e.name === 'model_change')
+    expect(mc.length).toBe(1)
+    expect(mc[0].payload).toBeUndefined()
+  })
+
+  it('setModel() with an unchanged model does NOT re-emit model_change', async () => {
+    const pi = new PiSdkSession('sdk-setmodel-noop')
+    pi.modelProvider = 'anthropic'; pi.modelId = 'claude-sonnet'
+    primeSession(pi)
+    const events = capture(pi)
+    await pi.setModel('anthropic', 'claude-sonnet')
+    expect(events.some(e => e.name === 'model_change')).toBe(false)
+  })
+
+  it('setModel() throws when the requested model is not auth-available', async () => {
+    const pi = new PiSdkSession('sdk-setmodel-missing')
+    primeSession(pi, { models: [MODELS[1]] })
+    await expect(pi.setModel('anthropic', 'claude-sonnet')).rejects.toThrow(/Model not found/)
+  })
+
+  it('setThinkingLevel() applies to the session, updates state, and emits model_change', async () => {
+    const pi = new PiSdkSession('sdk-setthink')
+    pi.thinkingLevel = 'medium'
+    const calls = primeSession(pi)
+    const events = capture(pi)
+    await pi.setThinkingLevel('high')
+    expect(calls.setThinkingLevel).toEqual(['high'])
+    expect(pi.thinkingLevel).toBe('high')
+    expect(events.some(e => e.name === 'model_change')).toBe(true)
+  })
+
+  it('getAvailableModels() / getCommands() return [] when no live session (defensive)', async () => {
+    const pi = new PiSdkSession('sdk-nosession')
+    expect(await pi.getAvailableModels()).toEqual([])
+    expect(await pi.getCommands()).toEqual([])
   })
 })
 

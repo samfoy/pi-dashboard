@@ -15,10 +15,14 @@
  * (default transport is `rpc`). Verified by direct-instantiation contract +
  * golden-transcript tests.
  *
- * Deferred (throw a clear "implemented in <slice>" so the interface is still
- * satisfied): model/thinking ops (`setModel`/`setThinkingLevel`) + model/command
- * listing (`getAvailableModels`/`getCommands`) — a separate additive slice; the
- * flag is OFF so no SDK slot exercises them. Extension-UI round-trip
+ * ── SLICE 7e (this file) ──
+ * The model/command surface (`setModel`/`setThinkingLevel`/`getAvailableModels`/
+ * `getCommands`) is now implemented against the per-slot in-process session's
+ * `modelRegistry`/`extensionRunner`/`promptTemplates`/`resourceLoader`, mirroring
+ * the RPC `rpc-mode.js` handlers for byte-identical `.data` shapes and the same
+ * argument-less `model_change` internal event. Every method on the core
+ * PiSession surface is now fully implemented — none throw an
+ * "implemented-later" stub. Extension-UI round-trip
  * (`armExtensionUi`/`respondExtensionUi` + the `bindExtensions` `uiContext`),
  * auto-rebind on session replacement, and `fork`/`getForkMessages` are
  * implemented HERE (slice 7d). Race-fix queueing / `willRetry` gating /
@@ -87,11 +91,6 @@ function normalizeImages(images?: ImagePayload[]): { type: 'image'; mimeType: st
     }))
     .filter(img => img.data)
 }
-
-/** Methods intentionally deferred past 7d (parity "done" per plan §8, minus the
- *  model/command surface). The flag is OFF, so no SDK slot reaches these. */
-const DEFERRED = (method: string) =>
-  new Error(`PiSdkSession.${method}() is intentionally deferred — model/command ops land in a separate additive slice; not required for the flag-OFF core surface`)
 
 export class PiSdkSession extends EventEmitter implements PiSession {
   slotKey: string
@@ -430,16 +429,93 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Model / command surface (intentionally deferred past 7d)
+  // Model / command surface (slice 7e — SDK parity with the RPC path)
   //
-  // These are the only remaining interface methods that throw. They are NOT in
-  // 7d's scope (extension-UI + rebind + fork) and land in a later additive
-  // slice. The flag is OFF, so no production SDK slot reaches them.
+  // Each of these mirrors the SAME operation the RPC server performs in
+  // `rpc-mode.js` (get_available_models / set_model / set_thinking_level /
+  // get_commands), reading from the per-slot in-process session's
+  // `modelRegistry`, `extensionRunner`, `promptTemplates`, and `resourceLoader`.
+  // The returned shapes are byte-identical to the RPC `.data.{models,commands}`
+  // payloads so `chat.ts` / `server.ts` need no SDK-specific branching.
   // ─────────────────────────────────────────────────────────────────────────
-  async setModel(_provider: string, _modelId: string): Promise<any> { throw DEFERRED('setModel') }
-  async setThinkingLevel(_level: string): Promise<any> { throw DEFERRED('setThinkingLevel') }
-  async getAvailableModels(): Promise<any[]> { throw DEFERRED('getAvailableModels') }
-  async getCommands(): Promise<any[]> { throw DEFERRED('getCommands') }
+
+  /** Change the in-process session's model, mirroring RPC's `set_model` handler:
+   *  resolve the model out of the per-slot ModelRegistry's *available* set (auth
+   *  configured), apply it to the live session, update our persisted
+   *  `modelProvider`/`modelId`, and emit the SAME argument-less `model_change`
+   *  internal event the RPC path emits (server.ts persists + broadcastSlots on
+   *  it → identical WS frame). Returns the resolved model (RPC returns it too). */
+  async setModel(provider: string, modelId: string): Promise<any> {
+    const s = this._session
+    if (!s) throw new Error('PiSdkSession.setModel(): no live session')
+    const models = await s.modelRegistry.getAvailable()
+    const model = models.find((m: any) => m.provider === provider && m.id === modelId)
+    if (!model) throw new Error(`Model not found: ${provider}/${modelId}`)
+    await s.setModel(model)
+    const changed = this.modelProvider !== provider || this.modelId !== modelId
+    this.modelProvider = provider
+    this.modelId = modelId
+    if (changed) this.emit('model_change')
+    return model
+  }
+
+  /** Set the live session's thinking level (mirrors RPC's `set_thinking_level`,
+   *  which is synchronous on the session), update our persisted `thinkingLevel`,
+   *  and emit `model_change` so the FE chip stays in sync (server.ts broadcasts
+   *  slots on it). The RPC path drives the same broadcast via chat.ts's
+   *  `/thinking` route; emitting here keeps the internal contract self-consistent. */
+  async setThinkingLevel(level: string): Promise<any> {
+    const s = this._session
+    if (!s) throw new Error('PiSdkSession.setThinkingLevel(): no live session')
+    s.setThinkingLevel(level as any)
+    const changed = this.thinkingLevel !== level
+    this.thinkingLevel = level
+    if (changed) this.emit('model_change')
+  }
+
+  /** Enumerate models with auth configured, from the per-slot ModelRegistry —
+   *  the SAME `session.modelRegistry.getAvailable()` set the RPC
+   *  `get_available_models` handler returns (identical `Model` objects). */
+  async getAvailableModels(): Promise<any[]> {
+    const s = this._session
+    if (!s) return []
+    return await s.modelRegistry.getAvailable()
+  }
+
+  /** List slash-invocable commands (extension commands + prompt templates +
+   *  skills), byte-for-byte mirroring the RPC `get_commands` handler's shape:
+   *  `{ name, description, source, sourceInfo }` per entry, with `skill:` prefix
+   *  on skills. Reads the live session's runner/templates/resourceLoader. */
+  async getCommands(): Promise<any[]> {
+    const s = this._session
+    if (!s) return []
+    const commands: any[] = []
+    for (const command of s.extensionRunner.getRegisteredCommands()) {
+      commands.push({
+        name: command.invocationName,
+        description: command.description,
+        source: 'extension',
+        sourceInfo: command.sourceInfo,
+      })
+    }
+    for (const template of s.promptTemplates) {
+      commands.push({
+        name: template.name,
+        description: template.description,
+        source: 'prompt',
+        sourceInfo: template.sourceInfo,
+      })
+    }
+    for (const skill of s.resourceLoader.getSkills().skills) {
+      commands.push({
+        name: `skill:${skill.name}`,
+        description: skill.description,
+        source: 'skill',
+        sourceInfo: skill.sourceInfo,
+      })
+    }
+    return commands
+  }
   async getSessionStats(_timeoutMs?: number): Promise<any> {
     // In-process: usage is readable on demand from the live session (no RPC
     // round-trip, no 4s poll). Wrap in the SAME `{ data: SessionStats }`
