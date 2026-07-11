@@ -36,6 +36,7 @@ import { join } from 'path'
 import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
 import type { PiSession, PiTransport, ImagePayload } from './pi-session.js'
+import { deriveStatsFrames } from './pi-session.js'
 import {
   createAgentSessionServices,
   createAgentSessionFromServices,
@@ -363,11 +364,43 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   async setThinkingLevel(_level: string): Promise<any> { throw NOT_YET('setThinkingLevel', '7d') }
   async getAvailableModels(): Promise<any[]> { throw NOT_YET('getAvailableModels', '7d') }
   async getCommands(): Promise<any[]> { throw NOT_YET('getCommands', '7d') }
-  async getSessionStats(_timeoutMs?: number): Promise<any> { throw NOT_YET('getSessionStats', '7c') }
+  async getSessionStats(_timeoutMs?: number): Promise<any> {
+    // In-process: usage is readable on demand from the live session (no RPC
+    // round-trip, no 4s poll). Wrap in the SAME `{ data: SessionStats }`
+    // envelope the RPC `get_session_stats` response uses, so any direct caller
+    // (and `deriveStatsFrames`) treats both transports identically.
+    const stats = this._session?.getSessionStats?.()
+    return { ok: true, type: 'get_session_stats', data: stats ?? null }
+  }
   async fork(_entryId: string): Promise<{ text?: string; cancelled?: boolean; sessionFile?: string | null }> { throw NOT_YET('fork', '7d') }
   async getForkMessages(): Promise<any> { throw NOT_YET('getForkMessages', '7d') }
   armExtensionUi(_id: string, _method: string, _timeoutMs: number): void { throw NOT_YET('armExtensionUi', '7d') }
   respondExtensionUi(_id: string, _response: { cancelled?: boolean; value?: any }): boolean { throw NOT_YET('respondExtensionUi', '7d') }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Stats (event-driven — design §5 "drop the 4s poll")
+  //
+  // Usage is read on demand from the live session (no timer). `_emitStats` is
+  // called from `_translate` on `turn_end` and `agent_end`; it derives the
+  // context_usage/token_stats frame bodies through the SAME `deriveStatsFrames`
+  // helper the RPC poller uses, so the WS frames server.ts broadcasts are
+  // byte-identical across transports. The emitted internal events
+  // (`context_usage` / `token_stats`) are what `_wireSlotEvents` broadcasts for
+  // SDK slots (RPC slots never emit them — they poll instead).
+  // ─────────────────────────────────────────────────────────────────────────
+  private _emitStats(): void {
+    const stats = this._session?.getSessionStats?.()
+    if (!stats) return
+    const { contextUsage, tokenStats } = deriveStatsFrames({ data: stats })
+    if (contextUsage) {
+      this._contextUsage = contextUsage
+      this.emit('context_usage', contextUsage)
+    }
+    if (tokenStats) {
+      this._tokenStats = tokenStats
+      this.emit('token_stats', tokenStats)
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // CORE event translation — the parity boundary
@@ -491,6 +524,10 @@ export class PiSdkSession extends EventEmitter implements PiSession {
           }
         }
         this.emit('agent_end', event)
+        // Event-driven stats (design §5): read live usage now that the turn is
+        // terminal and emit the context_usage/token_stats frames. Replaces the
+        // RPC 4s poller for SDK slots.
+        this._emitStats()
         break
 
       case 'message_update': {
@@ -540,8 +577,14 @@ export class PiSdkSession extends EventEmitter implements PiSession {
         break
 
       case 'turn_start':
+        this.emit(type, event)
+        break
+
       case 'turn_end':
         this.emit(type, event)
+        // Mid-conversation turn boundary: refresh usage so multi-turn stats
+        // stay live without a poll (design §5). Same frames as agent_end.
+        this._emitStats()
         break
 
       case 'extension_error':
@@ -574,10 +617,31 @@ export class PiSdkSession extends EventEmitter implements PiSession {
         this.emit('log', { level: event.success ? 'info' : 'warn', msg: `Slot ${this.slotKey}: auto-retry ${event.success ? 'succeeded' : 'failed'}${event.finalError ? ': ' + event.finalError : ''}` })
         break
 
+      case 'session_info_changed':
+        // DELTA (design §2): slot titles were derived by polling
+        // getState()->sessionName after each agent_end. Map the event to an
+        // internal `session_info_changed {name}` emission that _wireSlotEvents
+        // consumes for SDK slots — removing that poll. RPC has no such event
+        // (its _handleEvent routes it to the generic `event`), so the RPC poll
+        // path is untouched.
+        this.emit('session_info_changed', { name: event.name })
+        break
+
+      case 'thinking_level_changed':
+        // New (design §2, minor): keep this.thinkingLevel in sync and emit
+        // `model_change` — the SAME frame the RPC path emits for a model/thinking
+        // change — so the FE settings chip updates (server.ts persists +
+        // broadcasts slots on model_change).
+        if (typeof event.level === 'string') {
+          const changed = this.thinkingLevel !== event.level
+          this.thinkingLevel = event.level
+          if (changed) this.emit('model_change')
+        }
+        break
+
       default:
-        // session_info_changed / thinking_level_changed / compaction_* — none
-        // consumed by server.ts today; routed here until their owning slices
-        // (7c/7d) wire them.
+        // compaction_* — not consumed by server.ts today; routed here until an
+        // owning slice wires them.
         this.emit('event', event)
     }
   }

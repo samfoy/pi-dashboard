@@ -16,6 +16,7 @@ import os from 'os'
 import { Duplex } from 'stream'
 import { PiManager } from './pi-manager.js'
 import type { PiSession } from './pi-session.js'
+import { deriveStatsFrames } from './pi-session.js'
 import { saveSlotState, saveSlotStateSync, loadSlotState, parseSessionMessages, ChatMessage } from './session-store.js'
 import type { Notification } from '@shared/types.js'
 import {
@@ -224,6 +225,11 @@ const EXTENSION_UI_TIMEOUT_MS = 60_000
 function _wireSlotEvents(pi: PiSession, slotKey: string): void {
   let streamBuf = ''
   let midTurn = false
+  // Transport branch: SDK slots receive stats + slot-title EVENT-DRIVEN (no
+  // poll) via the emissions PiSdkSession produces (design §2/§5). RPC slots keep
+  // the historical 4s poller + getState()->sessionName title poll unchanged —
+  // the SDK wiring below is strictly additive and never runs for RPC.
+  const isSdk = pi.transport === 'sdk'
   const toolStartTimes: Map<string, { startTime: number; toolName: string }> = new Map()
 
   let _partialTextMsg: any = null
@@ -268,21 +274,14 @@ function _wireSlotEvents(pi: PiSession, slotKey: string): void {
       // Drop a late poll response that resolved after the turn ended, so it
       // can't race the chat_done per-turn delta annotation.
       if (requireMidTurn && !midTurn) return
-      const cu = resp?.data?.contextUsage
-      if (cu) {
-        pi._contextUsage = { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
-        broadcast('context_usage', { slot: slotKey, ...pi._contextUsage })
+      // Derive the frame bodies via the SHARED helper (pi-session.ts) so the
+      // RPC poll path and the SDK event path emit byte-identical frames.
+      const { contextUsage, tokenStats } = deriveStatsFrames(resp)
+      if (contextUsage) {
+        pi._contextUsage = contextUsage
+        broadcast('context_usage', { slot: slotKey, ...contextUsage })
       }
-      const data = resp?.data
-      if (data) {
-        const tokenStats = {
-          totalInputTokens: data.tokens?.input || 0,
-          totalOutputTokens: data.tokens?.output || 0,
-          totalTokens: data.tokens?.total || 0,
-          totalCost: data.cost || 0,
-          cacheReadTokens: data.tokens?.cacheRead || 0,
-          cacheWriteTokens: data.tokens?.cacheWrite || 0,
-        }
+      if (tokenStats) {
         pi._tokenStats = tokenStats
         broadcast('token_stats', { slot: slotKey, ...tokenStats })
       }
@@ -296,6 +295,37 @@ function _wireSlotEvents(pi: PiSession, slotKey: string): void {
 
   function _stopStatsPoller(): void {
     if (_statsTimer) { clearInterval(_statsTimer); _statsTimer = null }
+  }
+
+  // Slot-title application — shared by the RPC getState()->sessionName poll
+  // (below, in agent_end) and the SDK `session_info_changed` mapping. A user's
+  // manual rename always wins.
+  function _applyTitle(name: string | undefined | null): void {
+    if (name && name !== pi._title && !pi._userRenamed) {
+      pi._title = name
+      broadcast('slot_title', { key: slotKey, title: name })
+      broadcastSlots()
+      persistSlots()
+    }
+  }
+
+  // ─── SDK-only: event-driven stats + title (design §2/§5) ───────────────────
+  // PiSdkSession emits these; PiRpcSession never does (it polls). Registering
+  // them only for SDK slots keeps the RPC path byte-for-byte unchanged.
+  if (isSdk) {
+    pi.on('context_usage', (cu: any) => {
+      if (!cu) return
+      pi._contextUsage = cu
+      broadcast('context_usage', { slot: slotKey, ...cu })
+    })
+    pi.on('token_stats', (ts: any) => {
+      if (!ts) return
+      pi._tokenStats = ts
+      broadcast('token_stats', { slot: slotKey, ...ts })
+    })
+    pi.on('session_info_changed', ({ name }: { name?: string } = {}) => {
+      _applyTitle(name)
+    })
   }
 
   if (typeof pi.emit === 'function') {
@@ -369,7 +399,7 @@ function _wireSlotEvents(pi: PiSession, slotKey: string): void {
     _turnThinking = 0
     console.log(`[server] agent_start slot=${slotKey}`)
     _startStallDetector()
-    _startStatsPoller()
+    if (!isSdk) _startStatsPoller()
     broadcastSlots()
   })
 
@@ -402,17 +432,16 @@ function _wireSlotEvents(pi: PiSession, slotKey: string): void {
     broadcastSlots()
     persistSlots()
 
-    _fetchStats()
+    // Stats + slot title. RPC: poll get_session_stats + getState()->sessionName
+    // now that the turn ended. SDK: both arrive event-driven (context_usage /
+    // token_stats / session_info_changed emissions), so skip the polls.
+    if (!isSdk) {
+      _fetchStats()
 
-    pi.getState(5000).then((resp: any) => {
-      const name = resp?.data?.sessionName
-      if (name && name !== pi._title && !pi._userRenamed) {
-        pi._title = name
-        broadcast('slot_title', { key: slotKey, title: name })
-        broadcastSlots()
-        persistSlots()
-      }
-    }).catch(() => {})
+      pi.getState(5000).then((resp: any) => {
+        _applyTitle(resp?.data?.sessionName)
+      }).catch(() => {})
+    }
 
     const elapsed = Date.now() - agentStartTime
     if (agentStartTime && elapsed >= 60_000) {

@@ -19,6 +19,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { PiRpcSession } from '../pi-manager.js'
 import { PiSdkSession } from '../pi-sdk-session.js'
+import { deriveStatsFrames } from '../pi-session.js'
 
 // Per-impl adapters: everything transport-specific is isolated here so the
 // test bodies below are written once.
@@ -273,5 +274,124 @@ describe('PiSdkSession race-fix (SDK-only)', () => {
     expect(pi._session.isStreaming).toBe(false)
     await pi.prompt('resume message')
     expect(opts?.streamingBehavior).toBeUndefined()
+  })
+})
+
+// ── Slice 7c: event-driven stats + session_info_changed→title +
+//    thinking_level_changed→model_change (SDK deltas over the shared contract).
+//    Driven through the `_translate` seam with an injected fake `_session`
+//    exposing `getSessionStats()` — no live provider. The frozen-FE guarantee
+//    is enforced by asserting the SDK-emitted frame bodies EQUAL the shared
+//    `deriveStatsFrames` output — the exact same derivation the RPC 4s poller
+//    (server.ts `_fetchStats`) broadcasts, so the WS frames are identical. ──
+describe('PiSdkSession stats + title/thinking sync (slice 7c)', () => {
+  // A representative SDK SessionStats object (see agent-session.d.ts).
+  const fakeStats = {
+    sessionFile: '/tmp/x.jsonl',
+    sessionId: 'sid-1',
+    userMessages: 2,
+    assistantMessages: 3,
+    toolCalls: 1,
+    toolResults: 1,
+    totalMessages: 5,
+    tokens: { input: 100, output: 50, cacheRead: 10, cacheWrite: 5, total: 150 },
+    cost: 0.0123,
+    contextUsage: { tokens: 150, contextWindow: 200000, percent: 0.075 },
+  }
+
+  it('getSessionStats() returns the SAME {data:SessionStats} envelope as RPC', async () => {
+    const pi = new PiSdkSession('sdk-gss')
+    pi._session = { getSessionStats: () => fakeStats }
+    const resp = await pi.getSessionStats()
+    // Envelope shape mirrors the RPC get_session_stats response so server.ts's
+    // _fetchStats (resp.data.*) is transport-agnostic.
+    expect(resp.data).toEqual(fakeStats)
+  })
+
+  it('agent_end (terminal) emits context_usage + token_stats IDENTICAL to RPC frames', () => {
+    const pi = new PiSdkSession('sdk-stats')
+    pi._session = { getSessionStats: () => fakeStats }
+    const events = capture(pi)
+    pi._translate({ type: 'agent_start' })
+    pi._translate({ type: 'agent_end', willRetry: false, messages: [] })
+
+    const cu = events.find(e => e.name === 'context_usage')
+    const ts = events.find(e => e.name === 'token_stats')
+    expect(cu).toBeDefined()
+    expect(ts).toBeDefined()
+
+    // The frozen-FE contract: SDK's emitted bodies === the shared derivation
+    // the RPC poller broadcasts for the same SessionStats.
+    const expected = deriveStatsFrames({ data: fakeStats })
+    expect(cu.payload).toEqual(expected.contextUsage)
+    expect(ts.payload).toEqual(expected.tokenStats)
+    // Concrete values (guards against the helper drifting silently).
+    expect(cu.payload).toEqual({ tokens: 150, contextWindow: 200000, percent: 0.075 })
+    expect(ts.payload).toEqual({
+      totalInputTokens: 100,
+      totalOutputTokens: 50,
+      totalTokens: 150,
+      totalCost: 0.0123,
+      cacheReadTokens: 10,
+      cacheWriteTokens: 5,
+    })
+  })
+
+  it('turn_end also refreshes stats event-driven (no poll)', () => {
+    const pi = new PiSdkSession('sdk-stats-turn')
+    pi._session = { getSessionStats: () => fakeStats }
+    const events = capture(pi)
+    pi._translate({ type: 'turn_end' })
+    expect(events.some(e => e.name === 'context_usage')).toBe(true)
+    expect(events.some(e => e.name === 'token_stats')).toBe(true)
+  })
+
+  it('does not throw / emit stats when the session has no getSessionStats yet', () => {
+    const pi = new PiSdkSession('sdk-stats-nosess')
+    const events = capture(pi)
+    // No _session injected — _emitStats must be a safe no-op.
+    expect(() => pi._translate({ type: 'agent_end', willRetry: false, messages: [] })).not.toThrow()
+    expect(events.some(e => e.name === 'context_usage')).toBe(false)
+    expect(events.some(e => e.name === 'token_stats')).toBe(false)
+  })
+
+  it('session_info_changed → internal title emission (SDK); RPC poller path unchanged', () => {
+    // SDK: maps the event to `session_info_changed {name}` — server.ts consumes
+    // this to update the slot title WITHOUT polling getState.
+    const sdk = new PiSdkSession('sdk-title')
+    const sdkEvents = capture(sdk)
+    sdk._translate({ type: 'session_info_changed', name: 'Refactor auth' })
+    const ev = sdkEvents.find(e => e.name === 'session_info_changed')
+    expect(ev).toBeDefined()
+    expect(ev.payload).toEqual({ name: 'Refactor auth' })
+
+    // RPC: has no such mapping — its _handleEvent routes the unknown type to the
+    // generic `event` emission, and the title is still derived by the getState
+    // poll. Confirms the RPC path is untouched.
+    const rpc = new PiRpcSession('rpc-title')
+    const rpcEvents = capture(rpc)
+    rpc._handleEvent({ type: 'session_info_changed', name: 'Refactor auth' })
+    expect(rpcEvents.some(e => e.name === 'session_info_changed')).toBe(false)
+    expect(rpcEvents.some(e => e.name === 'event')).toBe(true)
+  })
+
+  it('thinking_level_changed → updates thinkingLevel + emits model_change (SDK)', () => {
+    const pi = new PiSdkSession('sdk-think')
+    pi.thinkingLevel = 'medium'
+    const events = capture(pi)
+    pi._translate({ type: 'thinking_level_changed', level: 'high' })
+    expect(pi.thinkingLevel).toBe('high')
+    // Same frame the RPC path emits for a model/thinking change — server.ts
+    // persists + broadcasts slots on model_change, keeping the FE chip in sync.
+    expect(events.some(e => e.name === 'model_change')).toBe(true)
+  })
+
+  it('thinking_level_changed with an unchanged level does not emit model_change', () => {
+    const pi = new PiSdkSession('sdk-think-noop')
+    pi.thinkingLevel = 'high'
+    const events = capture(pi)
+    pi._translate({ type: 'thinking_level_changed', level: 'high' })
+    expect(pi.thinkingLevel).toBe('high')
+    expect(events.some(e => e.name === 'model_change')).toBe(false)
   })
 })

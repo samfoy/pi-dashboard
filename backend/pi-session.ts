@@ -99,3 +99,46 @@ export interface PiSession extends EventEmitter {
    *  (already answered / timed out). */
   respondExtensionUi(id: string, response: { cancelled?: boolean; value?: any }): boolean
 }
+
+/** The two FE stats-frame payloads derived from a `getSessionStats()` response.
+ *  `null` when the underlying response has no usable data. */
+export interface StatsFrames {
+  contextUsage: { tokens: any; contextWindow: any; percent: any } | null
+  tokenStats: {
+    totalInputTokens: number
+    totalOutputTokens: number
+    totalTokens: number
+    totalCost: number
+    cacheReadTokens: number
+    cacheWriteTokens: number
+  } | null
+}
+
+/**
+ * Derive the `context_usage` / `token_stats` WS-frame payloads from a
+ * `getSessionStats()` response envelope (`{ data: SessionStats }`). Shared by
+ * the RPC 4s poller (server.ts `_fetchStats`) and the SDK event-driven stats
+ * path (pi-sdk-session `_emitStats`) so the two transports produce BYTE-IDENTICAL
+ * frames — this is the single derivation, not two hand-mirrored copies. The
+ * frame the FE ultimately receives is `{ slot, ...contextUsage }` /
+ * `{ slot, ...tokenStats }`; this helper produces the spread bodies.
+ */
+export function deriveStatsFrames(resp: any): StatsFrames {
+  const data = resp?.data
+  const cu = data?.contextUsage
+  return {
+    contextUsage: cu
+      ? { tokens: cu.tokens, contextWindow: cu.contextWindow, percent: cu.percent }
+      : null,
+    tokenStats: data
+      ? {
+          totalInputTokens: data.tokens?.input || 0,
+          totalOutputTokens: data.tokens?.output || 0,
+          totalTokens: data.tokens?.total || 0,
+          totalCost: data.cost || 0,
+          cacheReadTokens: data.tokens?.cacheRead || 0,
+          cacheWriteTokens: data.tokens?.cacheWrite || 0,
+        }
+      : null,
+  }
+}
