@@ -58,6 +58,7 @@ export interface ChatSlot {
   key: string; title: string; messages: number
   tool_calls?: number; running: boolean; stopping?: boolean; pending_approval?: boolean; created?: string; updated?: string; agent?: string; workspace?: string; trust?: boolean
   tags?: string[]
+  transport?: 'rpc' | 'sdk'; toolApproval?: boolean
 }
 
 export interface ChatMessage {

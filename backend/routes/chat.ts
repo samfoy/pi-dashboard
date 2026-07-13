@@ -105,6 +105,9 @@ export function registerChatRoutes(deps: RouteDeps): void {
       thinkingLevel: pi.thinkingLevel,
       cwd: pi.cwd,
       tags: pi._tags,
+      // Preserve the permission-gating flag across a transport swap so a slot
+      // toggled back to `sdk` keeps its opt-in (slice 11). No-op while on RPC.
+      toolApproval: pi.toolApproval,
     }
     manager.deleteSlot(key)
     const slot = manager.createSlot(opts.title || key, null, opts)
@@ -249,6 +252,38 @@ export function registerChatRoutes(deps: RouteDeps): void {
     if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id required' })
     const ok = pi.respondExtensionUi(id, { cancelled, value })
     if (!ok) return res.status(404).json({ error: 'no pending extension-ui request' })
+    res.json({ ok: true })
+  })
+
+  // Enable/disable permission gating for a slot (slice 11). Additive, default
+  // OFF. The flag is read LIVE by the SDK `tool_call` hook, so toggling it takes
+  // effect on the NEXT tool call — no session recreation. SDK-only at runtime
+  // (RPC can't gate in-process); persisted for parity so the setting survives a
+  // restart and a later transport swap to `sdk`.
+  app.post('/api/chat/slots/:key/tool-approval', (req: Request, res: Response) => {
+    const pi = manager.getSlot(req.params.key as string)
+    if (!pi) return res.status(404).json({ error: 'slot not found' })
+    pi.toolApproval = !!(req.body && req.body.enabled)
+    persistSlots()
+    broadcastSlots()
+    res.json({ ok: true, key: req.params.key as string, toolApproval: pi.toolApproval, transport: pi.transport })
+  })
+
+  // Resolve a pending gated tool call (slice 11) raised via the
+  // `tool_approval_request` WS frame. `decision:'approve'` proceeds (mutating
+  // the tool args with `editedArgs` when provided); `decision:'deny'` blocks it
+  // with reason "denied by user". Returns 404 if the id is unknown (already
+  // answered / timed out) or the slot can't gate (RPC).
+  app.post('/api/chat/slots/:key/tool-approval-response', (req: Request, res: Response) => {
+    const pi = manager.getSlot(req.params.key as string)
+    if (!pi) return res.status(404).json({ error: 'slot not found' })
+    const { id, decision, editedArgs } = req.body || {}
+    if (!id || typeof id !== 'string') return res.status(400).json({ error: 'id required' })
+    if (decision !== 'approve' && decision !== 'deny') {
+      return res.status(400).json({ error: 'decision must be "approve" or "deny"' })
+    }
+    const ok = pi.respondToolApproval(id, decision, editedArgs)
+    if (!ok) return res.status(404).json({ error: 'no pending tool-approval request' })
     res.json({ ok: true })
   })
 

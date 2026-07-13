@@ -29,6 +29,9 @@ export interface SlotState {
   // Transport backend for this slot ('rpc' | 'sdk'). Absent in old state →
   // restore defaults to 'rpc' (see pi-manager restoreSlot).
   transport?: PiTransport
+  // Permission-gating flag (slice 11). Absent/false → tool calls run ungated
+  // (default OFF). SDK-only at runtime; persisted for all slots for parity.
+  toolApproval?: boolean
   // Crash-recovery (slice 8): true when the slot had a turn in progress at
   // persist time. On the crash path (uncaughtException/unhandledRejection
   // backstop runs saveSlotStateSync), this marks slots whose in-flight turn was
@@ -58,6 +61,7 @@ interface SlotProcess {
   thinkingLevel?: string | null
   cwd?: string | null
   transport?: PiTransport
+  toolApproval?: boolean
   running?: boolean
 }
 
@@ -276,6 +280,7 @@ export function saveSlotState(slots: Map<string, SlotProcess>): void {
       thinkingLevel: pi.thinkingLevel || null,
       cwd: pi.cwd || null,
       transport: pi.transport || undefined,
+      toolApproval: pi.toolApproval || undefined,
       tags: pi._tags?.length ? pi._tags : undefined,
       midTurn: pi.running === true ? true : undefined,
     }
@@ -321,6 +326,7 @@ export function saveSlotStateSync(slots: Map<string, SlotProcess>): void {
       thinkingLevel: pi.thinkingLevel || null,
       cwd: pi.cwd || null,
       transport: pi.transport || undefined,
+      toolApproval: pi.toolApproval || undefined,
       tags: pi._tags?.length ? pi._tags : undefined,
       midTurn: pi.running === true ? true : undefined,
     }

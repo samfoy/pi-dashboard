@@ -71,6 +71,7 @@ for (const s of savedSlots) {
       sessionFile: s.sessionFile || null,
       tags: s.tags,
       transport: s.transport,
+      toolApproval: s.toolApproval,
     })
     // Crash-recovery (slice 8): a slot persisted with midTurn=true had a turn
     // in flight when the process died (the backstop's saveSlotStateSync ran, or
@@ -243,6 +244,11 @@ let _chunkSeq = 0
 // (closed tab, startup-path dialog with no client attached), auto-cancel
 // after this window so the slot's turn can proceed.
 const EXTENSION_UI_TIMEOUT_MS = 60_000
+// Slice 11 permission gating: a longer window than extension-UI dialogs because
+// a human reviewing a tool call's args may take a while. FAIL-CLOSED: on timeout
+// the tool is DENIED ("approval timed out"), never auto-approved (see
+// PiSdkSession.armToolApproval).
+const TOOL_APPROVAL_TIMEOUT_MS = 120_000
 
 function _wireSlotEvents(pi: PiSession, slotKey: string): void {
   let streamBuf = ''
@@ -623,6 +629,23 @@ function _wireSlotEvents(pi: PiSession, slotKey: string): void {
     }
     // notify, setTitle, set_editor_text, etc. are fire-and-forget
     // (no response needed) and not displayed in this dashboard yet.
+  })
+
+  // Permission-gating (slice 11, SDK-only): an SDK slot with `toolApproval` ON
+  // pauses each tool call and emits `tool_approval` with the tool name + args.
+  // Arm the fail-closed anti-wedge DENY timer, then broadcast the additive
+  // `tool_approval_request` frame so the browser can render an approve/deny/edit
+  // modal and POST the decision to /api/chat/slots/:key/tool-approval-response.
+  // RPC slots never emit this event (they can't gate in-process), so the frame
+  // is strictly additive and the default (flag OFF) emits nothing.
+  pi.on('tool_approval', (event: any) => {
+    pi.armToolApproval(event.id, TOOL_APPROVAL_TIMEOUT_MS)
+    broadcast('tool_approval_request', {
+      slot: slotKey,
+      id: event.id,
+      toolName: event.toolName,
+      args: event.args,
+    })
   })
 
   pi.on('log', (data: any) => {

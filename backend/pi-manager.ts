@@ -8,7 +8,7 @@ import { writeFileSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
-import type { PiSession, PiTransport, ImagePayload } from './pi-session.js'
+import type { PiSession, PiTransport, ImagePayload, ToolApprovalDecision } from './pi-session.js'
 import { PiSdkSession } from './pi-sdk-session.js'
 
 // Resolve the user's configured defaultThinkingLevel the same way pi does:
@@ -79,6 +79,7 @@ interface PiProcessOptions {
   key?: string
   tags?: string[]
   transport?: PiTransport | null
+  toolApproval?: boolean
 }
 
 // Resolve a slot's transport backend: per-slot override wins, then the
@@ -97,6 +98,17 @@ export function resolveTransport(override?: PiTransport | null): PiTransport {
   return override ?? envTransport ?? 'sdk'
 }
 
+// Resolve a slot's permission-gating flag (slice 11): a per-slot override wins,
+// then the PI_DASH_TOOL_APPROVAL env default, else OFF. The feature is ADDITIVE
+// and opt-in — unset env + no override => false, so slots ship dark with zero
+// behavior change. Env is truthy only for '1'/'true' (case-insensitive); any
+// other value is treated as OFF. NOT coupled to the transport default.
+export function resolveToolApproval(override?: boolean | null): boolean {
+  if (override != null) return override
+  const env = (process.env.PI_DASH_TOOL_APPROVAL || '').toLowerCase()
+  return env === '1' || env === 'true'
+}
+
 interface SlotInfo {
   key: string
   title: string
@@ -110,6 +122,10 @@ interface SlotInfo {
   tags: string[]
   created_at: string
   updated_at: string
+  // Transport backend + permission-gating flag (surfaced so the FE settings
+  // toggle can render tool-approval only for SDK slots — slice 11).
+  transport: PiTransport
+  toolApproval: boolean
 }
 
 interface SlotDetail {
@@ -177,6 +193,11 @@ export class PiRpcSession extends EventEmitter implements PiSession {
   _pendingExtensionUi: Map<string, { method: string; timer: ReturnType<typeof setTimeout> }>
   _stopping: boolean
   _pendingApproval: boolean
+  // Permission-gating flag (slice 11). Persisted per-slot for parity with the
+  // SDK path, but a NO-OP on RPC: a subprocess can't expose the in-process
+  // `tool_call` hook, so RPC slots never gate. Kept as a field only so the flag
+  // round-trips through save/restore and the FE can show the toggle disabled.
+  toolApproval: boolean
   // Counts user-initiated prompts that pi-dashboard has issued but for
   // which we have not yet seen agent_end. Gates followUp streamingBehavior
   // so we only queue when *we* know we have an outstanding turn — never
@@ -225,6 +246,7 @@ export class PiRpcSession extends EventEmitter implements PiSession {
     this._pendingExtensionUi = new Map() // id → { method, timer }
     this._stopping = false
     this._pendingApproval = false
+    this.toolApproval = opts.toolApproval || false
     this._outstandingPrompts = 0
     this._toolsRunning = 0
     this._streamIdx = -1  // index where partial streaming messages start
@@ -786,6 +808,17 @@ export class PiRpcSession extends EventEmitter implements PiSession {
     return true
   }
 
+  // Tool-approval / permission gating (slice 11) is SDK-only: a `pi --mode rpc`
+  // subprocess can't expose the in-process `tool_call` hook, so RPC slots never
+  // gate. These satisfy the PiSession contract as no-ops — RPC never emits
+  // `tool_approval`, so armToolApproval is never called and respondToolApproval
+  // has nothing to resolve (returns false).
+  armToolApproval(_id: string, _timeoutMs: number): void { /* SDK-only: no-op on RPC */ }
+
+  respondToolApproval(_id: string, _decision: ToolApprovalDecision, _editedArgs?: Record<string, unknown>): boolean {
+    return false
+  }
+
   _handleEvent(event: any): void {
     const { type } = event
 
@@ -1026,12 +1059,13 @@ export class PiManager {
   createSlot(name: string, agent: string | null, opts: PiProcessOptions = {}): { key: string; title: string; messages: number; running: boolean } {
     const key = opts.key || `chat-${++this._slotCounter}-${Date.now()}`
     const transport = resolveTransport(opts.transport)
+    const toolApproval = resolveToolApproval(opts.toolApproval)
     // Foreground default is 'sdk' (slice 10 flip). A per-slot override or
     // PI_DASH_TRANSPORT=rpc forces the isolated RPC subprocess; background
     // slots are moved to 'rpc' by conductorDetach() after creation.
     const pi: PiSession = transport === 'sdk'
-      ? new PiSdkSession(key, { agent, ...opts, transport })
-      : new PiRpcSession(key, { agent, ...opts, transport })
+      ? new PiSdkSession(key, { agent, ...opts, transport, toolApproval })
+      : new PiRpcSession(key, { agent, ...opts, transport, toolApproval })
     // Don't start pi process yet — defer to first message (ensureRunning)
     // This allows CWD/model to be changed in WelcomeView before process starts
     this.slots.set(key, pi)
@@ -1046,9 +1080,10 @@ export class PiManager {
     // ('sdk' since slice 10). A persisted 'rpc' transport is honored as an
     // override and keeps the slot on the isolated RPC subprocess.
     const transport = resolveTransport(opts.transport)
+    const toolApproval = resolveToolApproval(opts.toolApproval)
     const pi: PiSession = transport === 'sdk'
-      ? new PiSdkSession(key, { messages, title, ...opts, transport })
-      : new PiRpcSession(key, { messages, title, ...opts, transport })
+      ? new PiSdkSession(key, { messages, title, ...opts, transport, toolApproval })
+      : new PiRpcSession(key, { messages, title, ...opts, transport, toolApproval })
     pi.ready = false
     this.slots.set(key, pi)
     if (parseInt(key.split('-')[1]) >= this._slotCounter) {
@@ -1117,6 +1152,8 @@ export class PiManager {
         thinkingLevel: pi.thinkingLevel,
         cwd: pi.cwd || null,
         tags: pi._tags || [],
+        transport: pi.transport,
+        toolApproval: pi.toolApproval || false,
         created_at: createdAt,
         updated_at: updatedAt,
         created: createdAt,

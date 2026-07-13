@@ -44,6 +44,15 @@ export interface ExtensionUiRequest {
   defaultValue?: string
 }
 
+/** A pending gated tool call awaiting the user's approve/deny/edit decision
+ *  (slice 11, permission-gating UI). SDK-only — RPC slots never raise this. */
+export interface ToolApprovalRequest {
+  slot: string
+  id: string
+  toolName: string
+  args: Record<string, unknown>
+}
+
 interface ChatState {
   activeSlot: string | null
   messages: ChatMessage[]
@@ -65,6 +74,7 @@ interface ChatState {
   extensionStatuses: Record<string, string>
   extensionWidgets: Record<string, string[]>
   extensionUiRequest: ExtensionUiRequest | null
+  toolApprovalRequest: ToolApprovalRequest | null
   _lastChunkSeq: number
   slotSwitching: boolean
   foregroundSpawnActive: boolean
@@ -91,6 +101,7 @@ const initialState: ChatState = {
   extensionStatuses: {},
   extensionWidgets: {},
   extensionUiRequest: null,
+  toolApprovalRequest: null,
   _lastChunkSeq: -1,
   slotSwitching: false,
   foregroundSpawnActive: false,
@@ -252,6 +263,16 @@ const chatSlice = createSlice({
       // (avoids clobbering a newer dialog that arrived meanwhile).
       if (action.payload?.id && state.extensionUiRequest?.id !== action.payload.id) return
       state.extensionUiRequest = null
+    },
+    setToolApprovalRequest(state, action: PayloadAction<ToolApprovalRequest>) {
+      // Only surface a gated tool call for the slot the user is currently
+      // viewing. Other slots' requests still time out server-side (fail-closed).
+      if (action.payload.slot !== state.activeSlot) return
+      state.toolApprovalRequest = action.payload
+    },
+    clearToolApprovalRequest(state, action: PayloadAction<{ id: string } | undefined>) {
+      if (action.payload?.id && state.toolApprovalRequest?.id !== action.payload.id) return
+      state.toolApprovalRequest = null
     },
     clearMessages(state) { state.messages = []; state.slotHasMore = false; state.slotOldestIndex = 0 },
     /** Handle chat messages pushed via global SSE/WS (works after refresh). */
@@ -527,6 +548,6 @@ const chatSlice = createSlice({
 
 export const {
   setActiveSlot, setPendingInput, clearResendQueued, promoteQueued, appendMessage, updateStreamingMessage, finalizeAssistant,
-  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, setExtensionUiRequest, clearExtensionUiRequest, clearMessages, sseChatMessage,
+  removeThinking, setSlotRunning, setSlotStopping, setSlotState, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, setExtensionUiRequest, clearExtensionUiRequest, setToolApprovalRequest, clearToolApprovalRequest, clearMessages, sseChatMessage,
 } = chatSlice.actions
 export default chatSlice.reducer

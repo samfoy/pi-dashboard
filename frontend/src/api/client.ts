@@ -150,6 +150,9 @@ export const api = {
   stopChatSlot: (slot: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/stop').then(j),
   conductorDetach: (slot: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/conductor-detach').then(j),
   extensionUiResponse: (slot: string, body: { id: string; cancelled?: boolean; value?: string | boolean }) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/extension-ui-response', body).then(j),
+  // Permission gating (slice 11, SDK-only)
+  setSlotToolApproval: (slot: string, enabled: boolean) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/tool-approval', { enabled }).then(j),
+  toolApprovalResponse: (slot: string, body: { id: string; decision: 'approve' | 'deny'; editedArgs?: Record<string, unknown> }) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/tool-approval-response', body).then(j),
   approveChatSlot: (slot: string, action: string) => post('/api/chat/slots/' + encodeURIComponent(slot) + '/approve', { action }).then(j),
   resumeChatSlot: (key: string, title?: string, file?: string) => post('/api/chat/slots/' + encodeURIComponent(key) + '/resume', { name: key, key, title: title || key, file }).then(j),
   chatMode: (mode: string, slot?: string) => post('/api/chat/mode', { mode, slot: slot || '' }).then(j),

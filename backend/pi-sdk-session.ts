@@ -43,7 +43,7 @@ import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
 import { extractText, ChatMessage } from './session-store.js'
-import type { PiSession, PiTransport, ImagePayload } from './pi-session.js'
+import type { PiSession, PiTransport, ImagePayload, ToolApprovalDecision } from './pi-session.js'
 import { deriveStatsFrames } from './pi-session.js'
 import { randomUUID } from 'crypto'
 import {
@@ -57,6 +57,9 @@ import {
   type AgentSessionEvent,
   type CreateAgentSessionRuntimeFactory,
   type ExtensionUIContext,
+  type ToolCallEvent,
+  type ToolCallEventResult,
+  type ExtensionAPI,
 } from '@earendil-works/pi-coding-agent'
 
 // Mirror of the RPC path's temp image dir (pi-manager.ts). Duplicated (not
@@ -77,6 +80,15 @@ export interface PiSdkSessionOptions {
   key?: string
   tags?: string[]
   transport?: PiTransport | null
+  toolApproval?: boolean
+}
+
+/** Internal resolution of a gated tool call, passed from `respondToolApproval`
+ *  (or the anti-wedge timer) back to the awaiting `tool_call` hook. */
+interface ToolApprovalResolution {
+  decision: ToolApprovalDecision
+  editedArgs?: Record<string, unknown>
+  reason?: string
 }
 
 /** Normalize image payloads to the SDK's `ImageContent` shape. Mirrors the RPC
@@ -147,6 +159,17 @@ export class PiSdkSession extends EventEmitter implements PiSession {
    *  `armExtensionUi` attaches the anti-wedge timer; `respondExtensionUi`
    *  resolves + clears it. In-process analogue of the RPC `_pendingExtensionUi`. */
   _pendingExtensionUi: Map<string, { method: string; resolve?: (value: any) => void; timer?: ReturnType<typeof setTimeout> }>
+  /** Per-slot permission-gating flag (slice 11). When true, the `tool_call`
+   *  hook pauses each tool call for a browser approve/deny/edit decision. Default
+   *  OFF — when false the hook returns immediately (no frame, tool runs), so the
+   *  feature ships dark. Read LIVE inside the hook so a settings-toggle flip
+   *  takes effect on the next tool call without recreating the session. */
+  toolApproval: boolean
+  /** Pending gated tool calls keyed by request id (slice 11). The `tool_call`
+   *  hook creates an entry with a `resolve` (the awaited decision's resolver);
+   *  `armToolApproval` attaches the anti-wedge DENY timer; `respondToolApproval`
+   *  resolves + clears it. Fail-closed: the timer resolves as a `deny`. */
+  _pendingToolApproval: Map<string, { resolve: (d: ToolApprovalResolution) => void; timer?: ReturnType<typeof setTimeout> }>
   /** Cached `ExtensionUIContext` passed to `bindExtensions`. Built once and
    *  re-bound to each replacement session so extensions always reach this slot. */
   _uiContext: ExtensionUIContext | null
@@ -185,6 +208,8 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     this.runtime = null
     this._unsubscribe = null
     this._pendingExtensionUi = new Map()
+    this.toolApproval = opts.toolApproval || false
+    this._pendingToolApproval = new Map()
     this._uiContext = null
     this._initPromise = null
     this._disposed = false
@@ -266,7 +291,20 @@ export class PiSdkSession extends EventEmitter implements PiSession {
    *  (design §4) + a session resolved against this slot's persisted model. */
   private _makeCreateRuntime(): CreateAgentSessionRuntimeFactory {
     return async ({ cwd, sessionManager, sessionStartEvent }) => {
-      const services = await createAgentSessionServices({ cwd, agentDir: getAgentDir() })
+      const services = await createAgentSessionServices({
+        cwd,
+        agentDir: getAgentDir(),
+        // Inject the permission-gating extension (slice 11). The factory ALWAYS
+        // registers a `tool_call` hook, but the hook is a no-op unless this
+        // slot's live `toolApproval` flag is ON — so the default (OFF) ships dark
+        // with zero behavior change, and a settings-toggle flip takes effect on
+        // the next tool call WITHOUT recreating the session.
+        resourceLoaderOptions: {
+          extensionFactories: [(pi: ExtensionAPI) => {
+            pi.on('tool_call', (event: ToolCallEvent) => this._toolCallGate(event))
+          }],
+        },
+      })
       const model =
         this.modelProvider && this.modelId
           ? services.modelRegistry.find(this.modelProvider, this.modelId)
@@ -363,6 +401,13 @@ export class PiSdkSession extends EventEmitter implements PiSession {
       if (pending.timer) clearTimeout(pending.timer)
     }
     this._pendingExtensionUi.clear()
+    // Resolve any in-flight tool-approval requests as DENY (fail-closed) so a
+    // gated tool call awaiting a decision can't wedge a disposed session.
+    for (const [, pending] of this._pendingToolApproval) {
+      if (pending.timer) clearTimeout(pending.timer)
+      try { pending.resolve({ decision: 'deny', reason: 'session disposed' }) } catch { /* ignore */ }
+    }
+    this._pendingToolApproval.clear()
     try { this._session?.dispose() } catch { /* ignore */ }
     this._session = null
     try { void this.runtime?.dispose() } catch { /* ignore */ }
@@ -674,6 +719,83 @@ export class PiSdkSession extends EventEmitter implements PiSession {
         resolve(response.value != null ? String(response.value) : undefined)
       }
     }
+    return true
+  }
+
+  // ── extension bindings + uiContext (slice 7d) ──
+  // ─────────────────────────────────────────────────────────────────────────
+  // Tool-approval / permission gating (slice 11) — SDK-only. The `tool_call`
+  // hook (registered in `_makeCreateRuntime` via extensionFactories) can
+  // `{ block, reason }` AND mutate `event.input` in place before the tool runs
+  // (SDK contract). Modeled on the extension-UI round-trip above: the hook
+  // creates a pending entry with a Promise resolver + emits an additive internal
+  // `tool_approval` event; server.ts arms the fail-closed DENY timer + broadcasts
+  // the `tool_approval_request` WS frame; the endpoint resolves via
+  // `respondToolApproval`. RPC can't gate in-process, so this path is SDK-only.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * The `tool_call` hook body. Registered on EVERY SDK session but a no-op
+   * unless this slot's live `toolApproval` flag is ON — that is what makes the
+   * feature default OFF / ship dark (returning undefined lets the tool run
+   * unchanged, and no `tool_approval` frame is emitted). When ON, PAUSE the call:
+   * create a pending entry (with the awaited resolver) BEFORE emitting so the
+   * synchronous server.ts handler that arms the timer finds it, emit the internal
+   * `tool_approval` event, and await the browser decision. `approve` proceeds —
+   * mutating `event.input` IN PLACE with `editedArgs` when provided (the SDK
+   * requires in-place mutation; a returned object is ignored for arg patching).
+   * `deny` (and the anti-wedge timeout, which resolves as a deny) blocks with a
+   * reason.
+   */
+  private async _toolCallGate(event: ToolCallEvent): Promise<ToolCallEventResult | void> {
+    // Default OFF: pass through untouched, emit nothing. Zero behavior change.
+    if (!this.toolApproval) return
+    const id = randomUUID()
+    const resolution = await new Promise<ToolApprovalResolution>((resolve) => {
+      this._pendingToolApproval.set(id, { resolve })
+      // args carries the tool arguments (a shallow copy so the frame can't be
+      // mutated by a later in-place patch of event.input).
+      this.emit('tool_approval', { id, toolName: event.toolName, args: { ...event.input } })
+    })
+    if (resolution.decision === 'approve') {
+      // Edit-and-approve: mutate event.input IN PLACE (delete removed keys, then
+      // assign the edited set) so the tool sees the patched args. No re-validation
+      // is performed by pi after mutation (SDK contract), so the modal is the gate.
+      if (resolution.editedArgs && typeof resolution.editedArgs === 'object') {
+        for (const k of Object.keys(event.input)) delete (event.input as Record<string, unknown>)[k]
+        Object.assign(event.input, resolution.editedArgs)
+      }
+      return
+    }
+    // deny / timeout → block, fail-closed.
+    return { block: true, reason: resolution.reason || 'denied by user' }
+  }
+
+  /** Attach the anti-wedge auto-DENY timer to a pending gated tool call. A
+   *  permission gate must FAIL CLOSED: an unanswered request (closed tab, no
+   *  browser attached) BLOCKS the tool with reason "approval timed out" rather
+   *  than auto-approving. The pending entry (with its Promise `resolve`) already
+   *  exists — the `tool_call` hook created it synchronously BEFORE emitting the
+   *  `tool_approval` event server.ts handles by calling this — so we merge the
+   *  timer into it. */
+  armToolApproval(id: string, timeoutMs: number): void {
+    const timer = setTimeout(() => {
+      this.respondToolApproval(id, 'deny', undefined, 'approval timed out')
+    }, timeoutMs)
+    if (typeof timer.unref === 'function') timer.unref()
+    const existing = this._pendingToolApproval.get(id)
+    if (existing) existing.timer = timer
+  }
+
+  /** Resolve a pending gated tool call. `approve` proceeds (with `editedArgs`
+   *  applied in place by the awaiting hook); `deny` blocks with `reason`.
+   *  Returns false if `id` is unknown (already answered / timed out). */
+  respondToolApproval(id: string, decision: ToolApprovalDecision, editedArgs?: Record<string, unknown>, reason?: string): boolean {
+    const pending = this._pendingToolApproval.get(id)
+    if (!pending) return false
+    if (pending.timer) clearTimeout(pending.timer)
+    this._pendingToolApproval.delete(id)
+    pending.resolve({ decision, editedArgs, reason })
     return true
   }
 

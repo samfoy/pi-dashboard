@@ -4,7 +4,7 @@ import { useAppDispatch } from '../store'
 import { store } from '../store'
 import { sseStatus, sseConnected, sseDisconnected, sseSlots, sseSlotTitle, triggerRefresh, fetchSlots, markSlotUnread, addSlotError } from '../store/dashboardSlice'
 import { addNotification, ackNotificationByTs } from '../store/notificationsSlice'
-import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, setExtensionUiRequest } from '../store/chatSlice'
+import { fetchHistory, sseChatMessage, refreshSlot, setContextUsage, setTokenStats, setExtensionStatus, setExtensionWidget, setExtensionUiRequest, setToolApprovalRequest } from '../store/chatSlice'
 import type { StatusData, ChatSlot, Notification } from '../types'
 
 type LogCallback = ((data: { level: string; msg: string }) => void) | null
@@ -200,6 +200,12 @@ export function useWebSocket() {
             // dialog. Show a modal for the active slot; server auto-cancels
             // after 60s if unanswered (anti-wedge).
             dispatch(setExtensionUiRequest(data))
+            break
+          case 'tool_approval_request':
+            // Additive frame (slice 11): an SDK slot with permission gating ON
+            // paused a tool call. Show the approve/deny/edit modal for the active
+            // slot; server DENIES after 120s if unanswered (fail-closed).
+            dispatch(setToolApprovalRequest(data))
             break
           case 'log':
             logCbRef.current?.(data)

@@ -18,6 +18,11 @@ import type { ChatMessage } from './session-store.js'
 
 export type PiTransport = 'rpc' | 'sdk'
 
+/** A user's decision on a gated tool call (slice 11, permission-gating UI).
+ *  `approve` lets the call proceed (optionally with mutated args); `deny`
+ *  blocks it with a reason. The anti-wedge timeout resolves as a `deny`. */
+export type ToolApprovalDecision = 'approve' | 'deny'
+
 /** Image attachment shape accepted by `prompt()`. Shared with PiRpcSession. */
 export interface ImagePayload {
   type: string
@@ -46,6 +51,12 @@ export interface PiSession extends EventEmitter {
   readonly alive: boolean
   _stopping: boolean
   _pendingApproval: boolean
+  /** Per-slot permission-gating flag (slice 11). When true, an SDK slot pauses
+   *  each `tool_call` for a browser approve/deny/edit decision before it runs.
+   *  Default OFF (opt-in) — when false, tool calls execute unchanged (this is
+   *  the default, so the feature ships dark). SDK-only: RPC slots can't gate
+   *  in-process, so the flag is a no-op there. */
+  toolApproval?: boolean
   _contextUsage?: any            // cached, broadcast on context_usage
   _tokenStats?: any              // cached, broadcast on token_stats
   _wired?: boolean               // guard in chat.ts fork/resume paths
@@ -98,6 +109,18 @@ export interface PiSession extends EventEmitter {
   /** Resolve a pending extension-UI dialog. Returns false if `id` is unknown
    *  (already answered / timed out). */
   respondExtensionUi(id: string, response: { cancelled?: boolean; value?: any }): boolean
+
+  // ── tool-approval round-trip (slice 11, permission-gating UI) ──
+  /** Arm the anti-wedge auto-DENY timer for a pending gated tool call. A
+   *  permission gate must FAIL CLOSED: no browser decision within the timeout
+   *  blocks the call (reason "approval timed out") rather than auto-approving.
+   *  SDK-only; a no-op on RPC (which never emits `tool_approval`). */
+  armToolApproval(id: string, timeoutMs: number): void
+  /** Resolve a pending gated tool call. `approve` proceeds (mutating the tool
+   *  args with `editedArgs` when provided); `deny` blocks with a reason.
+   *  Returns false if `id` is unknown (already answered / timed out / no such
+   *  slot). SDK-only; a no-op returning false on RPC. */
+  respondToolApproval(id: string, decision: ToolApprovalDecision, editedArgs?: Record<string, unknown>): boolean
 }
 
 /** The two FE stats-frame payloads derived from a `getSessionStats()` response.

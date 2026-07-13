@@ -36,6 +36,7 @@ import StatusLine from './chat/StatusLine'
 import SplitPane from './chat/SplitPane'
 import MemoryFlash from './chat/MemoryFlash'
 import ExtensionUiModal from '../components/ExtensionUiModal'
+import ToolApprovalModal from '../components/ToolApprovalModal'
 import { StatusBarSlot } from '../plugins'
 import type { ChatMessage } from '../types'
 
@@ -1161,6 +1162,22 @@ export default function ChatPage() {
                               >{level}</button>
                             ))}
                           </div>
+                          {/* Permission gating (slice 11) — SDK-only. Pauses each
+                              tool call for approve/deny/edit. Disabled on RPC
+                              slots (can't gate in-process). */}
+                          <div className="px-3 py-1.5 text-[11px] text-muted font-semibold uppercase tracking-wider">Tool approval</div>
+                          <div className="px-3 pb-2">
+                            <label className={`flex items-center gap-2 text-[13px] ${currentSlot?.transport === 'sdk' ? 'text-text cursor-pointer' : 'text-muted opacity-50 cursor-not-allowed'}`}>
+                              <input
+                                type="checkbox"
+                                className="cursor-pointer disabled:cursor-not-allowed"
+                                checked={!!currentSlot?.toolApproval}
+                                disabled={currentSlot?.transport !== 'sdk'}
+                                onChange={e => api.setSlotToolApproval(activeSlot, e.target.checked)}
+                              />
+                              <span>Approve tool calls{currentSlot?.transport !== 'sdk' ? ' (SDK only)' : ''}</span>
+                            </label>
+                          </div>
                           <div className="border-t border-border my-1" />
                         </>
                       )}
@@ -1476,6 +1493,7 @@ export default function ChatPage() {
         </Suspense>
       )}
       <ExtensionUiModal />
+      <ToolApprovalModal />
     </div>
   )
 }
