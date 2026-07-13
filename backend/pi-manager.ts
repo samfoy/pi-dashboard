@@ -82,15 +82,16 @@ interface PiProcessOptions {
 }
 
 // Resolve a slot's transport backend: per-slot override wins, then the
-// PI_DASH_TRANSPORT env default, else 'rpc'. Background/detached slots always
-// run on 'rpc' — that policy is enforced imperatively in conductorDetach()
-// (which sets this.transport = 'rpc' at detach time), since no background
-// signal exists at slot-creation time. Ships 'rpc' everywhere → zero behavior
-// change.
-function resolveTransport(override?: PiTransport | null): PiTransport {
+// PI_DASH_TRANSPORT env, else the foreground default 'sdk' (slice 10 flip —
+// live gates passed: fixture fidelity, 2-slot isolation, latency). Background/
+// detached slots always run on 'rpc' — that policy is enforced imperatively in
+// conductorDetach() (which sets this.transport = 'rpc' at detach time), since
+// no background signal exists at slot-creation time. Rollback path intact:
+// PI_DASH_TRANSPORT=rpc (env) or an explicit per-slot override forces 'rpc'.
+export function resolveTransport(override?: PiTransport | null): PiTransport {
   const env = process.env.PI_DASH_TRANSPORT
   const envTransport: PiTransport | undefined = env === 'rpc' || env === 'sdk' ? env : undefined
-  return override ?? envTransport ?? 'rpc'
+  return override ?? envTransport ?? 'sdk'
 }
 
 interface SlotInfo {
@@ -1022,9 +1023,9 @@ export class PiManager {
   createSlot(name: string, agent: string | null, opts: PiProcessOptions = {}): { key: string; title: string; messages: number; running: boolean } {
     const key = opts.key || `chat-${++this._slotCounter}-${Date.now()}`
     const transport = resolveTransport(opts.transport)
-    // SDK transport is flag-gated OFF by default (resolveTransport → 'rpc'
-    // everywhere unless a slot explicitly opts in). Instantiating PiSdkSession
-    // here is behind that guard — no production slot reaches it today.
+    // Foreground default is 'sdk' (slice 10 flip). A per-slot override or
+    // PI_DASH_TRANSPORT=rpc forces the isolated RPC subprocess; background
+    // slots are moved to 'rpc' by conductorDetach() after creation.
     const pi: PiSession = transport === 'sdk'
       ? new PiSdkSession(key, { agent, ...opts, transport })
       : new PiRpcSession(key, { agent, ...opts, transport })
@@ -1038,7 +1039,9 @@ export class PiManager {
   restoreSlot(key: string, title: string, messages: ChatMessage[], opts: PiProcessOptions = {}): void {
     console.log(`[pi-manager] Restoring slot ${key}: title="${title}", msgs=${messages.length}, sessionFile=${opts.sessionFile || 'NONE'}`)
     // Backward compat: slot state saved before transport existed has no
-    // `transport` field → resolveTransport defaults it to 'rpc'.
+    // `transport` field → resolveTransport applies the foreground default
+    // ('sdk' since slice 10). A persisted 'rpc' transport is honored as an
+    // override and keeps the slot on the isolated RPC subprocess.
     const transport = resolveTransport(opts.transport)
     const pi: PiSession = transport === 'sdk'
       ? new PiSdkSession(key, { messages, title, ...opts, transport })
