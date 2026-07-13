@@ -30,7 +30,12 @@ HARD), two-slot cross-talk isolation (item 5, HARD), and latency (item 6).
 per slot) forces every slot back onto the isolated RPC subprocess — no code revert,
 no data migration (session JSONL is pi-owned and shared).
 
-Test suite: **209 pass / 1 skip.**
+**The additive phase has begun.** Slice 11 (permission-gating UI) is DONE at
+`88421cd8` behind its own `toolApproval` flag (default OFF, ships dark).
+Slices 12–17 remain — see [`docs/additive-backlog-handoff.md`](./additive-backlog-handoff.md)
+for the per-feature SDK-hook mapping and the full-stack-slice process lesson.
+
+Test suite: **220 pass / 1 skip.**
 
 ---
 
@@ -57,14 +62,18 @@ Read directly from `git log --oneline 70ba9ca1..HEAD` (oldest first):
 | `90c1c1fd` | 9 | A/B isolation test + latency/fixture-fidelity harness + live-validation checklist |
 | `11c2ae6f` | 9 (unblock) | Enable sdk transport endpoint now that `PiSdkSession` is complete (7a–7e) |
 | `f6932f3f` | 9 (follow-up) | Add real cross-talk assertion to isolation test + honest header |
+| `627c401c` | 9 (docs) | SDK-migration status + live-validation handoff |
 | `6af8dfcc` | 10 | Live 2-slot cross-talk isolation probe (flip bar item 5) |
 | `8407050d` | 10 | **Flip foreground default `rpc`→`sdk`** (live gates passed) |
 | `28560199` | 10 | Record live A/B measurement results + slice-10 flip |
 | `ab84e43a` | 10 (fix) | Reconstruct detached/background/job slots as isolated `PiRpcSession` (restore decision #2) |
 | `94568ce0` | follow-up | Assert scheduled jobs create isolated rpc slots (background isolation guard) |
+| `8cb8d334` | 10 (docs) | STATUS refresh — slice-10 flip live + isolation fix complete |
+| `88421cd8` | 11 | **Permission-gating UI** — approve/deny/edit tool calls (own `toolApproval` flag, default OFF) |
 
-22 commits + this doc-refresh commit = **23 total** (the doc cannot list its own
-hash; find it with `git log --oneline 70ba9ca1..HEAD`).
+25 commits + this doc-refresh commit = **26 total** (the doc cannot list its own
+hash; find it with `git log --oneline 70ba9ca1..HEAD`). Verify with
+`git rev-list --count 70ba9ca1..HEAD` — the pre-refresh count is 25.
 
 ---
 
@@ -114,7 +123,7 @@ The strangler architecture is fully in place and the foreground flip is live.
 - **Resilience** — V8 launch flags, per-slot error boundaries + dispose, and a
   hardened crash backstop.
 
-**Test suite: 209 pass / 1 skip** (`npm test`; the 1 skip is the quarantined
+**Test suite: 220 pass / 1 skip** (`npm test`; the 1 skip is the quarantined
 `/api/models` baseline from slice 0 — see §7).
 
 ---
@@ -176,19 +185,22 @@ implementations coexist permanently and the session JSONL format is shared
 
 ---
 
-## 6. Deferred additive backlog (slices 11–17)
+## 6. Additive backlog (slices 11–17)
 
-Post-flip, each behind its **own** flag, **never** coupled to the transport swap:
+Post-flip features, each behind its **own** flag (default OFF, ships dark),
+**never** coupled to the transport swap. **The additive phase has begun.** Full
+per-feature SDK-hook mapping, the full-stack-slice process lesson, and the slice-11
+template are in [`docs/additive-backlog-handoff.md`](./additive-backlog-handoff.md).
 
-| Slice | Feature |
-|-------|---------|
-| 11 | Permission-gating UI (`tool_call` block + mutate) |
-| 12 | Custom tools (`defineTool`) |
-| 13 | Tool-result middleware |
-| 14 | Custom providers |
-| 15 | Session-tree branching UI |
-| 16 | Live skill/extension reload |
-| 17 | Programmatic compaction |
+| Slice | Feature | Flag | Status |
+|-------|---------|------|--------|
+| 11 | Permission-gating UI (`tool_call` block + mutate) | `toolApproval` | **DONE** (`88421cd8`) |
+| 12 | Custom tools (`defineTool`) | `customTools` | pending |
+| 13 | Tool-result middleware (`tool_result`) | `toolResultMiddleware` | pending |
+| 14 | Custom providers (`before/after_provider_*`) | `providerMiddleware` | pending |
+| 15 | Session-tree branching UI (`session.navigateTree`) | `treeUi` | pending |
+| 16 | Live skill/extension reload (`ResourceLoader` rebuild) | `liveReload` | pending |
+| 17 | Programmatic compaction (`session.compact`) | `compactionUi` | pending |
 
 ---
 
