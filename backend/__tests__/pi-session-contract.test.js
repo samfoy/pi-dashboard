@@ -893,3 +893,85 @@ describe('PiSdkSession slash-command dispatch (parity with RPC prompt slash bloc
     expect(results).toHaveLength(0)
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// Init-race regression (fix: await _init before dispatch)
+//   Bug: start() fires _init() async and does NOT await it. The REST
+//   /api/chat path (ensureRunning → start → prompt) then hit prompt()'s old
+//   `if (!this._session) return false` before _init resolved → the FIRST
+//   message to a fresh slot was silently dropped ("new session never starts").
+//   Fix: prompt()/triggerAutoTurn() await _ensureInit() before dispatching.
+// ─────────────────────────────────────────────────────────────────────────
+describe('PiSdkSession init-race (await _init before dispatch)', () => {
+  // Replace _init with a controllable deferred that installs a fake session on
+  // resolve — mirrors the real start() → _initPromise seam without a provider.
+  function makeStarting() {
+    const pi = new PiSdkSession('sdk-init-race')
+    const calls = { prompt: 0, arg: null }
+    let resolveInit
+    const gate = new Promise((r) => { resolveInit = r })
+    pi._init = async () => {
+      await gate
+      pi._session = { isStreaming: false, prompt: async (m) => { calls.prompt++; calls.arg = m } }
+      pi.ready = true
+    }
+    return { pi, calls, letInitFinish: resolveInit }
+  }
+
+  it('first prompt awaits init and is NOT dropped', async () => {
+    const { pi, calls, letInitFinish } = makeStarting()
+    pi.start() // fires _init(); _initPromise pending, _session still null
+    expect(pi._session).toBeNull()
+    const p = pi.prompt('hello') // must WAIT for init, not drop
+    await Promise.resolve()
+    expect(calls.prompt).toBe(0) // correctly waiting — not dispatched, not dropped
+    letInitFinish()
+    const res = await p
+    expect(res).toBe(true)
+    expect(calls.prompt).toBe(1) // dispatched after init resolved
+    expect(calls.arg).toBe('hello')
+    // the user message survived (was NOT silently dropped)
+    expect(pi.messages.some((m) => m.role === 'user' && m.content === 'hello')).toBe(true)
+  })
+
+  it('prompt on a never-started slot self-starts init then dispatches', async () => {
+    const { pi, calls, letInitFinish } = makeStarting()
+    // No start() call — prompt() must kick off init itself.
+    const p = pi.prompt('kickoff')
+    await Promise.resolve()
+    expect(pi._initPromise).not.toBeNull() // prompt started init
+    letInitFinish()
+    await p
+    expect(calls.prompt).toBe(1)
+    expect(calls.arg).toBe('kickoff')
+  })
+
+  it('triggerAutoTurn awaits init and is NOT dropped on a fresh slot', async () => {
+    const { pi, calls, letInitFinish } = makeStarting()
+    pi.start()
+    expect(pi._session).toBeNull()
+    const accepted = pi.triggerAutoTurn('auto-hi') // sync accept
+    expect(accepted).toBe(true)
+    await Promise.resolve()
+    expect(calls.prompt).toBe(0) // waiting for init
+    letInitFinish()
+    // let the fire-and-forget async dispatch settle
+    await new Promise((r) => setTimeout(r, 5))
+    expect(calls.prompt).toBe(1)
+    expect(calls.arg).toBe('auto-hi')
+    expect(pi.messages.some((m) => m.role === 'user' && m.content === 'auto-hi')).toBe(true)
+  })
+
+  it('init FAILURE surfaces a fatal (startup_error + exit) — never a silent drop', async () => {
+    const pi = new PiSdkSession('sdk-init-fail')
+    pi._init = async () => { throw new Error('boom init') }
+    const events = []
+    pi.on('error', () => events.push('error')) // required: unhandled 'error' would throw
+    pi.on('startup_error', () => events.push('startup_error'))
+    pi.on('exit', (c) => events.push('exit:' + c))
+    const ok = await pi.prompt('hi')
+    expect(ok).toBe(false)
+    expect(events).toContain('startup_error') // start()'s catch made it visible
+    expect(events).toContain('exit:1') // _handleFatal surfaced it (chat_error path), not a silent return
+  })
+})

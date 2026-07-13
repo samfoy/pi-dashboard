@@ -456,8 +456,41 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   // Prompting / turn control (CORE)
   // ─────────────────────────────────────────────────────────────────────────
 
+  /**
+   * Await session initialization before dispatching. `start()` is sync per the
+   * `PiSession` interface but the SDK create path is async — it fires `_init()`
+   * and returns, storing `_initPromise`. A prompt arriving immediately after
+   * slot creation (the REST `/api/chat` path: `ensureRunning()` → `start()` →
+   * `prompt()`, all without awaiting init) would otherwise hit `!this._session`
+   * and be SILENTLY DROPPED — the "new session never starts up" bug: no turn,
+   * no message, no error, `running` stuck false.
+   *
+   * This awaits the in-flight init, starting it if the slot was never started
+   * (or was reaped — `kill()` clears `_initPromise` + sets `_disposed`, so
+   * `start()` re-inits). It no-ops start() when an init is already in flight, so
+   * a concurrent second prompt just awaits the same promise. Returns true once a
+   * live session exists; false only if init GENUINELY failed (not just slow) —
+   * in which case `start()`'s catch has already emitted the visible
+   * `startup_error`, and the caller surfaces a fatal (never a silent drop).
+   */
+  private async _ensureInit(): Promise<boolean> {
+    if (this._session) return true
+    if (!this._initPromise) this.start()
+    // start() wraps _init in a .catch that emits startup_error+error and
+    // swallows, so this await resolves even on failure (session stays null).
+    // Guard anyway against a future non-caught rejection.
+    try { await this._initPromise } catch { /* startup_error already emitted */ }
+    return !!this._session
+  }
+
   async prompt(message: string, images?: ImagePayload[]): Promise<boolean | void> {
-    if (!this._session) return false
+    // AWAIT INIT before dispatch (fixes the dropped-first-prompt bug). If init
+    // genuinely failed, surface it as a fatal (chat_error / stopped spinner +
+    // respawn on next prompt) instead of a silent `return false`.
+    if (!(await this._ensureInit())) {
+      this._handleFatal(new Error(`Slot ${this.slotKey}: session failed to initialize`))
+      return false
+    }
     // SLASH-COMMAND DISPATCH (parity with PiRpcSession.prompt, pi-manager.ts).
     // The dashboard synthesizes control/data slash commands (/session, /compact,
     // /new, …) that pi's RPC child intercepts BEFORE the model. `session.prompt()`
@@ -482,7 +515,7 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     // the SDK reports `isStreaming === true` and we queue as followUp; after an
     // idle resume it reports false, so we do NOT queue behind a nonexistent
     // turn. During an auto-retry the SDK keeps `isStreaming === true`.
-    const streaming = this._session.isStreaming === true
+    const streaming = this._session!.isStreaming === true
     this._outstandingPrompts++
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString() })
@@ -494,7 +527,7 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     // `_safeTranslate`) or the sync V8 abort class (uncatchable — the process
     // backstop is the only — partial — net for those).
     try {
-      await this._session.prompt(message, {
+      await this._session!.prompt(message, {
         ...(imgs ? { images: imgs } : {}),
         ...(streaming ? { streamingBehavior: 'followUp' as const } : {}),
       })
@@ -532,16 +565,28 @@ export class PiSdkSession extends EventEmitter implements PiSession {
    *  hint). Mirrors PiRpcSession.triggerAutoTurn: marks running, records the
    *  user message, dispatches. */
   triggerAutoTurn(message: string): boolean {
-    if (!this._session) return false
-    // Same authoritative streaming discipline as prompt(): queue as followUp
-    // only when the SDK reports a genuinely live turn.
-    const streaming = this._session.isStreaming === true
+    if (this._disposed) return false
+    // Same authoritative streaming discipline as prompt(), but init may not be
+    // ready yet (an auto-turn can arrive before the first user prompt). Accept
+    // synchronously (mark running, record the message), then AWAIT init in a
+    // fire-and-forget block so the auto-turn isn't dropped on a fresh slot.
     this.running = true
     this.messages.push({ role: 'user', content: message, ts: new Date().toISOString(), meta: { autoTrigger: true } })
-    // Fire-and-forget dispatch; route a rejection through the same per-slot
-    // fatal boundary as prompt() so a failed auto-turn contains to this slot
-    // (chat_error + respawn) instead of leaking to the process-level backstop.
-    void this._session.prompt(message, streaming ? { streamingBehavior: 'followUp' } : {}).catch((err: any) => this._handleFatal(err))
+    void (async () => {
+      if (!(await this._ensureInit())) {
+        this._handleFatal(new Error(`Slot ${this.slotKey}: session failed to initialize (auto-turn)`))
+        return
+      }
+      const streaming = this._session!.isStreaming === true
+      // Route a rejection through the same per-slot fatal boundary as prompt()
+      // so a failed auto-turn contains to this slot (chat_error + respawn)
+      // instead of leaking to the process-level backstop.
+      try {
+        await this._session!.prompt(message, streaming ? { streamingBehavior: 'followUp' } : {})
+      } catch (err: any) {
+        this._handleFatal(err)
+      }
+    })()
     return true
   }
 
