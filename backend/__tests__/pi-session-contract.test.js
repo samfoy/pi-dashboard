@@ -779,3 +779,117 @@ describe('parseSessionMessages graceful-degrade (slice 7d fork deferred-write nu
     expect(parseSessionMessages(missing, 200)).toEqual([])
   })
 })
+
+describe('PiSdkSession slash-command dispatch (parity with RPC prompt slash block)', () => {
+  // Build an SDK slot with a fake in-process AgentSession exposing exactly the
+  // methods the slash dispatch calls. `prompt` is spied so we can assert a
+  // command was NOT forwarded to the model.
+  function makeSlot(sessionOverrides = {}) {
+    const pi = new PiSdkSession('sdk-slash')
+    const calls = { prompt: 0, compact: 0, newSession: 0, setName: null }
+    pi._session = {
+      isStreaming: false,
+      prompt: async () => { calls.prompt++ },
+      getSessionStats: () => ({ tokens: 42, cost: 0.5 }),
+      getLastAssistantText: () => 'the last reply',
+      compact: async () => { calls.compact++; return { ok: true } },
+      setSessionName: (n) => { calls.setName = n },
+      exportToHtml: async () => '/tmp/export-abc.html',
+      extensionRunner: { getRegisteredCommands: () => [] },
+      promptTemplates: [],
+      resourceLoader: { getSkills: () => ({ skills: [] }) },
+      ...sessionOverrides,
+    }
+    pi.runtime = { newSession: async () => { calls.newSession++; return { cancelled: false } } }
+    return { pi, calls }
+  }
+
+  function captureSlashResult(pi) {
+    const results = []
+    pi.on('slash_result', (r) => results.push(r))
+    return results
+  }
+
+  it('/session emits slash_result with stats and does NOT hit the model', async () => {
+    const { pi, calls } = makeSlot()
+    const results = captureSlashResult(pi)
+    await pi.prompt('/session')
+    expect(results).toHaveLength(1)
+    expect(results[0].content).toContain('"tokens": 42')
+    expect(results[0].content.startsWith('```')).toBe(true)
+    expect(calls.prompt).toBe(0)
+    // and the assistant message is pushed for the FE (matches RPC DATA_CMDS)
+    expect(pi.messages.at(-1)).toMatchObject({ role: 'assistant' })
+  })
+
+  it('/usage behaves like /session (stats, no model)', async () => {
+    const { pi, calls } = makeSlot()
+    const results = captureSlashResult(pi)
+    await pi.prompt('/usage')
+    expect(results[0].content).toContain('"cost": 0.5')
+    expect(calls.prompt).toBe(0)
+  })
+
+  it('/tools emits slash_result with the command list, no model', async () => {
+    const { pi, calls } = makeSlot()
+    const results = captureSlashResult(pi)
+    await pi.prompt('/tools')
+    expect(results).toHaveLength(1)
+    expect(calls.prompt).toBe(0)
+  })
+
+  it('/copy emits the last assistant text, no model', async () => {
+    const { pi, calls } = makeSlot()
+    const results = captureSlashResult(pi)
+    await pi.prompt('/copy')
+    expect(results[0].content).toContain('the last reply')
+    expect(calls.prompt).toBe(0)
+  })
+
+  it('/compact invokes session.compact, not a model prompt', async () => {
+    const { pi, calls } = makeSlot()
+    await pi.prompt('/compact')
+    expect(calls.compact).toBe(1)
+    expect(calls.prompt).toBe(0)
+  })
+
+  it('/new and /clear invoke runtime.newSession, not a model prompt', async () => {
+    const a = makeSlot(); await a.pi.prompt('/new')
+    expect(a.calls.newSession).toBe(1); expect(a.calls.prompt).toBe(0)
+    const b = makeSlot(); await b.pi.prompt('/clear')
+    expect(b.calls.newSession).toBe(1); expect(b.calls.prompt).toBe(0)
+  })
+
+  it('/name sets the session name with args, no model', async () => {
+    const { pi, calls } = makeSlot()
+    await pi.prompt('/name My Session')
+    expect(calls.setName).toBe('My Session')
+    expect(calls.prompt).toBe(0)
+  })
+
+  it('/export exports to HTML and reports the path, no model', async () => {
+    const { pi, calls } = makeSlot()
+    const results = captureSlashResult(pi)
+    await pi.prompt('/export')
+    expect(results[0].content).toContain('/tmp/export-abc.html')
+    expect(calls.prompt).toBe(0)
+  })
+
+  it('/reload and /fork fail gracefully (slash_result) without hitting the model', async () => {
+    const r = makeSlot(); const rr = captureSlashResult(r.pi); await r.pi.prompt('/reload')
+    expect(rr[0].content).toMatch(/reload/i); expect(r.calls.prompt).toBe(0)
+    const f = makeSlot(); const fr = captureSlashResult(f.pi); await f.pi.prompt('/fork')
+    expect(fr[0].content).toMatch(/fork/i); expect(f.calls.prompt).toBe(0)
+  })
+
+  it('an unknown/extension/template command FALLS THROUGH to session.prompt (model path)', async () => {
+    // /commit is a prompt template — the SDK session.prompt() expands it
+    // internally, so the dashboard must NOT intercept it; it must reach
+    // session.prompt (spied as calls.prompt).
+    const { pi, calls } = makeSlot()
+    const results = captureSlashResult(pi)
+    await pi.prompt('/commit some message')
+    expect(calls.prompt).toBe(1)
+    expect(results).toHaveLength(0)
+  })
+})

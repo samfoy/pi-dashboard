@@ -458,6 +458,22 @@ export class PiSdkSession extends EventEmitter implements PiSession {
 
   async prompt(message: string, images?: ImagePayload[]): Promise<boolean | void> {
     if (!this._session) return false
+    // SLASH-COMMAND DISPATCH (parity with PiRpcSession.prompt, pi-manager.ts).
+    // The dashboard synthesizes control/data slash commands (/session, /compact,
+    // /new, …) that pi's RPC child intercepts BEFORE the model. `session.prompt()`
+    // only auto-handles *extension* commands, /skill: commands, and prompt
+    // templates (verified against agent-session.js `prompt()` — `expandPromptTemplates`
+    // default true covers `_tryExecuteExtensionCommand` + `_expandSkillCommand` +
+    // `expandPromptTemplate`). The dashboard-owned builtins are NOT extension
+    // commands, so without this block they'd reach the model as raw text (the
+    // `/session` regression). Extension/skill/prompt-template commands fall
+    // through to `session.prompt()` below, which expands them correctly.
+    if (message.startsWith('/')) {
+      const handled = await this._handleSlashCommand(message)
+      if (handled) return
+      // not a dashboard builtin — fall through so session.prompt() can expand an
+      // extension command / /skill: / prompt template (or send raw, matching RPC).
+    }
     const imgs = normalizeImages(images)
     // Steer-vs-queue is decided from the AUTHORITATIVE live streaming state
     // (`session.isStreaming`), NOT a hand-mirrored counter that can drift on
@@ -535,6 +551,98 @@ export class PiSdkSession extends EventEmitter implements PiSession {
 
   /** Shaped like the RPC get_state response so server.ts's title-derivation
    *  poll (`resp?.data?.sessionName`) works unchanged against either transport. */
+  /** Emit a slash-command result as an assistant message, byte-for-byte matching
+   *  the RPC DATA_CMDS path (pi-manager.ts): push the fenced content to messages
+   *  and emit `slash_result` (server.ts broadcasts it as a `chat_message`). */
+  private _emitSlashResult(text: string): void {
+    const content = '```\n' + text + '\n```'
+    this.messages.push({ role: 'assistant', content, ts: new Date().toISOString() })
+    this.emit('slash_result', { content })
+  }
+
+  /** Dispatch a dashboard-owned control/data slash command using the in-process
+   *  session's real APIs. Returns true when handled (do NOT send to the model);
+   *  false to fall through to `session.prompt()` (extension/skill/template).
+   *  Mirrors PiRpcSession.prompt's RPC_MAP + DATA_CMDS + /reload set exactly. */
+  private async _handleSlashCommand(message: string): Promise<boolean> {
+    const spaceIdx = message.indexOf(' ')
+    const cmd = (spaceIdx === -1 ? message.slice(1) : message.slice(1, spaceIdx)).trim()
+    const args = spaceIdx === -1 ? '' : message.slice(spaceIdx + 1).trim()
+    const s = this._session
+    if (!s) return false
+
+    switch (cmd) {
+      // ── DATA: return info, never hit the model (RPC DATA_CMDS) ────────────
+      case 'session':
+      case 'usage': {
+        const resp = await this.getSessionStats()
+        const data = resp?.data
+        if (data != null) {
+          this._emitSlashResult(typeof data === 'string' ? data : JSON.stringify(data, null, 2))
+        }
+        return true
+      }
+      case 'tools': {
+        const commands = await this.getCommands()
+        this._emitSlashResult(JSON.stringify(commands, null, 2))
+        return true
+      }
+      case 'copy': {
+        const text = s.getLastAssistantText?.() ?? ''
+        this._emitSlashResult(text || '(no assistant message to copy)')
+        return true
+      }
+
+      // ── CONTROL: perform a session op, never hit the model (RPC RPC_MAP) ──
+      case 'compact': {
+        // session.compact drives compaction_start/end events which _translate
+        // maps to the same context frames; no model prompt.
+        await s.compact(args || undefined)
+        return true
+      }
+      case 'new':
+      case 'clear': {
+        if (this.runtime) await this.runtime.newSession()
+        return true
+      }
+      case 'name': {
+        s.setSessionName(args || 'New Chat')
+        return true
+      }
+      case 'export': {
+        // In-process export works (no RPC round-trip). Surface the path so the
+        // user gets feedback instead of the command reaching the model.
+        try {
+          const path = await s.exportToHtml(args || undefined)
+          this._emitSlashResult(`Exported session to: ${path}`)
+        } catch (err) {
+          this._emitSlashResult(`Export failed: ${err instanceof Error ? err.message : String(err)}`)
+        }
+        return true
+      }
+
+      // ── GRACEFUL NON-PARITY: handled without hitting the model ────────────
+      case 'fork': {
+        // The dashboard's real fork flow is the message-picker UI (getForkMessages
+        // + the fork endpoint), which needs an entryId. A bare `/fork` has none,
+        // so guide the user rather than send `/fork` to the model.
+        this._emitSlashResult('To fork, use the fork button and pick the message to branch from.')
+        return true
+      }
+      case 'reload': {
+        // No child process to restart in-process. Live ResourceLoader rebuild is
+        // deferred (slice 16 — live reload). Report clearly; never hit the model.
+        this._emitSlashResult('Reload is not yet wired for in-process (SDK) slots. Start a new session to pick up changed extensions/skills/prompts.')
+        return true
+      }
+
+      default:
+        // Not a dashboard builtin — let session.prompt() expand an extension
+        // command / /skill: / prompt template (or reach the model, matching RPC).
+        return false
+    }
+  }
+
   async getState(_timeoutMs: number = 30000): Promise<any> {
     const s = this._session
     return {
