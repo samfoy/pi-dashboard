@@ -106,11 +106,16 @@ function makeMockManager(overrides = {}) {
 // `new PiManager()` at the top level, we mock the entire pi-manager module.
 let mockManager = makeMockManager()
 
-vi.mock('../pi-manager.js', () => {
+vi.mock('../pi-manager.js', async (importActual) => {
   // Must use a real function (not arrow) so `new PiManager()` works.
   // Returning a plain object from a constructor makes `new` return that object.
+  // Re-export the REAL PiRpcSession (+ resolveTransport) so chat.ts's
+  // `instanceof PiRpcSession` detach check resolves to a real constructor.
+  const actual = await importActual()
   return {
     PiManager: vi.fn(function () { return mockManager }),
+    PiRpcSession: actual.PiRpcSession,
+    resolveTransport: actual.resolveTransport,
   }
 })
 

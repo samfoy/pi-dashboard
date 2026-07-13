@@ -8,6 +8,8 @@ import { execSync } from 'child_process'
 import os from 'os'
 import type { RouteDeps, ChatMessage } from './types.js'
 import { parseSessionMessages, parseSessionTree, findSessionFile } from '../session-store.js'
+import { PiRpcSession } from '../pi-manager.js'
+import type { PiSession, PiTransport } from '../pi-session.js'
 import * as piEnv from '../pi-env.js'
 
 type ModelInfo = {
@@ -84,6 +86,36 @@ function preferredDashboardModels(models: ModelInfo[]): ModelInfo[] {
 export function registerChatRoutes(deps: RouteDeps): void {
   const { app, manager, broadcast, broadcastSlots, persistSlots, notifications, addNotification, wireSlotEvents } = deps
 
+  // Recreate a slot on a chosen transport, re-adopting its session state
+  // (sessionFile, messages, model, thinking, cwd, tags, title). createSlot with
+  // the same key registers a deferred slot that re-adopts `sessionFile` on its
+  // next ensureRunning — no double process while we swap. Shared by the
+  // POST .../transport endpoint and the conductor-detach reconstruction path.
+  function recreateSlotWithTransport(key: string, transport: PiTransport): PiSession | null {
+    const pi = manager.getSlot(key)
+    if (!pi) return null
+    const opts = {
+      key,
+      transport,
+      messages: pi.messages,
+      sessionFile: pi.sessionFile,
+      title: pi._title || undefined,
+      modelProvider: pi.modelProvider,
+      modelId: pi.modelId,
+      thinkingLevel: pi.thinkingLevel,
+      cwd: pi.cwd,
+      tags: pi._tags,
+    }
+    manager.deleteSlot(key)
+    const slot = manager.createSlot(opts.title || key, null, opts)
+    const newPi = manager.getSlot(slot.key)!
+    wireSlotEvents(newPi, slot.key)
+    newPi._wired = true
+    persistSlots()
+    broadcastSlots()
+    return newPi
+  }
+
   // Chat slots
   app.get('/api/chat/slots', (_req: Request, res: Response) => res.json(manager.listSlots()))
 
@@ -137,6 +169,10 @@ export function registerChatRoutes(deps: RouteDeps): void {
         modelProvider: pi.modelProvider,
         modelId: pi.modelId,
         cwd: pi.cwd,
+        // Inherit the parent slot's transport so a fork preserves isolation
+        // characteristics (a fork of a detached/background RPC slot stays RPC;
+        // a fork of a foreground SDK slot stays SDK).
+        transport: pi.transport,
       })
       const forkPi = manager.getSlot(forkSlot.key)!
       wireSlotEvents(forkPi, forkSlot.key)
@@ -179,9 +215,24 @@ export function registerChatRoutes(deps: RouteDeps): void {
   })
 
   app.post('/api/chat/slots/:key/conductor-detach', (req: Request, res: Response) => {
-    const pi = manager.getSlot(req.params.key as string)
+    const key = req.params.key as string
+    const pi = manager.getSlot(key)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
-    pi.conductorDetach()
+    // Detached/background sub-agents MUST run as isolated RPC subprocesses
+    // (design decision #2). Since the slice-10 flip, a foreground slot defaults
+    // to the in-process `sdk` transport — detaching it with only a field flip
+    // would leave it running in-process (no isolation) AND break the sentinel
+    // handshake (PiSdkSession has no `.proc`/pid). So if the slot isn't already
+    // an RPC subprocess, reconstruct it as PiRpcSession (re-adopting session
+    // state), spawn it so it has a real pid, then write the detach sentinel.
+    let target: PiSession = pi
+    if (!(pi instanceof PiRpcSession)) {
+      const rebuilt = recreateSlotWithTransport(key, 'rpc')
+      // ensureRunning spawns the RPC subprocess (re-adopts sessionFile) so the
+      // sentinel write below has a live pid for pi-conductor to poll.
+      target = manager.ensureRunning(key) ?? rebuilt ?? pi
+    }
+    target.conductorDetach()
     res.json({ ok: true })
   })
 
@@ -374,29 +425,8 @@ export function registerChatRoutes(deps: RouteDeps): void {
     const key = req.params.key as string
     const pi = manager.getSlot(key)
     if (!pi) return res.status(404).json({ error: 'slot not found' })
-    // Recreate on the chosen transport, re-adopting session state. createSlot
-    // with the same key registers a deferred slot that re-adopts `sessionFile`
-    // on its next ensureRunning — no double process while we swap.
-    const opts = {
-      key,
-      transport,
-      messages: pi.messages,
-      sessionFile: pi.sessionFile,
-      title: pi._title || undefined,
-      modelProvider: pi.modelProvider,
-      modelId: pi.modelId,
-      thinkingLevel: pi.thinkingLevel,
-      cwd: pi.cwd,
-      tags: pi._tags,
-    }
-    manager.deleteSlot(key)
-    const slot = manager.createSlot(opts.title || key, null, opts)
-    const newPi = manager.getSlot(slot.key)!
-    wireSlotEvents(newPi, slot.key)
-    newPi._wired = true
-    persistSlots()
-    broadcastSlots()
-    res.json({ ok: true, key: slot.key, transport })
+    recreateSlotWithTransport(key, transport)
+    res.json({ ok: true, key, transport })
   })
 
   // Git repo summary for a slot (branch, dirty file count, adds/dels)

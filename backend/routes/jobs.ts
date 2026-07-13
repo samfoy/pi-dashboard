@@ -143,6 +143,11 @@ async function runJob(deps: RouteDeps, job: ScheduledJob, triggeredBy: 'schedule
     modelProvider,
     modelId,
     tags: ['job', job.id],
+    // Scheduled/manual jobs run unattended in the background — pin to the
+    // isolated RPC subprocess transport (design decision #2). Without this,
+    // the slice-10 foreground `sdk` default would run jobs in-process, so a
+    // job's WASM-OOM/crash would take down all slots + the server.
+    transport: 'rpc',
   })
   const pi = deps.manager.getSlot(slot.key)!
   if (!pi._wired) { deps.wireSlotEvents(pi, slot.key); pi._wired = true }

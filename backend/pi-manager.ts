@@ -84,10 +84,13 @@ interface PiProcessOptions {
 // Resolve a slot's transport backend: per-slot override wins, then the
 // PI_DASH_TRANSPORT env, else the foreground default 'sdk' (slice 10 flip —
 // live gates passed: fixture fidelity, 2-slot isolation, latency). Background/
-// detached slots always run on 'rpc' — that policy is enforced imperatively in
-// conductorDetach() (which sets this.transport = 'rpc' at detach time), since
-// no background signal exists at slot-creation time. Rollback path intact:
-// PI_DASH_TRANSPORT=rpc (env) or an explicit per-slot override forces 'rpc'.
+// detached slots are kept on isolated 'rpc' by two mechanisms (design decision
+// #2): (a) background-at-creation paths (scheduled jobs) pass an explicit
+// transport:'rpc' override; (b) the conductor-detach route reconstructs a
+// foreground SDK slot as a PiRpcSession subprocess at detach time (a field flip
+// alone can't re-isolate an already-constructed in-process session). Rollback
+// path intact: PI_DASH_TRANSPORT=rpc (env) or an explicit per-slot override
+// forces 'rpc'.
 export function resolveTransport(override?: PiTransport | null): PiTransport {
   const env = process.env.PI_DASH_TRANSPORT
   const envTransport: PiTransport | undefined = env === 'rpc' || env === 'sdk' ? env : undefined
