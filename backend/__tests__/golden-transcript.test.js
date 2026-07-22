@@ -141,4 +141,35 @@ describe('golden transcript: SDK _translate === RPC _handleEvent', () => {
     // partial removed, final present
     expect(rpc.messages.map(m => m.content)).toEqual(['final answer'])
   })
+
+  it('a fully-failed turn (all retries exhausted, empty content + errorMessage) surfaces a visible system error instead of silent drop', () => {
+    // Witnessed: amazon-claude-code / bedrock-converse-stream under Fable-5
+    // capacity throttling exhausts the retry budget; the terminal agent_end
+    // carries stopReason:'error' + errorMessage with content:[]. Before the
+    // fix, neither RPC nor SDK translation pushed anything for this message —
+    // the turn silently vanished (reported as "empty stream response").
+    const rpc = new PiRpcSession('golden-rpc-3', {})
+    const sdk = new PiSdkSession('golden-sdk-3', {})
+
+    const endEv = {
+      type: 'agent_end',
+      willRetry: false,
+      messages: [
+        {
+          role: 'assistant',
+          timestamp: TS,
+          stopReason: 'error',
+          errorMessage: 'Service unavailable: 503: {"_events":{"close":[null,null]},"_readableState":{"highWaterMark":65536}}',
+          content: [],
+        },
+      ],
+    }
+    rpc._handleEvent(structuredClone(endEv))
+    sdk._translate(structuredClone(endEv))
+
+    expect(sdk.messages).toEqual(rpc.messages)
+    expect(rpc.messages).toHaveLength(1)
+    expect(rpc.messages[0].role).toBe('system')
+    expect(rpc.messages[0].content).toBe('⚠️ Provider error: Service unavailable: 503')
+  })
 })

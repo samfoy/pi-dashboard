@@ -18,7 +18,7 @@
  * ── SLICE 7e (this file) ──
  * The model/command surface (`setModel`/`setThinkingLevel`/`getAvailableModels`/
  * `getCommands`) is now implemented against the per-slot in-process session's
- * `modelRegistry`/`extensionRunner`/`promptTemplates`/`resourceLoader`, mirroring
+ * `modelRuntime`/`extensionRunner`/`promptTemplates`/`resourceLoader`, mirroring
  * the RPC `rpc-mode.js` handlers for byte-identical `.data` shapes and the same
  * argument-less `model_change` internal event. Every method on the core
  * PiSession surface is now fully implemented — none throw an
@@ -42,9 +42,10 @@ import { EventEmitter } from 'events'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
-import { extractText, ChatMessage } from './session-store.js'
+import { extractText, summarizeProviderError, ChatMessage } from './session-store.js'
 import type { PiSession, PiTransport, ImagePayload, ToolApprovalDecision } from './pi-session.js'
 import { deriveStatsFrames } from './pi-session.js'
+import { resolveDefaultThinkingLevel } from './thinking-level.js'
 import { randomUUID } from 'crypto'
 import {
   createAgentSessionServices,
@@ -307,14 +308,24 @@ export class PiSdkSession extends EventEmitter implements PiSession {
       })
       const model =
         this.modelProvider && this.modelId
-          ? services.modelRegistry.find(this.modelProvider, this.modelId)
+          ? services.modelRuntime.getModel(this.modelProvider, this.modelId)
           : undefined
+      // pi's model resolver short-circuits thinkingLevel to "medium" whenever a
+      // `model` is supplied (which the dashboard always does), ignoring
+      // settings.json `defaultThinkingLevel`. Mirror the RPC path: when the slot
+      // has no explicit level, re-apply the resolved settings default so a new
+      // SDK slot honors e.g. `high` instead of pi's hardcoded medium. Persist it
+      // back onto the slot so the FE chip + later restores stay in sync.
+      const effectiveThinking = this.thinkingLevel || resolveDefaultThinkingLevel(cwd)
+      if (effectiveThinking && this.thinkingLevel !== effectiveThinking) {
+        this.thinkingLevel = effectiveThinking
+      }
       const result = await createAgentSessionFromServices({
         services,
         sessionManager,
         ...(sessionStartEvent ? { sessionStartEvent } : {}),
         ...(model ? { model } : {}),
-        ...(this.thinkingLevel ? { thinkingLevel: this.thinkingLevel as any } : {}),
+        ...(effectiveThinking ? { thinkingLevel: effectiveThinking as any } : {}),
       })
       return { ...result, services, diagnostics: services.diagnostics }
     }
@@ -706,13 +717,13 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   // Each of these mirrors the SAME operation the RPC server performs in
   // `rpc-mode.js` (get_available_models / set_model / set_thinking_level /
   // get_commands), reading from the per-slot in-process session's
-  // `modelRegistry`, `extensionRunner`, `promptTemplates`, and `resourceLoader`.
+  // `modelRuntime`, `extensionRunner`, `promptTemplates`, and `resourceLoader`.
   // The returned shapes are byte-identical to the RPC `.data.{models,commands}`
   // payloads so `chat.ts` / `server.ts` need no SDK-specific branching.
   // ─────────────────────────────────────────────────────────────────────────
 
   /** Change the in-process session's model, mirroring RPC's `set_model` handler:
-   *  resolve the model out of the per-slot ModelRegistry's *available* set (auth
+   *  resolve the model out of the per-slot ModelRuntime's *available* set (auth
    *  configured), apply it to the live session, update our persisted
    *  `modelProvider`/`modelId`, and emit the SAME argument-less `model_change`
    *  internal event the RPC path emits (server.ts persists + broadcastSlots on
@@ -720,7 +731,7 @@ export class PiSdkSession extends EventEmitter implements PiSession {
   async setModel(provider: string, modelId: string): Promise<any> {
     const s = this._session
     if (!s) throw new Error('PiSdkSession.setModel(): no live session')
-    const models = await s.modelRegistry.getAvailable()
+    const models = await s.modelRuntime.getAvailable()
     const model = models.find((m: any) => m.provider === provider && m.id === modelId)
     if (!model) throw new Error(`Model not found: ${provider}/${modelId}`)
     await s.setModel(model)
@@ -745,13 +756,13 @@ export class PiSdkSession extends EventEmitter implements PiSession {
     if (changed) this.emit('model_change')
   }
 
-  /** Enumerate models with auth configured, from the per-slot ModelRegistry —
-   *  the SAME `session.modelRegistry.getAvailable()` set the RPC
+  /** Enumerate models with auth configured, from the per-slot ModelRuntime —
+   *  the SAME `session.modelRuntime.getAvailable()` set the RPC
    *  `get_available_models` handler returns (identical `Model` objects). */
   async getAvailableModels(): Promise<any[]> {
     const s = this._session
     if (!s) return []
-    return await s.modelRegistry.getAvailable()
+    return [...(await s.modelRuntime.getAvailable())]
   }
 
   /** List slash-invocable commands (extension commands + prompt templates +
@@ -1104,11 +1115,13 @@ export class PiSdkSession extends EventEmitter implements PiSession {
           for (const m of event.messages) {
             if (m.role === 'assistant') {
               const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
+              let pushedVisibleContent = false
               // Preserve original interleaved order: thinking, tool calls, text
               if (Array.isArray(m.content)) {
                 for (const part of m.content) {
                   if (part.type === 'thinking' && part.thinking) {
                     this.messages.push({ role: 'thinking', content: part.thinking, ts })
+                    pushedVisibleContent = true
                   } else if (part.type === 'toolCall') {
                     this.messages.push({
                       role: 'tool',
@@ -1122,8 +1135,10 @@ export class PiSdkSession extends EventEmitter implements PiSession {
                           : JSON.stringify(part.arguments || {}, null, 2),
                       },
                     })
+                    pushedVisibleContent = true
                   } else if (part.type === 'text' && part.text) {
                     this.messages.push({ role: 'assistant', content: part.text, ts })
+                    pushedVisibleContent = true
                   }
                 }
               } else {
@@ -1131,7 +1146,20 @@ export class PiSdkSession extends EventEmitter implements PiSession {
                 const text = extractText(m.content)
                 if (text) {
                   this.messages.push({ role: 'assistant', content: text, ts })
+                  pushedVisibleContent = true
                 }
+              }
+              // A fully-failed turn (all provider retries exhausted) carries
+              // stopReason:'error'/errorMessage with empty content — nothing
+              // above pushes a message, so the user sees literal silence
+              // (witnessed: Fable-5 capacity throttling exhausting the 3-retry
+              // budget). Surface it instead of silently dropping the turn.
+              if (!pushedVisibleContent && (m.stopReason === 'error' || m.errorMessage)) {
+                this.messages.push({
+                  role: 'system',
+                  content: `⚠️ Provider error: ${summarizeProviderError(m.errorMessage)}`,
+                  ts,
+                })
               }
             } else if (m.role === 'custom') {
               const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()

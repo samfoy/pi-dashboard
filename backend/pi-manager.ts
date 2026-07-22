@@ -4,41 +4,13 @@
  */
 import { spawn, execSync, ChildProcess } from 'child_process'
 import { EventEmitter } from 'events'
-import { writeFileSync, mkdirSync, readFileSync } from 'fs'
+import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import os from 'os'
-import { extractText, ChatMessage } from './session-store.js'
+import { extractText, summarizeProviderError, ChatMessage } from './session-store.js'
 import type { PiSession, PiTransport, ImagePayload, ToolApprovalDecision } from './pi-session.js'
 import { PiSdkSession } from './pi-sdk-session.js'
-
-// Resolve the user's configured defaultThinkingLevel the same way pi does:
-// project settings (<cwd>/.pi/settings.json) override global
-// ($PI_CODING_AGENT_DIR or ~/.pi/agent/settings.json). pi's own model
-// resolver IGNORES defaultThinkingLevel whenever --model is passed on the CLI
-// (it short-circuits to the hardcoded "medium" default). Because the dashboard
-// always spawns slots with --model, every slot would otherwise be stuck on
-// medium regardless of settings.json — so we re-apply the resolved default via
-// set_thinking_level after the process is up.
-function readThinkingLevelFrom(file: string): string | null {
-  try {
-    const s = JSON.parse(readFileSync(file, 'utf-8'))
-    const lvl = s?.defaultThinkingLevel
-    return typeof lvl === 'string' ? lvl : null
-  } catch { return null }
-}
-
-export function resolveDefaultThinkingLevel(cwd?: string | null): string | null {
-  // 1. Project-scoped settings take precedence
-  if (cwd) {
-    const projectLvl = readThinkingLevelFrom(join(cwd, '.pi', 'settings.json'))
-    if (projectLvl) return projectLvl
-  }
-  // 2. Global agent settings
-  const agentDir = process.env.PI_CODING_AGENT_DIR
-    ? process.env.PI_CODING_AGENT_DIR.replace(/^~(?=$|\/)/, os.homedir())
-    : join(os.homedir(), '.pi', 'agent')
-  return readThinkingLevelFrom(join(agentDir, 'settings.json'))
-}
+import { resolveDefaultThinkingLevel } from './thinking-level.js'
 
 // Resolve pi binary path at startup (avoids ENOENT in launchd)
 // Resolve pi script path at startup (avoids ENOENT in launchd)
@@ -880,11 +852,13 @@ export class PiRpcSession extends EventEmitter implements PiSession {
           for (const m of event.messages) {
             if (m.role === 'assistant') {
               const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()
+              let pushedVisibleContent = false
               // Preserve original interleaved order: thinking, tool calls, text
               if (Array.isArray(m.content)) {
                 for (const part of m.content) {
                   if (part.type === 'thinking' && part.thinking) {
                     this.messages.push({ role: 'thinking', content: part.thinking, ts })
+                    pushedVisibleContent = true
                   } else if (part.type === 'toolCall') {
                     this.messages.push({
                       role: 'tool',
@@ -898,8 +872,10 @@ export class PiRpcSession extends EventEmitter implements PiSession {
                           : JSON.stringify(part.arguments || {}, null, 2),
                       },
                     })
+                    pushedVisibleContent = true
                   } else if (part.type === 'text' && part.text) {
                     this.messages.push({ role: 'assistant', content: part.text, ts })
+                    pushedVisibleContent = true
                   }
                 }
               } else {
@@ -907,7 +883,20 @@ export class PiRpcSession extends EventEmitter implements PiSession {
                 const text = extractText(m.content)
                 if (text) {
                   this.messages.push({ role: 'assistant', content: text, ts })
+                  pushedVisibleContent = true
                 }
+              }
+              // A fully-failed turn (all provider retries exhausted) carries
+              // stopReason:'error'/errorMessage with empty content — nothing
+              // above pushes a message, so the user sees literal silence
+              // (witnessed: Fable-5 capacity throttling exhausting the 3-retry
+              // budget). Surface it instead of silently dropping the turn.
+              if (!pushedVisibleContent && (m.stopReason === 'error' || m.errorMessage)) {
+                this.messages.push({
+                  role: 'system',
+                  content: `⚠️ Provider error: ${summarizeProviderError(m.errorMessage)}`,
+                  ts,
+                })
               }
             } else if (m.role === 'custom') {
               const ts = m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString()

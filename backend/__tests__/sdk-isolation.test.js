@@ -68,7 +68,7 @@ const MODELS_B = [
 
 /**
  * Inject a per-slot fake in-process session. Each slot gets its OWN session
- * object with its OWN `modelRegistry` + call-capture — mirroring design §4's
+ * object with its OWN `modelRuntime` + call-capture — mirroring design §4's
  * per-slot cwd-bound services. The `registry.current` field models the "current
  * model" a shared singleton would mutate in place; the mutation self-check
  * relies on it.
@@ -80,7 +80,7 @@ function primeSlot(pi, { models }) {
     getAvailable: () => models,
   }
   pi._session = {
-    modelRegistry: registry,
+    modelRuntime: registry,
     setModel: async (m) => { calls.setModel.push(m); registry.current = m },
     setThinkingLevel: (l) => { calls.setThinkingLevel.push(l) },
   }
@@ -111,7 +111,7 @@ describe('SDK two-slot cross-talk isolation (A1 guardrail — design §4)', () =
     expect(b.thinkingLevel).toBe('high')
     // Distinct instances → distinct live-session handles (no shared object).
     expect(a._session).not.toBe(b._session)
-    expect(a._session.modelRegistry).not.toBe(b._session.modelRegistry)
+    expect(a._session.modelRuntime).not.toBe(b._session.modelRuntime)
   })
 
   it('setModel() on slot A does not change slot B model or touch B session', async () => {
@@ -189,7 +189,7 @@ describe('SDK two-slot cross-talk isolation (A1 guardrail — design §4)', () =
   function primeSharedRegistrySlot(pi, sharedRegistry) {
     const state = { currentModel: null, thinking: null }
     pi._session = {
-      modelRegistry: sharedRegistry,
+      modelRuntime: sharedRegistry,
       setModel: async (m) => { state.currentModel = m },
       setThinkingLevel: (l) => { state.thinking = l },
     }
@@ -231,7 +231,7 @@ describe('SDK two-slot cross-talk isolation (A1 guardrail — design §4)', () =
     expect(evB.some(e => e.name === 'model_change')).toBe(false)
 
     // THE TEETH: A's mutations must NOT have written the shared registry. If a
-    // field write is hoisted onto `s.modelRegistry` (a real §4 shared-registry
+    // field write is hoisted onto `s.modelRuntime` (a real §4 shared-registry
     // bleed), this flips RED — while the separate-registry tests above stay
     // green, because their registries aren't shared.
     expect(sharedRegistry.current).toBeNull()
@@ -251,7 +251,7 @@ describe('SDK two-slot cross-talk isolation (A1 guardrail — design §4)', () =
     // registry (what a naive `createAgentSession()` with default services gives).
     const sharedRegistry = { current: null, getAvailable: () => MODELS_A }
     const sharedSession = {
-      modelRegistry: sharedRegistry,
+      modelRuntime: sharedRegistry,
       setModel: async (m) => { sharedRegistry.current = m },
       setThinkingLevel: () => {},
     }
@@ -267,7 +267,7 @@ describe('SDK two-slot cross-talk isolation (A1 guardrail — design §4)', () =
     // failure design §4 calls out. The assertion is inverted vs the isolated
     // tests: here the bleed MUST be present, proving the isolated tests are not
     // trivially satisfiable.
-    expect(b._session.modelRegistry.current).toEqual({ provider: 'anthropic', id: 'claude-opus', name: 'Claude Opus' })
+    expect(b._session.modelRuntime.current).toEqual({ provider: 'anthropic', id: 'claude-opus', name: 'Claude Opus' })
     expect(a._session).toBe(b._session) // same object — the root cause
   })
 })

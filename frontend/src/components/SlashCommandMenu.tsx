@@ -5,6 +5,7 @@ interface SlashCommand {
   name: string
   description: string
   source?: string
+  insert?: string
 }
 
 interface Props {
@@ -57,7 +58,7 @@ export default function SlashCommandMenu({ input, anchorRef, onSelect, onClose, 
     if (!visible || filtered.length === 0) return
     if (e.key === 'ArrowDown') { e.preventDefault(); setSelected(i => (i + 1) % filtered.length) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSelected(i => (i - 1 + filtered.length) % filtered.length) }
-    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); onSelect(filtered[selected >= filtered.length ? 0 : selected].name + ' ') }
+    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); const c = filtered[selected >= filtered.length ? 0 : selected]; onSelect((c.insert ?? c.name) + ' ') }
     else if (e.key === 'Escape') { e.preventDefault(); onClose() }
   }, [visible, filtered, selected, onSelect, onClose])
 
@@ -86,7 +87,7 @@ export default function SlashCommandMenu({ input, anchorRef, onSelect, onClose, 
             key={cmd.name}
             className={`w-full text-left px-3 py-2 flex items-center gap-3 cursor-pointer transition-colors ${i === selected ? 'bg-accent-subtle text-text' : 'text-muted hover:bg-bg-hover hover:text-text'}`}
             onMouseEnter={() => setSelected(i)}
-            onMouseDown={e => { e.preventDefault(); onSelect(cmd.name + ' ') }}
+            onMouseDown={e => { e.preventDefault(); onSelect((cmd.insert ?? cmd.name) + ' ') }}
           >
             <span className="text-[13px] font-mono font-semibold text-accent shrink-0">{cmd.name}</span>
             <span className="text-[12px] truncate flex-1">{cmd.description}</span>

@@ -60,6 +60,14 @@ function latestByFamily(models: ModelInfo[], provider: string, family: 'opus' | 
     [0] || null
 }
 
+// Fable is its own family (not opus/sonnet) so latestByFamily won't surface it.
+// Prefer the global.* inference profile — the us.* profile is capacity-throttled
+// and frequently returns ServiceUnavailable; global has headroom. Fall back to us.*.
+function fableModel(models: ModelInfo[], provider: string): ModelInfo | null {
+  const fable = models.filter(m => m.provider === provider && !!m.id && /anthropic\.claude-fable/i.test(m.id!))
+  return fable.find(m => m.id!.startsWith('global.')) || fable.find(m => m.id!.startsWith('us.')) || fable[0] || null
+}
+
 function latestGptModels(models: ModelInfo[], provider: string, count: number): ModelInfo[] {
   return models
     .filter(m => m.provider === provider && !!m.id && /^openai\.gpt-\d+(?:\.\d+)*$/i.test(m.id))
@@ -71,6 +79,7 @@ function preferredDashboardModels(models: ModelInfo[]): ModelInfo[] {
   const selected = [
     latestByFamily(models, DASHBOARD_BEDROCK_PROVIDER, 'opus'),
     latestByFamily(models, DASHBOARD_BEDROCK_PROVIDER, 'sonnet'),
+    fableModel(models, DASHBOARD_BEDROCK_PROVIDER),
     ...latestGptModels(models, DASHBOARD_MANTLE_PROVIDER, 2),
   ].filter((m): m is ModelInfo => !!m)
 
@@ -624,8 +633,8 @@ export function registerChatRoutes(deps: RouteDeps): void {
   ]
 
   app.get('/api/slash-commands', async (_req: Request, res: Response) => {
-    const dedup = (cmds: { name: string; description: string; source: string }[]) => {
-      const seen = new Map<string, { name: string; description: string; source: string }>()
+    const dedup = (cmds: { name: string; description: string; source: string; insert?: string }[]) => {
+      const seen = new Map<string, { name: string; description: string; source: string; insert?: string }>()
       for (const c of cmds) {
         if (!seen.has(c.name)) seen.set(c.name, c)
       }
@@ -654,9 +663,18 @@ export function registerChatRoutes(deps: RouteDeps): void {
     try {
       const rpcCommands = await manager.getCommands()
       if (rpcCommands && rpcCommands.length > 0) {
-        const merged: { name: string; description: string; source: string }[] = [...SLASH_BUILTINS]
+        const merged: { name: string; description: string; source: string; insert?: string }[] = [...SLASH_BUILTINS]
         for (const c of rpcCommands) {
-          merged.push({ name: '/' + c.name, description: c.description || '', source: c.source || 'extension' })
+          if (c.source === 'skill') {
+            // pi exposes skills as `skill:<name>` (the only form its
+            // agent-session expands via `/skill:`). Display the bare
+            // `/<name>` so it's discoverable/filterable, but insert the real
+            // `/skill:<name>` invocation on select.
+            const bare = String(c.name).replace(/^skill:/, '')
+            merged.push({ name: '/' + bare, description: c.description || '', source: 'skill', insert: '/skill:' + bare })
+          } else {
+            merged.push({ name: '/' + c.name, description: c.description || '', source: c.source || 'extension' })
+          }
         }
         merged.push(...scanPromptTemplates())
         return res.json(dedup(merged))
@@ -664,7 +682,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
     } catch {}
 
     // Fallback: scan files
-    const commands: { name: string; description: string; source: string }[] = []
+    const commands: { name: string; description: string; source: string; insert?: string }[] = []
     commands.push(...SLASH_BUILTINS, { name: '/import', description: 'Import and resume a session', source: 'builtin' })
     commands.push(...scanPromptTemplates())
 
@@ -700,7 +718,7 @@ export function registerChatRoutes(deps: RouteDeps): void {
           const content = readFileSync(skillMd, 'utf-8')
           const descMatch = content.match(/description:\s*(.+)/)
           const desc = descMatch ? descMatch[1].trim().slice(0, 80) : entry.name
-          commands.push({ name: '/' + entry.name, description: desc, source: 'skill' })
+          commands.push({ name: '/' + entry.name, description: desc, source: 'skill', insert: '/skill:' + entry.name })
         } catch {}
       }
     } catch {}

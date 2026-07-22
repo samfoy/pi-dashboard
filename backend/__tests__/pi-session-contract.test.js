@@ -86,7 +86,7 @@ const impls = [
       return opts?.streamingBehavior
     },
     // Model/command surface seam (slice 7e). SDK reads from the in-process
-    // session's modelRegistry / extensionRunner / promptTemplates /
+    // session's modelRuntime / extensionRunner / promptTemplates /
     // resourceLoader, so inject a fake session exposing those. The command
     // sources are split back into their native shapes so getCommands()
     // reconstructs the SAME `{name,description,source,sourceInfo}` array.
@@ -98,7 +98,7 @@ const impls = [
       const skills = commands.filter(c => c.source === 'skill')
         .map(c => ({ name: c.name.replace(/^skill:/, ''), description: c.description, sourceInfo: c.sourceInfo }))
       pi._session = {
-        modelRegistry: { getAvailable: () => models },
+        modelRuntime: { getAvailable: () => models },
         setModel: async () => {},
         setThinkingLevel: () => {},
         extensionRunner: { getRegisteredCommands: () => ext },
@@ -480,11 +480,11 @@ describe('PiSdkSession model/command ops (slice 7e)', () => {
     { provider: 'openai', id: 'gpt-5', name: 'GPT-5' },
   ]
   // Inject a fake in-process session exposing exactly the surface the four
-  // methods read: modelRegistry.getAvailable(), setModel(model), setThinkingLevel(l).
+  // methods read: modelRuntime.getAvailable(), setModel(model), setThinkingLevel(l).
   function primeSession(pi, { models = MODELS } = {}) {
     const calls = { setModel: [], setThinkingLevel: [] }
     pi._session = {
-      modelRegistry: { getAvailable: () => models },
+      modelRuntime: { getAvailable: () => models },
       setModel: async (m) => { calls.setModel.push(m) },
       setThinkingLevel: (l) => { calls.setThinkingLevel.push(l) },
     }

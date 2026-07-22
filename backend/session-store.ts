@@ -163,6 +163,24 @@ export function extractText(content: string | ContentPart[] | null | undefined, 
   return ''
 }
 
+/**
+ * Produce a short, human-readable summary of a provider-side error message.
+ *
+ * Witnessed cause: amazon-claude-code / bedrock-converse-stream errors (e.g.
+ * Fable-5 capacity throttling) carry a raw serialized Node error/response
+ * object appended after the human-readable prefix, e.g.
+ *   'Service unavailable: 503: {"_events":{...},"_readableState":{...},...}'
+ * Left unsummarized this dumps hundreds of chars of internal stream-object
+ * JSON into the chat transcript. Trim to the prefix before the first `{`.
+ */
+export function summarizeProviderError(raw: unknown): string {
+  if (!raw) return 'Unknown provider error'
+  const s = String(raw)
+  const braceIdx = s.indexOf('{')
+  const head = (braceIdx > 0 ? s.slice(0, braceIdx) : s).trim().replace(/[:\s]+$/, '')
+  return head || s.slice(0, 200)
+}
+
 /** Strip platform-injected blocks (implicitInstruction, context entries, etc.) from user messages */
 const IMPLICIT_RE = /\s*<implicitInstruction>[\s\S]*?<\/implicitInstruction>\s*/g
 const CONTEXT_ENTRY_RE = /\s*--- CONTEXT ENTRY BEGIN ---[\s\S]*?--- CONTEXT ENTRY END ---\s*/g
