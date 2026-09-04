@@ -4,7 +4,7 @@ import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAppSelector, useAppDispatch } from '../store'
 import {
-  switchSlot, createSlot, deleteSlot, fetchHistory,
+  switchSlot, createSlot, deleteSlot, fetchHistory, resumeFromHistory,
   loadOlderMessages, appendMessage,
   setSlotRunning, setSlotStopping, setPendingInput, clearResendQueued, promoteQueued,
 } from '../store/chatSlice'
@@ -65,6 +65,7 @@ export default function ChatPage() {
   const unreadSlots = useAppSelector(s => s.dashboard.unreadSlots)
   const refreshTrigger = useAppSelector(s => s.dashboard.refreshTrigger)
   const activeSlot = useAppSelector(s => s.chat.activeSlot)
+  const history = useAppSelector(s => s.chat.history)
   const messages = useAppSelector(s => s.chat.messages)
   const slotRunning = useAppSelector(s => s.chat.slotRunning)
   const slotStopping = useAppSelector(s => s.chat.slotStopping)
@@ -100,7 +101,10 @@ export default function ChatPage() {
     window.addEventListener('storage', reload)
     return () => { window.removeEventListener('mc-chat-config', reload); window.removeEventListener('storage', reload) }
   }, [])
-  const [showTree, setShowTree] = useState(false)
+  // Persist tree-panel visibility so it survives remounts / page reloads
+  // (e.g. mobile browsers killing backgrounded tabs, server-update reloads).
+  const [showTree, setShowTree] = useState(() => localStorage.getItem('mc-chat-tree') === '1')
+  useEffect(() => { localStorage.setItem('mc-chat-tree', showTree ? '1' : '0') }, [showTree])
   const [showFiles, setShowFiles] = useState(false)
   const [showRefs, setShowRefs] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -913,6 +917,60 @@ export default function ChatPage() {
   // Group consecutive tool messages for collapsible rendering
   const groupedMessages = useMemo(() => groupToolMessages(messages), [messages])
 
+  // Session-tree → chat locate: flash target on the grouped index, auto-clear.
+  const [treeHighlight, setTreeHighlight] = useState<number | null>(null)
+  useEffect(() => {
+    if (treeHighlight == null) return
+    const t = setTimeout(() => setTreeHighlight(null), 2400)
+    return () => clearTimeout(t)
+  }, [treeHighlight])
+
+  // Find the loaded message best matching a tree entry (exact text → prefix →
+  // nearest timestamp among same-role messages), scroll to it and flash it.
+  const handleTreeLocate = useCallback((entry: { role?: string; timestamp?: string; text?: string; fullText?: string }) => {
+    const roleMap: Record<string, string[]> = {
+      user: ['user', 'queued'],
+      assistant: ['assistant'],
+      toolResult: ['tool'],
+    }
+    const roles = roleMap[entry.role || ''] || [entry.role || '']
+    const want = entry.fullText || entry.text || ''
+    const entryTs = entry.timestamp ? Date.parse(entry.timestamp) : NaN
+
+    let best = -1
+    let bestScore = Infinity
+    let nearest = -1
+    let nearestDt = Infinity
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]
+      if (!roles.includes(m.role)) continue
+      if (!Number.isNaN(entryTs) && m.ts) {
+        const dt = Math.abs(Date.parse(m.ts) - entryTs)
+        if (dt < nearestDt) { nearestDt = dt; nearest = i }
+      }
+      if (!want) continue
+      const content = m.rawText || m.content
+      let score: number | null = null
+      if (content === want || m.content === want) score = 0
+      else if (entry.text && (content.startsWith(entry.text.slice(0, 120)) || m.content.startsWith(entry.text.slice(0, 120)))) score = 1
+      if (score == null) continue
+      // Timestamp proximity breaks ties between identical texts (< 1 so exact beats prefix)
+      if (!Number.isNaN(entryTs) && m.ts) score += Math.min(Math.abs(Date.parse(m.ts) - entryTs) / 60000, 0.5)
+      if (score < bestScore) { bestScore = score; best = i }
+    }
+    const msgIdx = best >= 0 ? best : nearest
+    if (msgIdx < 0) return
+    const gIdx = groupedMessages.findIndex(g =>
+      g.type === 'single' ? g.index === msgIdx : g.tools.some(t => t.index === msgIdx)
+    )
+    if (gIdx >= 0) {
+      virtuosoRef.current?.scrollToIndex({ index: gIdx, behavior: 'smooth', align: 'center' })
+      setTreeHighlight(gIdx)
+      // On mobile the tree is a full-screen overlay — close it so the located message is visible
+      if (window.innerWidth < 768) setShowTree(false)
+    }
+  }, [messages, groupedMessages])
+
   // Collect queued messages (with their absolute index) for the pills UI above the input
   const queuedMessages = useMemo(
     () => messages.map((m, idx) => ({ msg: m, idx })).filter(({ msg }) => msg.role === 'queued'),
@@ -1001,8 +1059,12 @@ export default function ChatPage() {
     <div className="flex flex-1 min-h-0 h-full">
       {!sidebarCollapsed && <ChatSidebar
         slots={slots}
+        history={history}
         activeSlot={activeSlot}
         unreadSlots={unreadSlots}
+        onResumeHistory={(session) => {
+          dispatch(resumeFromHistory({ key: session.key, title: session.title }))
+        }}
         onNewSessionInCwd={(cwd) => { setPendingCwd(cwd); wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
         onNewSession={() => { wantsNewSession.current = true; dispatch(switchSlot(null)); setMobileSidebarOpen(false) }}
         mobileOpen={mobileSidebarOpen}
@@ -1208,6 +1270,8 @@ export default function ChatPage() {
                     slotKey={activeSlot}
                     onFork={(newSlotKey, text) => { setShowTree(false); dispatch(switchSlot(newSlotKey)); if (text) { setInput(text); setTimeout(() => inputRef.current?.focus(), 100) } }}
                     onClose={() => setShowTree(false)}
+                    onLocate={handleTreeLocate}
+                    messageCount={messages.length}
                   />
                 </div>
               )}
@@ -1304,7 +1368,7 @@ export default function ChatPage() {
                 // Add turn separator before user messages (except the first)
                 const isUserTurn = item.type === 'single' && item.message.role === 'user' && _i > 0
                 return (
-                  <div className="px-5 py-2">
+                  <div className={`px-5 py-2 rounded-lg transition-colors duration-500 ${treeHighlight === _i ? 'bg-accent-subtle ring-2 ring-accent/50' : ''}`}>
                     {isUserTurn && <div className="border-t border-border/40 mb-4 mt-2" />}
                     {item.type === 'group' ? (
                       <ToolGroup tools={item.tools} renderTool={renderMessage} />
@@ -1497,4 +1561,3 @@ export default function ChatPage() {
     </div>
   )
 }
-
