@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 interface TreeEntry {
   id: string
@@ -104,10 +104,12 @@ function TreeRow({ node, selected, onSelect, hasBranch }: {
 }) {
   const icon = ROLE_ICONS[node.role] || '·'
   const indent = Math.min(node.depth, 8) * 16
+  const displayText = node.fullText || node.text || node.type
 
   return (
     <button
       onClick={onSelect}
+      title={displayText}
       className={`w-full text-left flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors border-none ${
         selected ? 'bg-accent-subtle border-accent/30' : 'bg-transparent hover:bg-bg-hover'
       }`}
@@ -116,10 +118,10 @@ function TreeRow({ node, selected, onSelect, hasBranch }: {
       {hasBranch && <span className="text-[10px] text-warning shrink-0 mt-0.5">⑂</span>}
       <span className="text-[12px] shrink-0">{icon}</span>
       <div className="flex-1 min-w-0">
-        <span className={`text-[12px] font-mono truncate block ${
+        <span className={`text-[12px] font-mono whitespace-pre-wrap break-words line-clamp-3 block ${
           node.isActive ? 'text-text' : 'text-muted'
         } ${node.isLeaf ? 'font-semibold text-accent' : ''}`}>
-          {node.text || node.type}
+          {displayText}
         </span>
         {node.tools && node.tools.length > 0 && (
           <span className="text-[10px] text-muted/60 truncate block">
@@ -132,10 +134,15 @@ function TreeRow({ node, selected, onSelect, hasBranch }: {
   )
 }
 
-export default function SessionTree({ slotKey, onFork, onClose }: {
+export default function SessionTree({ slotKey, onFork, onClose, onLocate, messageCount }: {
   slotKey: string
   onFork: (newSlotKey: string, text: string) => void
   onClose: () => void
+  /** Called when a row is clicked — lets the chat view scroll to the matching message. */
+  onLocate?: (entry: TreeEntry) => void
+  /** Live chat message count — bumps trigger a debounced tree refetch so new
+   *  user/assistant messages show up without reopening the panel. */
+  messageCount?: number
 }) {
   const [entries, setEntries] = useState<TreeEntry[]>([])
   const [leafId, setLeafId] = useState<string | null>(null)
@@ -144,14 +151,28 @@ export default function SessionTree({ slotKey, onFork, onClose }: {
   const [loading, setLoading] = useState(true)
   const [forking, setForking] = useState(false)
 
-  useEffect(() => {
-    setLoading(true)
-    fetch(`/api/chat/slots/${encodeURIComponent(slotKey)}/tree`)
+  const fetchTree = useCallback(() => {
+    return fetch(`/api/chat/slots/${encodeURIComponent(slotKey)}/tree`)
       .then(r => r.json())
       .then(d => { setEntries(d.entries || []); setLeafId(d.leafId || null) })
       .catch(() => {})
-      .finally(() => setLoading(false))
   }, [slotKey])
+
+  useEffect(() => {
+    setLoading(true)
+    fetchTree().finally(() => setLoading(false))
+  }, [fetchTree])
+
+  // Live refresh: new chat messages get appended to the session JSONL by pi,
+  // then show up here. Debounced; a delayed retry covers slow disk writes.
+  const skipFirstRefresh = useRef(true)
+  useEffect(() => {
+    if (messageCount == null) return
+    if (skipFirstRefresh.current) { skipFirstRefresh.current = false; return }
+    const t1 = setTimeout(fetchTree, 600)
+    const t2 = setTimeout(fetchTree, 2000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [messageCount, fetchTree])
 
   const tree = useMemo(() => buildTree(entries, leafId), [entries, leafId])
   const visible = useMemo(() => flattenVisible(tree, filter), [tree, filter])
@@ -212,7 +233,7 @@ export default function SessionTree({ slotKey, onFork, onClose }: {
               key={node.id}
               node={node}
               selected={selected === node.id}
-              onSelect={() => setSelected(node.id)}
+              onSelect={() => { setSelected(node.id); onLocate?.(node) }}
               hasBranch={isBranchPoint(node, tree)}
             />
           ))
@@ -223,8 +244,8 @@ export default function SessionTree({ slotKey, onFork, onClose }: {
       <div className="flex items-center gap-2 px-3 py-2 border-t border-border shrink-0">
         {selected && selectedEntry ? (
           <>
-            <span className="text-[12px] text-muted truncate flex-1">
-              {ROLE_ICONS[selectedEntry.role] || '·'} {selectedEntry.text?.slice(0, 80) || selectedEntry.type}
+            <span className="text-[12px] text-muted truncate flex-1" title={selectedEntry.fullText || selectedEntry.text || selectedEntry.type}>
+              {ROLE_ICONS[selectedEntry.role] || '·'} {(selectedEntry.fullText || selectedEntry.text)?.slice(0, 200) || selectedEntry.type}
             </span>
             {canFork && (
               <button
